@@ -29,6 +29,9 @@ excluded app cannot use the VPN/tailnet connection.
 
 ## Features and limits
 
+Connection states, recovery, and the additive session/JNI contract for downstream
+workstreams are documented in [connection diagnostics](docs/connection-diagnostics.md).
+
 - Real DDS endpoint discovery, publisher/subscriber counts excluding this
   inspector, and ROS node names from Jazzy `ros_discovery_info`.
 - [Topic Explorer / QoS](docs/EXPLORER-QOS.md): local search, namespace/type
@@ -42,7 +45,7 @@ excluded app cannot use the VPN/tailnet connection.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
 - Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
-  a process restart retains domain/peer, but requires selecting the topic again.
+  a process restart retains domain/peer/QoS, but requires selecting the topic again.
 - IPv4, same-Wi-Fi-LAN operation. `DontRoute=true` filters distant VPN/Docker DDS
   locators. Routed subnets, IPv6-only networks and SROS2/DDS Security are not
   supported or validated by this prototype.

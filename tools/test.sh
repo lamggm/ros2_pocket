@@ -16,6 +16,8 @@ if [[ "$MODE" == --portable ]]; then
  python3 -m unittest discover -s tests -p 'test_*.py' -v
  javac -encoding UTF-8 -d build/tests tests/InputRulesTest.java app/src/main/java/com/lamggm/rospocket/InputRules.java
  java -cp build/tests InputRulesTest
+ javac -encoding UTF-8 -d build/tests tests/ConnectionPolicyTest.java app/src/main/java/com/lamggm/rospocket/ConnectionPolicy.java
+ java -cp build/tests ConnectionPolicyTest
  ctest --test-dir build/native-host -L portable --no-tests=error --output-on-failure --output-junit portable.xml
 else
  image="ros2-pocket-ci-fixture:$(sha256sum tests/fixture.Dockerfile | cut -c1-12)"
