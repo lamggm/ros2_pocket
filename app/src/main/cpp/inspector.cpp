@@ -72,7 +72,7 @@ static const dds_topic_descriptor_t* descriptor(const std::string& type) {
  return nullptr;
 }
 struct Session::Impl {
- dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,reader=0,topic=0;
+ dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,reader=0,topic=0,rosout_reader=0,rosout_topic=0;
  int domain_id=0; Registry registry; dds_guid_t own{};
  std::set<std::string> peer_ids;
  struct GraphSource { std::string writer, participant; };
@@ -94,6 +94,24 @@ struct Session::Impl {
  std::string discovery_error,value_error;
  std::string selected,type,last,last_error,mode="best_effort / volatile";
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
+ RosoutBuffer rosout; std::string rosout_error;
+ void take_rosout(bool discard=false) {
+  if(rosout_reader<=0)return;
+  for(int batch=0;batch<4;batch++) {
+   void* samples[32]{};dds_sample_info_t infos[32]{};
+   int n=dds_take(rosout_reader,samples,infos,32,32);
+   if(n<0){rosout_error="DDS rosout read: "+std::string(dds_strretcode(n));break;}
+   rosout_error.clear();
+   for(int i=0;i<n;i++) {
+    if(infos[i].valid_data&&!discard) {
+     auto* v=static_cast<rcl_interfaces_msg_dds__Log_*>(samples[i]);
+     if(v){RosoutEntry e;e.level=v->level;e.logger=RosoutBuffer::bounded_field(v->name,RosoutBuffer::max_logger_bytes);e.message=RosoutBuffer::bounded_field(v->msg,RosoutBuffer::max_message_bytes);e.file=RosoutBuffer::bounded_field(v->file,RosoutBuffer::max_source_bytes);e.function=RosoutBuffer::bounded_field(v->function,RosoutBuffer::max_source_bytes);e.line=v->line;e.source_sec=v->stamp.sec;e.source_nanosec=v->stamp.nanosec;e.intake_ms=std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();rosout.push(std::move(e));}
+    }
+   }
+   if(n>0)dds_return_loan(rosout_reader,samples,n);
+   if(n<32)break;
+  }
+ }
  void stop_reader() {
   if(reader>0) dds_delete(reader);
   reader=0;
@@ -101,6 +119,7 @@ struct Session::Impl {
   topic=0;
   selected.clear(); type.clear(); last.clear(); last_error.clear(); value_error.clear(); count=0; hz=0;rate_count=0;
  }
+ void stop_rosout() {if(rosout_reader>0)dds_delete(rosout_reader);rosout_reader=0;if(rosout_topic>0)dds_delete(rosout_topic);rosout_topic=0;rosout.clear();rosout_error.clear();}
  void endpoints(dds_entity_t source,bool writer) {
   void* samples[64]{}; dds_sample_info_t infos[64]{};
   int n=dds_take(source,samples,infos,64,64);
@@ -204,6 +223,7 @@ Session::~Session(){stop();}
 void Session::stop() {
  ++session_generation;++reader_generation;
  auto& s=*impl;s.stop_reader();
+ s.stop_rosout();
  if(s.participant>0)dds_delete(s.participant);
  if(s.domain>0)dds_delete(s.domain);
  impl.reset(new Impl);
@@ -230,8 +250,16 @@ std::string Session::start(int domain,const std::string& address,const std::stri
  auto* q=dds_create_qos();dds_qset_reliability(q,DDS_RELIABILITY_RELIABLE,DDS_MSECS(100));dds_qset_durability(q,DDS_DURABILITY_TRANSIENT_LOCAL);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,32);
  s.graph=dds_create_reader(s.participant,graph_topic,q,nullptr);dds_delete_qos(q);
  if(s.pubs<0||s.subs<0||s.participants<0||graph_topic<0||s.graph<0)return failed("Falha ao criar leitores de descoberta DDS.");
+ s.rosout_topic=dds_create_topic(s.participant,&rcl_interfaces_msg_dds__Log__desc,"rt/rosout",nullptr,nullptr);
+ if(s.rosout_topic<0)s.rosout_error="/rosout anunciado com tipo DDS incompatível: "+std::string(dds_strretcode(s.rosout_topic));
+ else {
+  auto* log_q=dds_create_qos();dds_qset_reliability(log_q,DDS_RELIABILITY_BEST_EFFORT,0);dds_qset_durability(log_q,DDS_DURABILITY_VOLATILE);dds_qset_history(log_q,DDS_HISTORY_KEEP_LAST,128);dds_qset_resource_limits(log_q,128,4,128);
+  s.rosout_reader=dds_create_reader(s.participant,s.rosout_topic,log_q,nullptr);dds_delete_qos(log_q);
+  if(s.rosout_reader<0){s.rosout_error="Falha ao criar leitor /rosout: "+std::string(dds_strretcode(s.rosout_reader));s.rosout_reader=0;}
+ }
  return "{\"ok\":true,\"domain\":"+std::to_string(domain)+"}";
 }
+void Session::clear_rosout(){auto& s=*impl;s.take_rosout(true);s.rosout.clear();}
 std::string Session::subscribe(const std::string& topic,const std::string& type,bool reliable,bool transient) {
  auto& s=*impl;
  auto rejected=[&s](const std::string& message){s.last_error=message;return error(message);};
@@ -255,7 +283,7 @@ std::string Session::subscribe(const std::string& topic,const std::string& type,
 std::string Session::poll() {
  auto& s=*impl;
  const bool running=s.participant>0;
- if(running){s.discovery_error.clear();s.endpoints(s.pubs,true);s.endpoints(s.subs,false);s.graph_samples();s.participant_samples();s.values();}
+ if(running){s.discovery_error.clear();s.endpoints(s.pubs,true);s.endpoints(s.subs,false);s.graph_samples();s.participant_samples();s.values();s.take_rosout();}
  std::ostringstream out;out<<"{\"running\":"<<(running?"true":"false")<<",\"domain\":"<<s.domain_id<<",\"topics\":[";bool first=true;
  for(const auto& row:s.registry.topics()) {
   if(!first)out<<',';
@@ -276,7 +304,16 @@ std::string Session::poll() {
     <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
- out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure)<<"}";
+ out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);
+ std::string rosout_status=s.rosout_error;bool rosout_expected_writer=false;std::string rosout_other_type;
+ for(const auto& row:s.registry.topics())if(row.name=="/rosout")for(const auto& ep:row.endpoints)if(ep.writer){if(row.wire_type=="rcl_interfaces::msg::dds_::Log_")rosout_expected_writer=true;else rosout_other_type=row.type;}
+ if(!rosout_expected_writer&&!rosout_other_type.empty())rosout_status="Tipo /rosout incompatível anunciado: "+rosout_other_type;
+ out<<",\"rosout\":{\"active\":"<<(s.rosout_reader>0&&rosout_status.empty()?"true":"false")<<",\"error\":"<<json_quote(rosout_status)<<",\"count\":"<<s.rosout.size()<<",\"bytes\":"<<s.rosout.bytes()<<",\"evicted\":"<<s.rosout.evicted()<<",\"offeredReliability\":[";
+ bool first_offer=true;for(const auto& row:s.registry.topics())if(row.name=="/rosout"&&row.wire_type=="rcl_interfaces::msg::dds_::Log_")for(const auto& ep:row.endpoints)if(ep.writer){if(!first_offer)out<<',';first_offer=false;out<<json_quote(ep.qos.reliability);}
+ out<<"],\"offeredDurability\":[";first_offer=true;for(const auto& row:s.registry.topics())if(row.name=="/rosout"&&row.wire_type=="rcl_interfaces::msg::dds_::Log_")for(const auto& ep:row.endpoints)if(ep.writer){if(!first_offer)out<<',';first_offer=false;out<<json_quote(ep.qos.durability);}
+ out<<"],\"entries\":[";bool first_log=true;const auto intake_now=std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
+ for(const auto& log:s.rosout.entries_view()){if(!first_log)out<<',';first_log=false;out<<"{\"level\":"<<log.level<<",\"logger\":"<<json_quote(log.logger)<<",\"message\":"<<json_quote(log.message)<<",\"file\":"<<json_quote(log.file)<<",\"function\":"<<json_quote(log.function)<<",\"line\":"<<log.line<<",\"sourceSec\":"<<log.source_sec<<",\"sourceNanosec\":"<<log.source_nanosec<<",\"intakeAgeMs\":"<<(intake_now-log.intake_ms)<<",\"truncated\":"<<(log.truncated?"true":"false")<<"}";}
+ out<<"]}}";
  return out.str();
 }
 }
