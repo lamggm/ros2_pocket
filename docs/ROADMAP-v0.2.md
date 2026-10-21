@@ -29,7 +29,8 @@ main (baseline estável)
         └── test/v0.2-08-device-qualification
 ```
 
-- As branches da lista são uma sequência, não oito forks a serem abertos e deixados envelhecer.
+- As oito branches são frentes paralelas, por decisão do operador. A sequência indica prioridade de merge e dependências; não exige esperar o incremento anterior para iniciar trabalho independente.
+- Cada frente usa worktree própria. Ao avançar a integração, incorporar `origin/integration/v0.2` nas branches ativas por merge e revalidar; não reescrever história compartilhada com rebase/force-push.
 - Criar cada branch de trabalho a partir da **integração já atualizada**; PR com base em `integration/v0.2`, nunca em `main`.
 - TDD para comportamento novo: demonstrar RED, implementar mínimo, obter GREEN e fazer revisão antes do merge.
 - Squash dos incrementos na integração. Depois de cada merge: testar o conjunto na integração e gerar candidato identificado pelo SHA.
@@ -37,6 +38,19 @@ main (baseline estável)
 - Manter PR de integração → main em draft. Não habilitar auto-merge. Remover draft somente após os gates finais e aceite do operador no tablet.
 - Merge final por merge commit, preservando os incrementos auditáveis. Não reescrever a história pública.
 - Este plano não modifica proteção de branch, acesso, VPN, firewall ou configurações do robô.
+
+## Dependências para trabalho paralelo
+
+- **01 build/CI:** pode começar imediatamente. Deve fornecer os gates comuns antes de liberar merges de funcionalidades como verificados no CI.
+- **02 conexão:** pode começar imediatamente sobre os estados reais atuais; publicar alterações de contrato de sessão/snapshot para as demais frentes.
+- **03 explorer/QoS:** pode preparar modelo, filtros e testes em paralelo; incorporar os estados/contratos da 02 antes do merge quando forem alterados.
+- **04 rosout:** pode preparar IDL, decoder, buffer e UI em paralelo. Coordenar edições de `PocketTypes.idl`/registro de tipos com a 05; não duplicar o gerenciador de readers da 06.
+- **05 tipos estruturados:** pode começar imediatamente em IDL, estrutura de campos e testes. Publicar o contrato dos caminhos numéricos para a 07.
+- **06 multiwatch:** pode desenvolver usando os primitivos atuais, preservando os contratos da sessão 02 e incorporando os decoders/formatos da 04/05. Reader de logs e watches devem coexistir; nada de duas implementações concorrentes do mesmo gerenciador.
+- **07 gráficos:** pode desenvolver buffers, componente visual e testes isolados agora. A aceitação ponta a ponta depende dos caminhos da 05 e das assinaturas da 06; mocks de teste não contam como recepção real.
+- **08 qualificação:** pode preparar matriz e automação em paralelo. Só executa o aceite final sobre o SHA integrado com as funcionalidades concluídas.
+
+A ordem preferencial de integração continua 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08. Uma alteração de ordem só é aceitável com independência real demonstrada e gates preservados; alterações em `inspector.cpp`, JNI e IDL precisam reconciliação explícita, não resolução cega de conflitos.
 
 ## Sequência proposta
 
@@ -134,4 +148,4 @@ Parâmetros, chamadas de serviços/actions, publicação/teleop, gravação rosb
 
 ## Estado desta preparação
 
-Preparar branch de integração, primeira branch de trabalho e PR draft com este roadmap. Não implementar funções nem fazer merge em main nesta etapa. As demais branches serão criadas conforme a sequência avançar.
+Manter a integração e o PR draft, com as oito branches de trabalho preparadas e worktrees isoladas para desenvolvimento paralelo. Esta preparação altera apenas documentação e estrutura de branches; não implementa funções nem faz merge em main. Cada frente avança por tarefa explícita e respeita os contratos e gates acima.

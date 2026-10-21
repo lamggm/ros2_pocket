@@ -11,7 +11,9 @@ O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve D
 - A base de desenvolvimento deste ciclo é **`integration/v0.2`**, não `main`.
 - Inspecione `git status`, branch atual e histórico antes de editar; preserve alterações existentes.
 - Antes de abrir a próxima branch, busque o remoto e confira a integração atualizada. Crie a branch do incremento a partir de `origin/integration/v0.2` limpa e atualizada.
-- Execute os incrementos na ordem do roadmap. As branches seguintes são criadas conforme os anteriores forem integrados e validados; não abra todas antecipadamente a partir de uma base antiga.
+- As oito frentes da v0.2 podem trabalhar em paralelo, cada uma em branch e worktree próprias. A numeração do roadmap indica prioridade de integração e dependências, não um bloqueio para iniciar trabalho independente.
+- Antes de integrar uma frente, incorpore a integração atualizada na branch e valide os contratos/dependências do roadmap. Para branches públicas compartilhadas, prefira merge de `origin/integration/v0.2`; não faça rebase/force-push que reescreva trabalho de outro agente.
+- Quando outra frente ainda não entregou um contrato necessário, implemente componentes isolados e testes unitários explicitamente identificados como tais. Não invente respostas ROS/Android para declarar a integração pronta.
 - PRs de incrementos devem apontar para **`integration/v0.2`**. Teste e revise antes de mergear; use squash para cada incremento.
 - Depois de integrar um incremento, valide novamente o conjunto e identifique o APK candidato pelo SHA exercitado.
 - O PR de **`integration/v0.2` → `main`** permanece em draft e sem auto-merge até a qualificação final e aceite do operador no tablet. Não faça push/merge direto em `main` como atalho.
