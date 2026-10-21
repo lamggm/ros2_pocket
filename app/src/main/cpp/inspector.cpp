@@ -18,6 +18,50 @@ static std::string key(const uint8_t* data) {
  for(int i=0;i<16;i++){s+=hex[data[i]>>4];s+=hex[data[i]&15];} return s;
 }
 static std::string key(const dds_guid_t& guid) {return key(guid.v);}
+static EndpointQos endpoint_qos(const dds_qos_t* q) {
+ EndpointQos out;
+ if(!q)return out;
+ dds_reliability_kind_t reliability;
+ if(dds_qget_reliability(q,&reliability,nullptr)) {
+  if(reliability==DDS_RELIABILITY_RELIABLE)out.reliability="reliable";
+  else if(reliability==DDS_RELIABILITY_BEST_EFFORT)out.reliability="best_effort";
+ }
+ dds_durability_kind_t durability;
+ if(dds_qget_durability(q,&durability))switch(durability) {
+  case DDS_DURABILITY_VOLATILE:out.durability="volatile";break;
+  case DDS_DURABILITY_TRANSIENT_LOCAL:out.durability="transient_local";break;
+  case DDS_DURABILITY_TRANSIENT:out.durability="transient";break;
+  case DDS_DURABILITY_PERSISTENT:out.durability="persistent";break;
+ }
+ dds_history_kind_t history;int32_t depth;
+ if(dds_qget_history(q,&history,&depth)) {
+  if(history==DDS_HISTORY_KEEP_LAST)out.history="keep_last";
+  else if(history==DDS_HISTORY_KEEP_ALL)out.history="keep_all";
+  out.depth=depth;
+ }
+ dds_duration_t duration;
+ if(dds_qget_deadline(q,&duration))out.deadline_ns=duration==DDS_INFINITY?-1:duration;
+ dds_liveliness_kind_t liveliness;
+ if(dds_qget_liveliness(q,&liveliness,&duration)) {
+  switch(liveliness) {
+   case DDS_LIVELINESS_AUTOMATIC:out.liveliness="automatic";break;
+   case DDS_LIVELINESS_MANUAL_BY_PARTICIPANT:out.liveliness="manual_by_participant";break;
+   case DDS_LIVELINESS_MANUAL_BY_TOPIC:out.liveliness="manual_by_topic";break;
+  }
+  out.lease_duration_ns=duration==DDS_INFINITY?-1:duration;
+ }
+ dds_ownership_kind_t ownership;
+ if(dds_qget_ownership(q,&ownership)) {
+  if(ownership==DDS_OWNERSHIP_SHARED)out.ownership="shared";
+  else if(ownership==DDS_OWNERSHIP_EXCLUSIVE)out.ownership="exclusive";
+ }
+ dds_destination_order_kind_t order;
+ if(dds_qget_destination_order(q,&order)) {
+  if(order==DDS_DESTINATIONORDER_BY_RECEPTION_TIMESTAMP)out.destination_order="by_reception_timestamp";
+  else if(order==DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP)out.destination_order="by_source_timestamp";
+ }
+ return out;
+}
 static const dds_topic_descriptor_t* descriptor(const std::string& type) {
  if(type=="std_msgs::msg::dds_::String_") return &std_msgs_msg_dds__String__desc;
  if(type=="std_msgs::msg::dds_::Float64_") return &std_msgs_msg_dds__Float64__desc;
@@ -30,9 +74,22 @@ static const dds_topic_descriptor_t* descriptor(const std::string& type) {
 struct Session::Impl {
  dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,reader=0,topic=0;
  int domain_id=0; Registry registry; dds_guid_t own{};
- std::map<std::string,std::vector<std::string>> nodes;
  std::set<std::string> peer_ids;
- std::map<dds_instance_handle_t,std::string> graph_handles;
+ struct GraphSource { std::string writer, participant; };
+ // ros_discovery_info is unkeyed: instance_handle is shared by all writers.
+ std::map<dds_instance_handle_t,GraphSource> graph_sources;
+ std::map<std::string,std::string> graph_owners;
+ void drop_graph_writer(const std::string& writer) {
+  for(auto it=graph_sources.begin();it!=graph_sources.end();) {
+   if(it->second.writer!=writer){++it;continue;}
+   auto owner=graph_owners.find(it->second.participant);
+   if(owner!=graph_owners.end() && owner->second==writer) {
+    registry.erase_graph(owner->first);graph_owners.erase(owner);
+   }
+   it=graph_sources.erase(it);
+  }
+ }
+ bool requested_reliable=false,requested_transient=false;
  std::string selected,type,last,last_error,mode="best_effort / volatile";
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
  void stop_reader() {
@@ -49,8 +106,10 @@ struct Session::Impl {
   for(int i=0;i<n;i++) {
    auto* e=static_cast<dds_builtintopic_endpoint_t*>(samples[i]);
    if(!e)continue;
-   if(!infos[i].valid_data || infos[i].instance_state!=DDS_ALIVE_INSTANCE_STATE) registry.erase(key(e->key));
-   else if(key(e->participant_key)!=key(own)) registry.put(key(e->key),e->topic_name?e->topic_name:"",e->type_name?e->type_name:"",writer);
+   if(!infos[i].valid_data || infos[i].instance_state!=DDS_ALIVE_INSTANCE_STATE) {
+    const auto id=key(e->key);registry.erase(id);if(writer)drop_graph_writer(id);
+   }
+   else if(key(e->participant_key)!=key(own)) registry.put(key(e->key),e->topic_name?e->topic_name:"",e->type_name?e->type_name:"",writer,key(e->participant_key),endpoint_qos(e->qos));
   }
   if(n>0)dds_return_loan(source,samples,n);
  }
@@ -60,21 +119,36 @@ struct Session::Impl {
   if(n<0){last_error="ROS graph read: "+std::string(dds_strretcode(n));return;}
   for(int i=0;i<n;i++) {
    if(!infos[i].valid_data || infos[i].instance_state!=DDS_ALIVE_INSTANCE_STATE) {
-    auto it=graph_handles.find(infos[i].instance_handle);
-    if(it!=graph_handles.end()){nodes.erase(it->second);graph_handles.erase(it);} continue;
+    auto it=graph_sources.find(infos[i].publication_handle);
+    if(it!=graph_sources.end()){const auto writer=it->second.writer;drop_graph_writer(writer);}continue;
    }
    auto* p=static_cast<rmw_dds_common_msg_dds__ParticipantEntitiesInfo_*>(samples[i]);
-   auto id=key(p->gid.data);std::vector<std::string> names;
-   auto& seq=p->node_entities_info_seq;
-   for(uint32_t j=0;j<std::min(seq._length,4096u);j++) {
+   if(!p)continue;
+   auto* source=dds_get_matched_publication_data(graph,infos[i].publication_handle);
+   if(!source)continue; // A sample from an already-dead writer must not resurrect a graph.
+   const auto id=key(p->gid.data),participant_id=key(source->participant_key),writer_id=key(source->key);
+   dds_builtintopic_free_endpoint(source);
+   if(id!=participant_id || id==key(own))continue;
+   if((graph_sources.size()>=4096 && !graph_sources.count(infos[i].publication_handle)) ||
+      (graph_owners.size()>=256 && !graph_owners.count(id)))continue;
+   std::vector<GraphNode> graph_nodes;
+   auto& seq=p->node_entities_info_seq;size_t references=0;
+   for(uint32_t j=0;seq._buffer && j<std::min(seq._length,128u);j++) {
     const auto& entry=seq._buffer[j];
     std::string ns=entry.node_namespace,name=entry.node_name;
     if(name.empty())continue;
-    if(ns.empty()||ns.back()!='/')ns+='/';
-    names.push_back(ns+name);
+    if(ns.empty()||ns.front()!='/')ns='/'+ns;
+    if(ns.back()!='/')ns+='/';
+    GraphNode node;node.name=ns+name;
+    for(bool writer:{false,true}) {
+     const auto& gids=writer?entry.writer_gid_seq:entry.reader_gid_seq;
+     for(uint32_t k=0;gids._buffer && k<gids._length && references<1024;k++,references++)
+      (writer?node.writers:node.readers).push_back(key(gids._buffer[k].data));
+    }
+    graph_nodes.push_back(std::move(node));
    }
-   if(nodes.size()<4096 || nodes.count(id))nodes[id]=names;
-   graph_handles[infos[i].instance_handle]=id;
+   registry.set_graph(id,graph_nodes);
+   graph_sources[infos[i].publication_handle]={writer_id,id};graph_owners[id]=writer_id;
   }
   if(n>0)dds_return_loan(graph,samples,n);
  }
@@ -83,8 +157,12 @@ struct Session::Impl {
   int n=dds_take(participants,samples,infos,64,64);
   for(int i=0;i<n;i++) {
    auto* p=static_cast<dds_builtintopic_participant_t*>(samples[i]);
-   if(p && (!infos[i].valid_data || infos[i].instance_state!=DDS_ALIVE_INSTANCE_STATE)){nodes.erase(key(p->key));peer_ids.erase(key(p->key));}
-   else if(p && key(p->key)!=key(own))peer_ids.insert(key(p->key));
+   if(p && (!infos[i].valid_data || infos[i].instance_state!=DDS_ALIVE_INSTANCE_STATE)) {
+    const auto id=key(p->key);registry.erase_participant(id);peer_ids.erase(id);graph_owners.erase(id);
+    for(auto it=graph_sources.begin();it!=graph_sources.end();)
+     if(it->second.participant==id)it=graph_sources.erase(it);else ++it;
+   }
+   else if(p && key(p->key)!=key(own) && peer_ids.size()<4096)peer_ids.insert(key(p->key));
   }
   if(n>0)dds_return_loan(participants,samples,n);
  }
@@ -153,6 +231,7 @@ std::string Session::subscribe(const std::string& topic,const std::string& type,
  if(!desc)return error("Tipo descoberto, mas sem decodificador nesta v0.1: "+ros_type(type));
  if(topic.rfind("rt/",0)!=0||topic.size()>1024)return error("Topico ROS invalido.");
  s.stop_reader();s.selected=topic.substr(2);s.type=type;
+ s.requested_reliable=reliable;s.requested_transient=transient;
  s.topic=dds_create_topic(s.participant,desc,topic.c_str(),nullptr,nullptr);
  if(s.topic<0){auto msg="Falha ao criar topico: "+std::string(dds_strretcode(s.topic));s.stop_reader();s.last_error=msg;return error(msg);}
  auto* q=dds_create_qos();dds_qset_reliability(q,reliable?DDS_RELIABILITY_RELIABLE:DDS_RELIABILITY_BEST_EFFORT,DDS_MSECS(100));
@@ -170,10 +249,13 @@ std::string Session::poll() {
  for(const auto& row:s.registry.topics()) {
   if(!first)out<<',';
   first=false;
-  out<<"{\"name\":"<<json_quote(row.name)<<",\"type\":"<<json_quote(row.type)<<",\"wireName\":"<<json_quote(row.wire_name)<<",\"wireType\":"<<json_quote(row.wire_type)<<",\"publishers\":"<<row.publishers<<",\"subscribers\":"<<row.subscribers<<",\"supported\":"<<(descriptor(row.wire_type)?"true":"false")<<"}";
+  out<<"{\"name\":"<<json_quote(row.name)<<",\"type\":"<<json_quote(row.type)<<",\"wireName\":"<<json_quote(row.wire_name)<<",\"wireType\":"<<json_quote(row.wire_type)<<",\"publishers\":"<<row.publishers<<",\"subscribers\":"<<row.subscribers<<",\"supported\":"<<(descriptor(row.wire_type)?"true":"false")<<",\"endpoints\":[";
+  bool first_endpoint=true;
+  for(const auto& endpoint:row.endpoints){if(!first_endpoint)out<<',';first_endpoint=false;out<<endpoint_json(endpoint,s.requested_reliable,s.requested_transient);}
+  out<<"]}";
  }
- out<<"],\"nodes\":[";first=true;std::set<std::string> names;for(auto& entry:s.nodes)for(auto& name:entry.second)names.insert(name);
- for(const auto& name:names){if(!first)out<<',';
+ out<<"],\"nodes\":[";first=true;
+ for(const auto& name:s.registry.nodes()){if(!first)out<<',';
   first=false;out<<json_quote(name);}
  double age=s.count?std::chrono::duration<double>(Clock::now()-s.last_sample).count():-1;
  dds_subscription_matched_status_t matched{};if(s.reader>0)dds_get_subscription_matched_status(s.reader,&matched);

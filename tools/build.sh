@@ -21,6 +21,7 @@ java -cp build/tests InputRulesTest
 "$TOOLCHAINS/host/bin/idlc" -l c -o app/src/main/cpp/generated app/src/main/cpp/PocketTypes.idl
 cmake -S app/src/main/cpp -B build/native-host -G Ninja -DCMAKE_PREFIX_PATH="$TOOLCHAINS/host" -DCMAKE_BUILD_TYPE=Debug
 cmake --build build/native-host --parallel 4
+ctest --test-dir build/native-host -E '^subscribe_failure$' --output-on-failure
 cmake -S app/src/main/cpp -B build/native-android -G Ninja -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static -DCycloneDDS_DIR="$TOOLCHAINS/android/lib/cmake/CycloneDDS" -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build/native-android --parallel 4
 cp build/native-android/librospocket.so app/src/main/jniLibs/arm64-v8a/

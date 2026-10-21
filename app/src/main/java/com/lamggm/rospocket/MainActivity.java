@@ -30,7 +30,7 @@ public final class MainActivity extends Activity {
  private Button connect;
  private CheckBox reliable,transientLocal;
  private TextView status,nodes,message,counts,topicTitle,selectedTitle;
- private LinearLayout topicList;
+ private ExplorerView topicList;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
  private ScheduledExecutorService worker;
@@ -41,7 +41,7 @@ public final class MainActivity extends Activity {
  private volatile String selectedWire="",selectedType="";
  private volatile boolean reliableValue=false,transientValue=false;
  private int generation=0;
- private String lastTopics="",lastNodes="",wifiDisplay="";
+ private String lastNodes="",wifiDisplay="";
  // Confined to the single DDS executor:
  private boolean nativeRunning=false;
  private Config workerConfig;
@@ -84,7 +84,7 @@ public final class MainActivity extends Activity {
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
   LinearLayout body=column();scroll.addView(body);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
-  topicList=column();topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
+  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
   TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout echo=card();selectedTitle=label("LEITURA · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64. Outros tipos aparecem na lista, mas ainda não são decodificados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
@@ -114,7 +114,7 @@ public final class MainActivity extends Activity {
    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(domain.getWindowToken(),0);
    domain.clearFocus();peer.clearFocus();
    if(!p.isEmpty()&&!p.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))throw new IllegalArgumentException("Peer opcional: IPv4 sem porta.");
-   if(resetSelection){selectedWire="";selectedType="";lastTopics="";topicList.removeAllViews();message.setText("Nenhuma mensagem recebida.");}
+   if(resetSelection){selectedWire="";selectedType="";topicList.update(new JSONArray());message.setText("Nenhuma mensagem recebida.");}
    requested=new Config(d,p);connectWanted=true;
    counts.setText("RECONECTANDO · aguardando dados desta sessão");counts.setTextColor(MUTED);
    message.setText("Aguardando nova mensagem desta sessão.");
@@ -179,18 +179,7 @@ public final class MainActivity extends Activity {
  }
  private void render(JSONObject snapshot,Config config){
   JSONArray topics=snapshot.optJSONArray("topics");if(topics==null)topics=new JSONArray();
-  String signature=topics.toString()+selectedWire;
-  if(!signature.equals(lastTopics)){
-   lastTopics=signature;topicList.removeAllViews();topicTitle.setText("TÓPICOS · "+topics.length());
-   for(int i=0;i<topics.length();i++){
-    JSONObject topic=topics.optJSONObject(i);if(topic==null)continue;
-    String name=topic.optString("name"),type=topic.optString("type");boolean supported=topic.optBoolean("supported");
-    TextView item=label(name+"\n"+type+"\n"+topic.optInt("publishers")+" pub · "+topic.optInt("subscribers")+" sub"+(supported?" · tocar para ler":" · só descoberta nesta versão"),14,supported?FG:MUTED);
-    item.setPadding(dp(10),dp(12),dp(10),dp(12));item.setBackground(shape(topic.optString("wireName").equals(selectedWire)?0xff24443f:CARD));
-    item.setContentDescription("Tópico "+name);item.setOnClickListener(v->select(topic));topicList.addView(item);
-   }
-   if(topics.length()==0)topicList.addView(label("Nenhum tópico visível ainda.\nConfira domínio, multicast, firewall e isolamento do Wi-Fi.",14,MUTED));
-  }
+  topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
   status.setText("DDS ativo · domínio "+config.domain+" · Wi-Fi "+wifiDisplay+(topics.length()==0?"\nDescoberta em andamento; mesma rede não garante multicast.":" · "+topics.length()+" tópicos"));status.setTextColor(topics.length()>0?ACCENT:MUTED);
   JSONArray ns=snapshot.optJSONArray("nodes");String nodeSignature=ns==null?"[]":ns.toString();
   if(!nodeSignature.equals(lastNodes)){
@@ -216,7 +205,7 @@ public final class MainActivity extends Activity {
  private void select(JSONObject topic){
   if(!connectWanted)return;
   if(!topic.optBoolean("supported")){Toast.makeText(this,"Tipo descoberto, mas ainda sem decodificador: "+topic.optString("type"),Toast.LENGTH_LONG).show();return;}
-  selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");lastTopics="";resubscribe();
+  selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");resubscribe();
  }
  private void resubscribe(){
   if(worker==null||!connectWanted||selectedWire.isEmpty())return;
@@ -232,7 +221,7 @@ public final class MainActivity extends Activity {
  private void disconnect(){
   connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
-  topicList.removeAllViews();topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastTopics="";lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");
+  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");
   WifiManager.MulticastLock old=multicast;multicast=null;
   if(worker!=null)worker.execute(()->{try{NativeBridge.stop();}finally{releaseNetwork();nativeRunning=false;workerConfig=null;if(old!=null&&old.isHeld())old.release();}});
  }
