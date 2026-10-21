@@ -9,6 +9,7 @@
 #include <cstring>
 #include <algorithm>
 #include <set>
+#include <array>
 
 namespace pocket {
 using Clock=std::chrono::steady_clock;
@@ -77,8 +78,38 @@ static const dds_topic_descriptor_t* descriptor(const std::string& type) {
  if(type=="nav_msgs::msg::dds_::Odometry_")return &nav_msgs_msg_dds__Odometry__desc;
  return nullptr;
 }
-struct Session::Impl {
- dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,reader=0,topic=0,rosout_reader=0,rosout_topic=0;
+struct Watch {
+ dds_entity_t reader=0,topic=0;
+ uint64_t generation=0;
+ bool requested_reliable=false,requested_transient=false;
+ std::string message="null",value_error,selected,type,last,last_error,mode="best_effort / volatile";
+ uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
+ void stop_reader() {
+  if(reader>0)dds_delete(reader);
+  reader=0;
+  if(topic>0)dds_delete(topic);
+  topic=0;
+  selected.clear();type.clear();last.clear();message="null";last_error.clear();value_error.clear();count=0;hz=0;rate_count=0;
+ }
+ void values();
+ std::string json(int slot) const {
+  const double age=count?std::chrono::duration<double>(Clock::now()-last_sample).count():-1;
+  dds_subscription_matched_status_t matched{};if(reader>0)dds_get_subscription_matched_status(reader,&matched);
+  const auto failure=last_error.empty()?value_error:last_error;
+  const auto state=subscription_state(reader>0,count,matched.current_count,age,failure);
+  std::ostringstream o;
+  o<<"{\"slot\":"<<slot<<",\"generation\":"<<generation<<",\"subscription\":"<<json_quote(selected)
+   <<",\"type\":"<<json_quote(type)<<",\"readerActive\":"<<(reader>0?"true":"false")
+   <<",\"subscriptionState\":"<<json_quote(state)<<",\"fresh\":"<<(state=="receiving"?"true":"false")
+   <<",\"last\":"<<json_quote(last)<<",\"message\":"<<message<<",\"count\":"<<count<<",\"hz\":"<<hz<<",\"age\":"<<age
+   <<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(mode)<<",\"error\":"<<json_quote(failure)<<"}";
+  return o.str();
+ }
+};
+struct Session::Impl : Watch {
+ dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,rosout_reader=0,rosout_topic=0;
+ std::array<Watch,3> extra;
+ Watch& slot(int n){return n==0?static_cast<Watch&>(*this):extra[n-1];}
  int domain_id=0; Registry registry; dds_guid_t own{};
  std::set<std::string> peer_ids;
  struct GraphSource { std::string writer, participant; };
@@ -95,11 +126,8 @@ struct Session::Impl {
    it=graph_sources.erase(it);
   }
  }
- bool requested_reliable=false,requested_transient=false;
  bool seen_peer=false;
- std::string discovery_error,value_error,message="null";
- std::string selected,type,last,last_error,mode="best_effort / volatile";
- uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
+ std::string discovery_error;
  RosoutBuffer rosout; std::string rosout_error;
  void take_rosout(bool discard=false) {
   if(rosout_reader<=0)return;
@@ -117,13 +145,6 @@ struct Session::Impl {
    if(n>0)dds_return_loan(rosout_reader,samples,n);
    if(n<32)break;
   }
- }
- void stop_reader() {
-  if(reader>0) dds_delete(reader);
-  reader=0;
-  if(topic>0) dds_delete(topic);
-  topic=0;
-  selected.clear(); type.clear(); last.clear(); message="null"; last_error.clear(); value_error.clear(); count=0; hz=0;rate_count=0;
  }
  void stop_rosout() {if(rosout_reader>0)dds_delete(rosout_reader);rosout_reader=0;if(rosout_topic>0)dds_delete(rosout_topic);rosout_topic=0;rosout.clear();rosout_error.clear();}
  void endpoints(dds_entity_t source,bool writer) {
@@ -195,9 +216,10 @@ struct Session::Impl {
   if(n>0)dds_return_loan(participants,samples,n);
   if(!peer_ids.empty())seen_peer=true;
  }
- void values() {
+};
+ void Watch::values() {
   if(reader<=0)return;
-  for(int batch=0;batch<8;batch++) {
+  for(int batch=0;batch<1;batch++) {
    void* samples[64]{};dds_sample_info_t infos[64]{};
    int n=dds_take(reader,samples,infos,64,64);
    if(n>=0)value_error.clear();
@@ -225,12 +247,11 @@ struct Session::Impl {
   auto now=Clock::now();double dt=std::chrono::duration<double>(now-rate_time).count();
   if(dt>=1){hz=(count-rate_count)/dt;rate_count=count;rate_time=now;}
  }
-};
 Session::Session():impl(new Impl){}
 Session::~Session(){stop();}
 void Session::stop() {
  ++session_generation;++reader_generation;
- auto& s=*impl;s.stop_reader();
+ auto& s=*impl;for(int i=0;i<4;i++)s.slot(i).stop_reader();
  s.stop_rosout();
  if(s.participant>0)dds_delete(s.participant);
  if(s.domain>0)dds_delete(s.domain);
@@ -271,29 +292,41 @@ std::string Session::start(int domain,const std::string& address,const std::stri
 }
 void Session::clear_rosout(){auto& s=*impl;s.take_rosout(true);s.rosout.clear();}
 std::string Session::subscribe(const std::string& topic,const std::string& type,bool reliable,bool transient) {
- auto& s=*impl;
+ return watch(0,topic,type,reliable,transient);
+}
+std::string Session::remove_watch(int slot) {
+ if(slot<0||slot>=4)return error("Watch slot deve ser de 0 a 3.");
+ auto& w=impl->slot(slot);++w.generation;w.stop_reader();
+ if(slot==0)++reader_generation;
+ return "{\"ok\":true}";
+}
+std::string Session::watch(int slot,const std::string& topic,const std::string& type,bool reliable,bool transient) {
+ if(slot<0||slot>=4)return error("Limite de quatro watches (slots 0 a 3).");
+ auto& s=impl->slot(slot);
  auto rejected=[&s](const std::string& message){s.last_error=message;return error(message);};
- if(s.participant<=0)return rejected("Inicie um dominio primeiro.");
+ if(impl->participant<=0)return rejected("Inicie um dominio primeiro.");
  const auto* desc=descriptor(type);
  if(!desc)return rejected("Tipo descoberto, mas sem decodificador nesta v0.1: "+ros_type(type));
  if(topic.rfind("rt/",0)!=0||topic.size()>1024)return rejected("Topico ROS invalido.");
- ++reader_generation;
+ ++s.generation;
+ if(slot==0)++reader_generation;
  s.stop_reader();s.selected=topic.substr(2);s.type=type;
  s.requested_reliable=reliable;s.requested_transient=transient;
- s.topic=dds_create_topic(s.participant,desc,topic.c_str(),nullptr,nullptr);
+ s.mode=std::string(reliable?"reliable":"best_effort")+" / "+(transient?"transient_local":"volatile");
+ s.topic=dds_create_topic(impl->participant,desc,topic.c_str(),nullptr,nullptr);
  if(s.topic<0){auto msg="Falha ao criar topico: "+std::string(dds_strretcode(s.topic));s.stop_reader();s.last_error=msg;return error(msg);}
  auto* q=dds_create_qos();dds_qset_reliability(q,reliable?DDS_RELIABILITY_RELIABLE:DDS_RELIABILITY_BEST_EFFORT,DDS_MSECS(100));
- dds_qset_durability(q,transient?DDS_DURABILITY_TRANSIENT_LOCAL:DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,100);
- dds_qset_resource_limits(q,1000,10,100);
- s.reader=dds_create_reader(s.participant,s.topic,q,nullptr);dds_delete_qos(q);
+ dds_qset_durability(q,transient?DDS_DURABILITY_TRANSIENT_LOCAL:DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,64);
+ dds_qset_resource_limits(q,64,1,64);
+ s.reader=dds_create_reader(impl->participant,s.topic,q,nullptr);dds_delete_qos(q);
  if(s.reader<0){auto msg="Falha ao assinar: "+std::string(dds_strretcode(s.reader));s.stop_reader();s.last_error=msg;return error(msg);}
- s.rate_time=Clock::now();s.mode=std::string(reliable?"reliable":"best_effort")+" / "+(transient?"transient_local":"volatile");
+ s.rate_time=Clock::now();
  return "{\"ok\":true}";
 }
 std::string Session::poll() {
  auto& s=*impl;
  const bool running=s.participant>0;
- if(running){s.discovery_error.clear();s.endpoints(s.pubs,true);s.endpoints(s.subs,false);s.graph_samples();s.participant_samples();s.values();s.take_rosout();}
+ if(running){s.discovery_error.clear();s.endpoints(s.pubs,true);s.endpoints(s.subs,false);s.graph_samples();s.participant_samples();for(int i=0;i<4;i++)s.slot(i).values();s.take_rosout();}
  std::ostringstream out;out<<"{\"running\":"<<(running?"true":"false")<<",\"domain\":"<<s.domain_id<<",\"topics\":[";bool first=true;
  for(const auto& row:s.registry.topics()) {
   if(!first)out<<',';
@@ -311,9 +344,10 @@ std::string Session::poll() {
  const auto failure=!s.last_error.empty()?s.last_error:(!s.discovery_error.empty()?s.discovery_error:s.value_error);
  const auto state=subscription_state(s.reader>0,s.count,matched.current_count,age,failure);
  out<<"],\"sessionGeneration\":"<<session_generation<<",\"readerGeneration\":"<<reader_generation
-    <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,failure))
+    <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,running?s.discovery_error:failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
+ out<<",\"watches\":[";for(int i=0;i<4;i++){if(i)out<<',';out<<s.slot(i).json(i);}out<<']';
  out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"message\":"<<s.message<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);
  std::string rosout_status=s.rosout_error;bool rosout_expected_writer=false;std::string rosout_other_type;
  for(const auto& row:s.registry.topics())if(row.name=="/rosout")for(const auto& ep:row.endpoints)if(ep.writer){if(row.wire_type=="rcl_interfaces::msg::dds_::Log_")rosout_expected_writer=true;else rosout_other_type=row.type;}

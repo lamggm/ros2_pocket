@@ -18,9 +18,9 @@ if [[ "$MODE" == --portable ]]; then
  java -cp build/tests InputRulesTest
  javac -encoding UTF-8 -d build/tests tests/ConnectionPolicyTest.java app/src/main/java/com/lamggm/rospocket/ConnectionPolicy.java
  java -cp build/tests ConnectionPolicyTest
- ctest --test-dir build/native-host -L portable --no-tests=error --output-on-failure --output-junit portable.xml
+ ctest --test-dir build/native-host -L portable --no-tests=error --output-on-failure --test-output-size-passed 16384 --output-junit portable.xml
 else
- image="ros2-pocket-ci-fixture:$(python3 -c 'import hashlib;from pathlib import Path;print(hashlib.sha256(b"".join(Path(p).read_bytes() for p in ["tests/fixture.Dockerfile","tests/fixture.py","tests/fixture-loopback.xml"])).hexdigest()[:12])')"
+ image="ros2-pocket-ci-fixture:$(sha256sum tests/fixture.Dockerfile tests/fixture.py tests/fixture-loopback.xml | sha256sum | cut -c1-12)"
  docker build --platform linux/amd64 -f tests/fixture.Dockerfile -t "$image" tests
  name=""
  cleanup() { if [[ -n "$name" ]]; then docker rm -f "$name" >/dev/null 2>&1 || true; fi; }
@@ -40,7 +40,7 @@ else
   # The reader and publisher share only this container's loopback, not the host.
   # Copy CTest's small manifest to writable tmpfs; executables/libs stay read-only.
   rc=0
-  docker exec "$name" sh -ec 'mkdir -p /tmp/native; cp "$1/CTestTestfile.cmake" /tmp/native/; ctest --test-dir /tmp/native -R "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --output-junit /tmp/rosout.xml && ctest --test-dir /tmp/native -L fixture -E "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --output-junit /tmp/fixture.xml' sh "$PWD/build/native-host" || rc=$?
+  docker exec "$name" sh -ec 'mkdir -p /tmp/native; cp "$1/CTestTestfile.cmake" /tmp/native/; ctest --test-dir /tmp/native -R "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --test-output-size-passed 16384 --output-junit /tmp/rosout.xml && ctest --test-dir /tmp/native -L fixture -E "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --test-output-size-passed 16384 --output-junit /tmp/fixture.xml' sh "$PWD/build/native-host" || rc=$?
   if [[ "$rc" -ne 0 ]]; then docker logs "$name" || true; exit "$rc"; fi
   docker exec "$name" cat /tmp/fixture.xml > "build/native-host/$rmw.xml"
   docker exec "$name" cat /tmp/rosout.xml > "build/native-host/$rmw-rosout.xml"

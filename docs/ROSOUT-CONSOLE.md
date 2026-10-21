@@ -41,10 +41,13 @@ a string intermediária; o texto retido é cortado em fronteira de code point e 
 entrada sinaliza truncamento.
 
 Esses limites definem a memória retida pela aplicação, não a memória total de
-rede/deserialização. Strings DDS wire não têm limite de bytes no schema e o
-Cyclone pode alocar o conteúdo da amostra antes da aplicação conseguir truncá-lo;
-`KEEP_LAST(128)` limita a quantidade de amostras, não o tamanho agregado dessas
-alocações. A cada iteração são tomadas no máximo 4 × 32 = 128 amostras; o ring
+rede/deserialização. Strings DDS wire não têm limite de bytes no schema. Na
+reconciliação com o incremento 06, a Session configura `Internal/MaxSampleSize`
+em **64 KiB** para todo o domínio, incluindo `/rosout`: amostras serializadas
+maiores são descartadas antes do cache, não truncadas em DDS. Isso não prova um
+teto da memória total do processo/JNI/UI. `KEEP_LAST(128)` limita a quantidade de
+amostras; o ring e as cópias de campos continuam com seus limites próprios. A cada
+iteração são tomadas no máximo 4 × 32 = 128 amostras; o ring
 local limita a retenção posterior a 200 entradas/256 KiB. A contagem `evicted`
 é rotulada na UI como eviction do ring retido; não mede perda antes da leitura
 DDS nem perda de rede.
@@ -120,3 +123,23 @@ Os testes Android Robolectric exercitam os controles e a integração da Activit
 com JNI substituído; eles não simulam recepção DDS. Nenhum teste físico de tablet,
 Wi-Fi, taxa/endurance ou consumo de recursos foi executado neste incremento. A
 qualificação física permanece pendente para o gate 08.
+
+## Reconciliação local com incremento 06
+
+O reader dedicado não ocupa nenhum dos quatro slots de watch. A ingestão toma
+até 128 logs e 64 amostras por watch (256 de telemetria) por poll. O mesmo worker
+serializado aplica subscribe/remove/clear/stop; o clear mantém a captura do epoch
+já aplicado **antes** do poll. Substituir/remover uma telemetria não limpa logs;
+limpar logs não reinicia contadores nem gerações dos watches.
+
+O gate real de domínio 71 publica Log via rclpy nos dois RMWs ao mesmo tempo que
+quatro tipos primitivos. Verifica avanço de logs durante falha/QoS/remoção e
+reassociação de watches, e avanço 6/12/24/48 dos quatro contadores durante clear
+com gerações preservadas. O burst rosout de domínio 67 continua **primeiro** em
+fixture fresca por RMW e com relatório separado. O conjunto reconciliado passou
+11 CTests portáveis, 10 execuções de fixtures, 20 testes Python e 66 JVM; lint
+0 erros / 73 warnings. Evidência/medições: [MULTIWATCH](MULTIWATCH.md).
+
+Isto não integra os tipos estruturados da 05 nem conclui teste físico de
+Wi-Fi/tablet/soak. A qualificação 08 e a publicação do PR continuam gates
+separados; nenhum merge de 06 na integração está autorizado antes da 05.

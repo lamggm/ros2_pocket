@@ -19,7 +19,8 @@ stays draft until qualification and operator acceptance on the physical tablet.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. Choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
-5. Tap a supported topic to inspect its latest value, count and received Hz.
+5. Choose **Watch 1–4**, then **Ler** on a supported Explorer topic. QoS edits
+   and **Remover watch selecionado** affect only that selected slot.
 
 Multicast filtering, AP/client isolation and host firewalls can prevent discovery.
 A matching Domain ID alone does not guarantee connectivity. Some Android VPNs
@@ -42,18 +43,16 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   local filters, pause and clear: [scope and validation](docs/ROSOUT-CONSOLE.md).
 - Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`,
   `geometry_msgs/msg/{Vector3,Quaternion,Twist,Pose}` and `nav_msgs/msg/Odometry`.
-  [Structured inspection / schema v1](docs/STRUCTURED-MESSAGES.md) exposes a bounded
-  native field tree, selectable numeric paths, source Header stamps, UTF-8 frames
-  and both fixed covariance arrays. NaN/Inf are explicit, never invented zeros.
-  Custom/other types (including standalone Point, Header and covariance wrappers)
-  are listed but **not decoded**.
+  [Structured inspection / schema v1](docs/STRUCTURED-MESSAGES.md) exposes bounded
+  per-watch field trees, numeric paths, source stamps, UTF-8 frames and fixed
+  covariance arrays. NaN/Inf are explicit, never invented zeros. Other/custom
+  types remain listed but unsupported.
+- [Up to four independent watches](docs/MULTIWATCH.md): value/tree, count,
+  received Hz, matches, QoS, persistent errors and monotonic age per slot.
+  Replace/remove one without restarting the other readers or discovery.
+- The dedicated bounded `/rosout` reader is independent of all four watches.
 - DDS wire admission is capped at **64 KiB serialized CDR per sample**, before
-  deserialization; larger valid ROS messages are dropped (including graph/log
-  traffic). This is distinct from retained UI/string bounds and not a total
-  process-memory guarantee: [scope and regression](docs/STRUCTURED-MESSAGES.md#dds-wire-admission-versus-retained-bounds).
-- One active **selected telemetry** reader: latest value, count, received Hz,
-  compatible publisher count and monotonic message age. The dedicated `/rosout`
-  reader is independently bounded. Telemetry older than three seconds is stale.
+  deserialization, including graph/log traffic; not a total-process memory bound.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
 - Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
@@ -66,6 +65,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
 - No parameter editing, services/actions, plots, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
+  Each watch cache/intake is capped at 64 samples (256 total per poll); latest
+  text is capped at 8192 UTF-8 bytes. DDS samples above 64 KiB are dropped.
 - Portuguese-only UI; lint currently has nonfatal localization, launcher-icon and
   data-extraction-rule warnings.
 - No high-rate/endurance, physical Wi-Fi-toggle/IP-change, older-device or

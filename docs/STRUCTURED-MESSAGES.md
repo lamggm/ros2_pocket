@@ -9,8 +9,10 @@ publisher, RPC, network-policy change or bridge was added.
 
 ## Additive native/JNI contract for watches and plots
 
-`Session::poll()` retains all prior fields and adds `message`, initially JSON
-`null`. After intake it contains:
+`Session::poll()` retains all prior fields. After reconciliation with 06, every
+entry of the four-element `watches` array owns an independent `message`, initially
+JSON `null`; the top-level `message` remains exactly the slot-zero projection.
+All eleven decoders work in all four slots. After intake each tree contains:
 
 ```json
 {
@@ -124,8 +126,11 @@ old tree. Unsupported schema versions are not rendered as supported data.
 
 Presentation visits at most 192 nodes, depth 8 and 512 code points per leaf
 label (paths 160 characters), with an explicit limit notice. Even malformed null
-children consume the traversal budget. This is a bounded text inspector, not
-multiwatch, plotting or an arbitrary dynamic IDL browser.
+children consume the traversal budget. There are four independent bounded text inspectors, explicitly labeled by slot
+and generation, not plots or an arbitrary dynamic IDL browser. The primary
+inspector always says Watch 1, even when editing another watch. Pending request
+frames are captured before polling; old queued trees cannot cross a replacement,
+QoS, removal, clear or lifecycle boundary. See [merge audit](MERGE-05-06.md).
 
 ## Verification handles
 
