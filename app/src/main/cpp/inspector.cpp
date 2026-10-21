@@ -93,6 +93,7 @@ struct Session::Impl {
  bool seen_peer=false;
  std::string discovery_error,value_error;
  std::string selected,type,last,last_error,mode="best_effort / volatile";
+ bool numeric=false,numeric_integer=false; int64_t numeric_int=0; double numeric_value=0; int64_t received_ns=0,source_ns=0;
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
  void stop_reader() {
   if(reader>0) dds_delete(reader);
@@ -100,6 +101,7 @@ struct Session::Impl {
   if(topic>0) dds_delete(topic);
   topic=0;
   selected.clear(); type.clear(); last.clear(); last_error.clear(); value_error.clear(); count=0; hz=0;rate_count=0;
+  numeric=false;numeric_value=0;received_ns=0;source_ns=0;
  }
  void endpoints(dds_entity_t source,bool writer) {
   void* samples[64]{}; dds_sample_info_t infos[64]{};
@@ -190,7 +192,15 @@ struct Session::Impl {
      else if(type=="std_msgs::msg::dds_::Bool_")out<<(static_cast<std_msgs_msg_dds__Bool_*>(p)->data?"true":"false");
      last=out.str();
     }
+    numeric=true;numeric_integer=false;
+    if(type=="std_msgs::msg::dds_::Float64_")numeric_value=static_cast<std_msgs_msg_dds__Float64_*>(p)->data;
+    else if(type=="std_msgs::msg::dds_::Float32_")numeric_value=static_cast<std_msgs_msg_dds__Float32_*>(p)->data;
+    else if(type=="std_msgs::msg::dds_::Int32_")numeric_value=static_cast<std_msgs_msg_dds__Int32_*>(p)->data;
+    else if(type=="std_msgs::msg::dds_::Int64_"){numeric_int=static_cast<std_msgs_msg_dds__Int64_*>(p)->data;numeric_integer=true;numeric_value=static_cast<double>(numeric_int);}
+    else numeric=false; // Bool/String are not numeric fields.
     ++count;last_sample=Clock::now();
+    received_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(last_sample.time_since_epoch()).count();
+    source_ns=infos[i].source_timestamp;
    }
    if(n>0)dds_return_loan(reader,samples,n);
    if(n<64)break;
@@ -276,6 +286,16 @@ std::string Session::poll() {
     <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
+ out<<",\"receivedMonotonicNs\":"<<(s.count?std::to_string(s.received_ns):"null")
+    <<",\"sourceTimestampNs\":"<<(s.count?std::to_string(s.source_ns):"null")<<",\"numericFields\":[";
+ if(s.count && s.numeric) {
+  const char* state=std::isfinite(s.numeric_value)?"finite":(std::isnan(s.numeric_value)?"nan":(s.numeric_value>0?"positive_infinity":"negative_infinity"));
+  out<<"{\"path\":\"data\",\"unit\":null,\"state\":"<<json_quote(state)<<",\"value\":";
+  if(s.numeric_integer)out<<s.numeric_int;
+  else if(std::isfinite(s.numeric_value))out<<std::setprecision(17)<<s.numeric_value;else out<<"null";
+  out<<"}";
+ }
+ out<<"]";
  out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure)<<"}";
  return out.str();
 }

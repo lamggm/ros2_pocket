@@ -126,6 +126,12 @@ A ordem preferencial de integração continua 01 → 02 → 03 → 04 → 05 →
 
 **Gates:** memória não cresce sem limite; NaN/Inf e lacunas não viram zeros inventados; separar tempo de recebimento monotônico de timestamp de origem e resets de relógio. Unidades só quando conhecidas, sem inferi-las de qualquer campo chamado x.
 
+**Estado da frente 07 sobre e71bdf3:** componente reutilizável de histórico/Canvas,
+contrato de entrada tipado e ligação com snapshots primitivos reais do reader atual.
+Limites, testes e contrato aditivo estão em [LIVE-PLOTS.md](LIVE-PLOTS.md).
+Seleção estruturada e múltiplos watches ROS continuam pendentes de 05/06;
+frames unitários não liberam esses gates ponta a ponta nem o aceite físico.
+
 ### 08 — Qualificação física e candidato v0.2
 
 **Branch:** `test/v0.2-08-device-qualification`.

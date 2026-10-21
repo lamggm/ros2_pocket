@@ -35,6 +35,8 @@ public final class MainActivity extends Activity {
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
+ private final PlotController plots=new PlotController();
+ private PlotView plotView;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
  // Foreground identity is read across UI/worker threads; nativeOwner is confined to DDS_WORKER.
@@ -109,6 +111,7 @@ public final class MainActivity extends Activity {
   TextView qoshint=label("Padrão: best effort / volatile — recebe publicadores reliable e best effort. Hz = taxa recebida, não garantia da taxa de origem.",12,MUTED);echo.addView(qoshint);
   counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
   message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);body.addView(echo);
+  plotView=new PlotView(this,plots);body.addView(plotView);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);body.addView(nodeCard);
   TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));body.addView(footer);
@@ -129,7 +132,7 @@ public final class MainActivity extends Activity {
    domain.clearFocus();peer.clearFocus();
    foregroundActivity=new WeakReference<>(this);policy.reset();
    if(resetSelection){selectedWire="";selectedType="";topicList.update(new JSONArray());}
-   requested=new Config(d,p);connectWanted=true;
+   requested=new Config(d,p);connectWanted=true;plots.reset(policy.generation());
    inactive("RECONECTANDO · aguardando dados desta sessão");
    prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putBoolean("wanted",true).apply();
    domain.setEnabled(false);peer.setEnabled(false);connect.setText("Desconectar");
@@ -163,6 +166,7 @@ public final class MainActivity extends Activity {
  }
  // All acquisition/teardown uses the same process-wide queue, including across Activity instances.
  private void stopSession(){
+  plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
   try{if(owns)bridge.stop();}finally{
    nativeRunning=false;workerConfig=null;workerAddress="";
@@ -177,6 +181,7 @@ public final class MainActivity extends Activity {
   runOnUiThread(()->{if(foregroundActivity.get()==this&&resumed&&generation==token&&policy.accepts(epoch))action.run();});
  }
  private void inactive(String state){
+  if(plotView!=null)plotView.refresh();
   counts.setText(state);counts.setTextColor(WARNING);message.setTextColor(MUTED);
   message.setText("Aguardando nova mensagem desta sessão.");
  }
@@ -225,6 +230,14 @@ public final class MainActivity extends Activity {
    final String failure=subscriptionFailure;
    final boolean pendingReader=!selectedWire.isEmpty()&&appliedReaderEpoch!=epoch;
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · "+binding+" · domínio "+config.domain;
+   // Intake runs for every real poll, regardless of display throttling/pause.
+   // Serialize the final epoch check against UI reader replacement/teardown.
+   synchronized(policy){
+    if(policy.accepts(epoch)&&resumed&&generation==token&&connectWanted&&requested==config){
+     if(!failure.isEmpty())plots.reset(epoch);
+     else plots.acceptNative(snapshot,epoch,pendingReader);
+    }
+   }
    long paint=System.nanoTime();
    if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);}});}
   }catch(Throwable ex){
@@ -257,6 +270,7 @@ public final class MainActivity extends Activity {
    if(ns!=null)for(int i=0;i<ns.length();i++)text.append(ns.optString(i)).append('\n');
    nodes.setText(text.length()==0?"Sem nós anunciados em ros_discovery_info.\nDescoberta de tópicos e grafo de nós são mecanismos distintos.":text.toString().trim());
   }
+  plotView.refresh();
   String failure=pendingError.isEmpty()?snapshot.optString("error"):pendingError;
   String subscription=snapshot.optString("subscription");
   String subscriptionState=snapshot.optString("subscriptionState","inactive");
@@ -289,7 +303,7 @@ public final class MainActivity extends Activity {
  }
  private void resubscribe(){
   if(worker==null||!connectWanted||selectedWire.isEmpty())return;
-  policy.invalidate();long epoch=policy.generation();inactive("RECONECTANDO · aguardando nova assinatura");
+  policy.invalidate();long epoch=policy.generation();plots.reset(epoch);inactive("RECONECTANDO · aguardando nova assinatura");
   final String wire=selectedWire,type=selectedType;final Config expected=requested;final int token=generation;
   final boolean r=reliableValue,t=transientValue;
   worker.execute(()->{
@@ -300,14 +314,14 @@ public final class MainActivity extends Activity {
   });
  }
  private void disconnect(){
-  policy.reset();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
+  policy.reset();plots.reset(policy.generation());plotView.refresh();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
  }
  @Override protected void onStop(){
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
-  resumed=false;generation++;policy.invalidate();
+  resumed=false;generation++;policy.invalidate();plots.reset(policy.generation());
   inactive("OFFLINE · aplicativo fora do primeiro plano");
   if(ticker!=null){ticker.cancel(false);ticker=null;}
   queueStop();worker=null;

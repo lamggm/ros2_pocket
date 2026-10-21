@@ -51,7 +51,12 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   supported or validated by this prototype.
 - Node graph uses Jazzy's 16-byte GID schema. Older ROS graph formats can differ;
   topic discovery is independent of graph decoding.
-- No parameter editing, services/actions, plots, images, LaserScan, maps, TF or RViz.
+- [Numeric snapshot plots](docs/LIVE-PLOTS.md): typed numeric primitives on the
+  current single reader; bounded 30-second/600-point histories, local selection,
+  pause/resume and a reusable four-series overlay component. No display-text
+  parsing. Structured paths / simultaneous ROS watches await increments 05/06;
+  those end-to-end gates and physical plot acceptance are **not complete**.
+- No parameter editing, services/actions, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
 - Portuguese-only UI; lint currently has nonfatal localization, launcher-icon and

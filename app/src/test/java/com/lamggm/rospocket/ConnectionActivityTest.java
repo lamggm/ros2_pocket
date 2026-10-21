@@ -50,6 +50,21 @@ public class ConnectionActivityTest {
   set("selectedWire","rt/numeric");set("selectedType","std_msgs::msg::dds_::Float64_");
  }
  @After public void cleanup()throws Exception{call("onStop",new Class<?>[]{});((ScheduledExecutorService)field("DDS_WORKER").get(null)).submit(()->{}).get(5,TimeUnit.SECONDS);paint();}
+ @Test public void plotIntakeIsIndependentOfUiThrottleAndPauseAndStopClearsIt()throws Exception{
+  org.json.JSONObject s=new org.json.JSONObject(bridge.snapshot);
+  s.put("receivedMonotonicNs",100L).put("sourceTimestampNs",1000L).put("sessionGeneration",1).put("readerGeneration",1);
+  s.put("numericFields",new org.json.JSONArray().put(new org.json.JSONObject().put("path","data").put("value",42.5).put("state","finite").put("unit",org.json.JSONObject.NULL)));
+  bridge.snapshot=s.toString();tick();paint();
+  PlotView view=a.getWindow().getDecorView().findViewWithTag("live-plot");assertNotNull("Activity must wire the plot",view);
+  ((CheckBox)view.findViewWithTag("plot-field:/numeric\ndata")).performClick();
+  set("lastUi",System.nanoTime());s.put("count",13).put("receivedMonotonicNs",200L);bridge.snapshot=s.toString();tick();paint();
+  PlotController controller=(PlotController)get("plots");assertEquals(1,controller.history.points("/numeric\ndata").size());assertEquals(0,view.displayed().get(0).points.size());
+  ((Button)view.findViewWithTag("plot-pause")).performClick();
+  s.put("count",14).put("receivedMonotonicNs",300L);bridge.snapshot=s.toString();set("lastUi",0L);tick();paint();
+  assertEquals(2,controller.history.points("/numeric\ndata").size());assertEquals(0,view.displayed().get(0).points.size());
+  ((Button)view.findViewWithTag("plot-pause")).performClick();assertEquals(2,view.displayed().get(0).points.size());
+  call("onStop",new Class<?>[]{});assertTrue(controller.fields().isEmpty());assertTrue(controller.history.points("/numeric\ndata").isEmpty());
+ }
  @Test public void diagnosticsSeparatePeersAndNodesAndKeepNumericSelection()throws Exception{
   tick();paint();assertTrue(text(R.id.diagnostics).contains("wlan-test"));assertTrue(text(R.id.diagnostics).contains("DDS peers: 1"));assertTrue(text(R.id.diagnostics).contains("Nós ROS: 0"));assertTrue(text(R.id.counts).contains("RECEBENDO"));
   assertEquals("rt/numeric",get("selectedWire"));assertEquals(1,bridge.subscriptions);
