@@ -24,10 +24,16 @@ struct LoopbackPublisher {
 const std::string type="std_msgs::msg::dds_::String_";
 const std::string topic="rt/pocket_test/chatter";
 bool ok(const std::string& result) { return result.find("\"ok\":true")!=std::string::npos; }
+// Assert only the legacy primary projection, not a different inactive slot.
+std::string primary(std::string snapshot) {
+ const auto start=snapshot.find(",\"watches\":["),end=snapshot.find(",\"ddsPeers\":",start);
+ if(start!=std::string::npos && end!=std::string::npos)snapshot.erase(start,end-start);
+ return snapshot;
+}
 bool live(pocket::Session& session) {
  const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(15);
  while(std::chrono::steady_clock::now()<until) {
-  const auto snapshot=session.poll();
+  const auto snapshot=primary(session.poll());
   if(snapshot.find("\"subscription\":\"/pocket_test/chatter\"")!=std::string::npos &&
      snapshot.find("\"count\":0,")==std::string::npos) {
    std::cout<<"LIVE "<<snapshot<<std::endl;return true;
@@ -53,7 +59,7 @@ int main(int argc,char** argv) {
  }
  bool passed=true;
  for(int i=0;i<3;i++) {
-  const auto snapshot=session.poll();std::cout<<"AFTER_FAILURE "<<snapshot<<std::endl;
+  const auto snapshot=primary(session.poll());std::cout<<"AFTER_FAILURE "<<snapshot<<std::endl;
   if(snapshot.find("\"subscription\":\"\"")==std::string::npos ||
      snapshot.find("\"last\":\"\"")==std::string::npos ||
      snapshot.find("\"count\":0,")==std::string::npos ||
@@ -67,7 +73,7 @@ int main(int argc,char** argv) {
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
  }
  if(!ok(session.subscribe(topic,type,false,false)) || !live(session))return 1;
- if(session.poll().find("\"error\":\"\"")==std::string::npos) {
+ if(primary(session.poll()).find("\"error\":\"\"")==std::string::npos) {
   std::cerr<<"FAIL successful subscription must clear error\n";passed=false;
  }
  const auto failedAgain=session.subscribe("rt/pocket_test/invalid topic",type,false,false);
@@ -78,7 +84,7 @@ int main(int argc,char** argv) {
   std::cerr<<"FAIL session reset must clear error\n";passed=false;
  }
  if(!ok(session.start(67,loopback?"127.0.0.1":argv[1],"")))return 1;
- const auto reset=session.poll();std::cout<<"AFTER_RESET "<<reset<<std::endl;
+ const auto reset=primary(session.poll());std::cout<<"AFTER_RESET "<<reset<<std::endl;
  if(reset.find("\"error\":\"\"")==std::string::npos) {
   std::cerr<<"FAIL new session must not retain subscription error\n";passed=false;
  }

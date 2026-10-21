@@ -62,6 +62,7 @@ public class ExplorerViewTest {
   assertNotNull("endpoint detail control missing",details);details.performClick();
   String text=((TextView)view.findViewById(R.id.explorer_details)).getText().toString();
   assertTrue(text.contains("endpoint-real-gid"));assertTrue(text.contains("desconhecido"));
+  assertTrue("Compatibility is slot-zero only, not the selected watch",text.contains("perfil do Watch 1"));
   assertTrue(text.contains("best_effort"));assertTrue(text.contains("incompatible"));assertTrue("missing unknown-duration legend",text.contains("-2 = desconhecido"));
   assertTrue(text.contains("reliability"));assertTrue(text.contains("durability"));assertTrue(text.contains("padrão best_effort / volatile até assinar"));assertEquals(0,reads);
   topic.getJSONArray("endpoints").getJSONObject(0).put("nodes",new JSONArray().put("/robot/camera"));

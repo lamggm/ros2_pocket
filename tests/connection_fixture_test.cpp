@@ -9,7 +9,8 @@
 using namespace std::chrono_literals;
 namespace {
 void require(bool value,const std::string& why){if(!value)throw std::runtime_error(why);}
-bool has(const std::string& s,const std::string& field,const std::string& value){return s.find("\""+field+"\":"+value)!=std::string::npos;}
+// Never let an inactive extra satisfy a legacy primary-reader assertion.
+bool has(const std::string& s,const std::string& field,const std::string& value){const auto key="\""+field+"\":";const auto at=s.find(key);return at!=std::string::npos && s.compare(at+key.size(),value.size(),value)==0;}
 std::string number(const std::string& s,const std::string& field){auto start=s.find("\""+field+"\":")+field.size()+3;return s.substr(start,s.find_first_of(",}",start)-start);}
 bool ok(const std::string& s){return has(s,"ok","true");}
 std::string wait(pocket::Session& s,const std::string& field,const std::string& value){

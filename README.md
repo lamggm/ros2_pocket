@@ -19,7 +19,8 @@ stays draft until qualification and operator acceptance on the physical tablet.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. Choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
-5. Tap a supported topic to inspect its latest value, count and received Hz.
+5. Choose **Watch 1–4**, then **Ler** on a supported Explorer topic. QoS edits
+   and **Remover watch selecionado** affect only that selected slot.
 
 Multicast filtering, AP/client isolation and host firewalls can prevent discovery.
 A matching Domain ID alone does not guarantee connectivity. Some Android VPNs
@@ -40,8 +41,10 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   reasons. Filtering/favorites do not restart DDS or subscribe.
 - Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`.
   Custom/other types are listed but **not decoded**.
-- One active reader: latest value, count, received Hz, compatible publisher count
-  and monotonic message age. Data older than three seconds is marked stale.
+- [Up to four independent watches](docs/MULTIWATCH.md): latest value, count,
+  received Hz, compatible publisher count, requested QoS, persistent errors and
+  monotonic age per slot. Data older than three seconds is marked stale. Replace
+  or remove one slot without restarting the other readers or discovery.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
 - Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
@@ -54,6 +57,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
 - No parameter editing, services/actions, plots, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
+  Each watch cache/intake is capped at 64 samples (256 total per poll); latest
+  text is capped at 8192 UTF-8 bytes. DDS samples above 64 KiB are dropped.
 - Portuguese-only UI; lint currently has nonfatal localization, launcher-icon and
   data-extraction-rule warnings.
 - No high-rate/endurance, physical Wi-Fi-toggle/IP-change, older-device or

@@ -11,6 +11,9 @@ class Session {
  std::string start(int domain, const std::string& address, const std::string& peer);
  std::string poll();
  std::string subscribe(const std::string& topic, const std::string& type, bool reliable, bool transient);
+ // Stable slots 0..3. Slot zero is the legacy subscribe/poll projection.
+ std::string watch(int slot, const std::string& topic, const std::string& type, bool reliable, bool transient);
+ std::string remove_watch(int slot);
  void stop();
 };
 }

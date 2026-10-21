@@ -100,7 +100,7 @@ public final class ExplorerView extends LinearLayout {
    else text.append("\nQoS desconhecido");
    JSONObject compatibility=e.optJSONObject("compatibility");
    if(e.optBoolean("writer")){
-    text.append("\nOferta × perfil do app (padrão best_effort / volatile até assinar; depois, último perfil enviado ao criar leitor, mesmo se falhar): ").append(compatibility==null?"unknown":compatibility.optString("state","unknown"));
+    text.append("\nOferta × perfil do Watch 1 (não do watch selecionado; padrão best_effort / volatile até assinar; depois, último perfil enviado ao criar leitor, mesmo se falhar): ").append(compatibility==null?"unknown":compatibility.optString("state","unknown"));
     if(compatibility!=null)text.append(" ").append(compatibility.optJSONArray("reasons"));
    }else text.append("\nQoS solicitado por este assinante não é uma oferta para o app.");
   }
