@@ -1,0 +1,6 @@
+<resources>
+<item name="domain" type="id"/><item name="peer" type="id"/><item name="connect" type="id"/>
+<item name="status" type="id"/><item name="topics" type="id"/><item name="nodes" type="id"/>
+<item name="message" type="id"/><item name="counts" type="id"/><item name="qos_reliable" type="id"/>
+<item name="qos_transient" type="id"/>
+</resources>

@@ -1,0 +1,36 @@
+# Generated outputs and caches
+/build/
+/app/build/
+/.gradle/
+/local.properties
+/app/src/main/jniLibs/
+/app/src/main/cpp/generated/
+/artifacts/
+/evidence/
+/captures/
+/toolchains/
+__pycache__/
+*.pyc
+*.apk
+*.aab
+*.so
+*.o
+*.log
+
+# Local environment, signing material and credentials
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.pem
+*.key
+*.p12
+*.pfx
+key.properties
+signing.properties
+google-services.json
+
+# IDE/user configuration
+.idea/
+.DS_Store
