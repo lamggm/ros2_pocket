@@ -38,8 +38,13 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   filters and favorites; publisher/subscriber details, real graph-GID associations
   (unknown explicitly), announced endpoint QoS and conservative incompatibility
   reasons. Filtering/favorites do not restart DDS or subscribe.
-- Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`.
-  Custom/other types are listed but **not decoded**.
+- Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`,
+  `geometry_msgs/msg/{Vector3,Quaternion,Twist,Pose}` and `nav_msgs/msg/Odometry`.
+  [Structured inspection / schema v1](docs/STRUCTURED-MESSAGES.md) exposes a bounded
+  native field tree, selectable numeric paths, source Header stamps, UTF-8 frames
+  and both fixed covariance arrays. NaN/Inf are explicit, never invented zeros.
+  Custom/other types (including standalone Point, Header and covariance wrappers)
+  are listed but **not decoded**.
 - One active reader: latest value, count, received Hz, compatible publisher count
   and monotonic message age. Data older than three seconds is marked stale.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
@@ -182,7 +187,11 @@ from a digest-pinned public Jazzy ROS base plus exact package versions (includin
 transitive additions). It runs `subscribe_failure` (`fixture` label) once per
 Fast DDS/Cyclone DDS RMW. The real host-built test binary and ddsc library are
 mounted read-only and executed with the publisher inside the **same disposable
-`--network none` container**, on its private loopback/domain 67. No host/LAN/robot
+`--network none` container**, on its private loopback/domain 67.
+The same fixture gate also exercises all supported structured/primitive types,
+Unicode and truncation boundaries, NaN/Inf, numeric paths and reader recovery.
+The fixture image tag hashes its Dockerfile, publisher and loopback configuration
+together so parallel feature worktrees cannot reuse a stale publisher image. No host/LAN/robot
 network or device is accessible. Containers have unique names, resource limits,
 120-second publisher lifetimes and cleanup traps; the existing tablet fixture
 name is never reused or stopped. JUnit XML stays under `build/native-host/`.
