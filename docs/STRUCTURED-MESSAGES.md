@@ -53,7 +53,8 @@ publisher, RPC, network-policy change or bridge was added.
   `last` still permits 8192 bytes, now without splitting a multibyte character.
   Closed fixed schemas contain fewer than 192 nodes; there are no unbounded
   message sequences. Only the latest tree is retained, not message history.
-  Intake bounds and DDS reader resource limits remain unchanged.
+  These retained/presentation bounds are distinct from the DDS wire limit below;
+  DDS reader sample-count resource limits remain unchanged.
 - `message` is cleared on reader replacement/creation failure, Stop and session
   reset. An unsupported subscription follows the existing conservative contract:
   it reports an error and preserves the old reader, not a fake decoded value.
@@ -62,6 +63,55 @@ publisher, RPC, network-policy change or bridge was added.
   liveliness from the presence of a tree. Successful resubscription recovers.
 - JNI still transports byte arrays decoded using StandardCharsets.UTF_8, not
   modified UTF-8 `NewStringUTF`.
+
+## DDS wire admission versus retained bounds
+
+Every production `Session::start()` configures Cyclone DDS
+`Domain/Internal/MaxSampleSize` to **64 KiB (65,536 serialized CDR bytes per
+sample)**. This domain-wide ceiling covers telemetry, dedicated `/rosout`, graph
+and discovery traffic; it is not a per-string length or a JSON/JNI size limit.
+Samples **larger** than the ceiling are discarded by middleware with a warning,
+not partially decoded or counted as fresh intake. A subsequent regular sample
+on the same reader can recover normally, without a new session/subscription.
+Oversized rejection currently has no app-specific UI counter.
+
+The ROS IDL is unchanged: Odometry's `header.frame_id` and `child_frame_id`, and
+ROS String/Log fields, remain standard unbounded strings for interoperability.
+A valid ROS message can therefore be outside this inspector's admission scope.
+64 KiB is a deliberate prototype tradeoff: it accommodates the fixed Odometry
+schema plus ordinary frame IDs, our approximately 30 KiB long-frame regression,
+10 KiB String and long rosout fixtures, and a 60 KiB-frame positive control,
+while rejecting oversized wire strings *before* application clipping. Very
+large ROS graphs/discovery announcements and otherwise valid String/Log payloads
+above this ceiling are also out of scope. Change the ceiling only with a renewed
+memory budget and isolated regression evidence, not by bounding the ROS IDL.
+
+Verified against the pinned upstream Cyclone DDS **0.10.5**, commit
+`2cdd114cbd18340c606573b4cc8dc20cc161ec5a`:
+
+- `src/core/ddsi/include/dds/ddsi/ddsi_cfgelems.h`, `MaxSampleSize`: supported
+  `Internal` memsize setting, default `2147483647 B`, maximum serialized CDR
+  size forwarded in either direction; oversized samples discarded with warning.
+- `src/core/ddsi/src/q_receive.c`, `handle_Data` and `handle_DataFrag`: compare
+  `sampleinfo->size` with `config.max_sample_size` and call `drop_oversize` before
+  the normal delivery/fragment-reassembly branch. This is the load-bearing
+  receive-side protection, not just a producer-side limit.
+
+This limits an individual admitted serialized sample, **not total process memory**:
+DDS still has packet buffers, endpoint/participant state, multiple samples/readers,
+application trees and JSON copies. Existing sample-count limits, bounded retained
+strings and rosout ring budgets remain separate protections. It is not a general
+DoS defense, traffic-rate cap, allocator measurement or SROS2 authentication.
+
+`wire_sample_bounds` is a required `fixture;structured;security` CTest gate. In
+each existing disposable `--network none` fixture (Fast DDS and Cyclone RMW), a
+real rclpy ROS publisher and a **separate native production Session process**
+exchange RTPS. The test admits regular and sub-ceiling (60 KiB frame) Odometry,
+rejects a >128 KiB sample for each frame string with unchanged intake counts,
+then admits normal Odometry on the same reader/generation. It also requires
+Cyclone's oversize diagnostic and successful ordinary String plus dedicated Log
+intake afterward. Existing Unicode/truncation, String and first-burst rosout
+regressions remain required and unchanged. No host/LAN publisher is started.
 
 ## Android presentation
 

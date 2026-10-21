@@ -245,7 +245,9 @@ std::string Session::start(int domain,const std::string& address,const std::stri
  auto& s=*impl;s.domain_id=domain;
  std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast><DontRoute>true</DontRoute></General><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
- config+="</Discovery></Domain></CycloneDDS>";
+ // Cyclone 0.10.5 checks this serialized-size ceiling before RTPS fragment
+ // reassembly/deserialization; retained UTF-8/tree limits alone are too late.
+ config+="</Discovery><Internal><MaxSampleSize>64 KiB</MaxSampleSize></Internal></Domain></CycloneDDS>";
  s.domain=dds_create_domain(domain,config.c_str());
  if(s.domain<0){auto msg=std::string("Falha ao iniciar dominio DDS: ")+dds_strretcode(s.domain);return failed(msg);}
  s.participant=dds_create_participant(domain,nullptr,nullptr);

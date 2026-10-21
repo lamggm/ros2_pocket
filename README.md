@@ -47,6 +47,10 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   and both fixed covariance arrays. NaN/Inf are explicit, never invented zeros.
   Custom/other types (including standalone Point, Header and covariance wrappers)
   are listed but **not decoded**.
+- DDS wire admission is capped at **64 KiB serialized CDR per sample**, before
+  deserialization; larger valid ROS messages are dropped (including graph/log
+  traffic). This is distinct from retained UI/string bounds and not a total
+  process-memory guarantee: [scope and regression](docs/STRUCTURED-MESSAGES.md#dds-wire-admission-versus-retained-bounds).
 - One active **selected telemetry** reader: latest value, count, received Hz,
   compatible publisher count and monotonic message age. The dedicated `/rosout`
   reader is independently bounded. Telemetry older than three seconds is stale.
