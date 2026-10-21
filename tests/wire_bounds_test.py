@@ -76,7 +76,13 @@ with tempfile.TemporaryFile(mode="w+t") as errors:
         normal.header.frame_id = "wire_normal_ação_🤖"
         normal.child_frame_id = "base"
         normal.twist.twist.linear.x = 12.5
-        baseline = pump(0.6, lambda: publisher.publish(normal))[-1]
+        # Writer-side matching can precede the native reader's usable path.
+        # Require real intake, not a fixed sleep after graph discovery.
+        deadline = time.monotonic() + 8
+        baseline = command("poll")
+        while baseline["count"] == 0:
+            assert time.monotonic() < deadline, "matched Odometry produced no native intake"
+            baseline = pump(0.1, lambda: publisher.publish(normal))[-1]
         assert baseline["count"] > 0 and baseline["readerActive"]
         assert fields(baseline)["twist.twist.linear.x"]["value"] == 12.5
         generation = baseline["readerGeneration"]
