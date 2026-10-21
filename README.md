@@ -19,7 +19,8 @@ stays draft until qualification and operator acceptance on the physical tablet.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. Choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
-5. Tap a supported topic to inspect its latest value, count and received Hz.
+5. Choose **Watch 1–4**, then **Ler** on a supported Explorer topic. QoS edits
+   and **Remover watch selecionado** affect only that selected slot.
 
 Multicast filtering, AP/client isolation and host firewalls can prevent discovery.
 A matching Domain ID alone does not guarantee connectivity. Some Android VPNs
@@ -40,11 +41,18 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   reasons. Filtering/favorites do not restart DDS or subscribe.
 - `/rosout` console with typed Jazzy decoding, an independent bounded reader,
   local filters, pause and clear: [scope and validation](docs/ROSOUT-CONSOLE.md).
-- Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`.
-  Custom/other types are listed but **not decoded**.
-- One active **selected telemetry** reader: latest value, count, received Hz,
-  compatible publisher count and monotonic message age. The dedicated `/rosout`
-  reader is independently bounded. Telemetry older than three seconds is stale.
+- Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`,
+  `geometry_msgs/msg/{Vector3,Quaternion,Twist,Pose}` and `nav_msgs/msg/Odometry`.
+  [Structured inspection / schema v1](docs/STRUCTURED-MESSAGES.md) exposes bounded
+  per-watch field trees, numeric paths, source stamps, UTF-8 frames and fixed
+  covariance arrays. NaN/Inf are explicit, never invented zeros. Other/custom
+  types remain listed but unsupported.
+- [Up to four independent watches](docs/MULTIWATCH.md): value/tree, count,
+  received Hz, matches, QoS, persistent errors and monotonic age per slot.
+  Replace/remove one without restarting the other readers or discovery.
+- The dedicated bounded `/rosout` reader is independent of all four watches.
+- DDS wire admission is capped at **64 KiB serialized CDR per sample**, before
+  deserialization, including graph/log traffic; not a total-process memory bound.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
 - Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
@@ -54,9 +62,18 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   supported or validated by this prototype.
 - Node graph uses Jazzy's 16-byte GID schema. Older ROS graph formats can differ;
   topic discovery is independent of graph decoding.
-- No parameter editing, services/actions, plots, images, LaserScan, maps, TF or RViz.
+- [Numeric snapshot plots](docs/LIVE-PLOTS.md): select typed numeric paths from
+  any of the four independent watches, including all 87 Odometry numeric leaves;
+  bounded 30-second/600-point histories and up to four overlaid series. Plot
+  checkboxes are separate from the structured inspector's field selection.
+  Pause freezes the display only; per-reader replacement/removal/error retires
+  only that reader's traces. No display-text parsing or source-rate reconstruction.
+  Real isolated DDS integration is tested; physical plot acceptance is **pending**.
+- No parameter editing, services/actions, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
+  Each watch cache/intake is capped at 64 samples (256 total per poll); latest
+  text is capped at 8192 UTF-8 bytes. DDS samples above 64 KiB are dropped.
 - Portuguese-only UI; lint currently has nonfatal localization, launcher-icon and
   data-extraction-rule warnings.
 - No high-rate/endurance, physical Wi-Fi-toggle/IP-change, older-device or
@@ -194,7 +211,11 @@ producer, then the remaining fixtures, once per Fast DDS/Cyclone DDS RMW. The
 producer waits for a DDS subscriber instead of relying on a startup sleep. The
 real host-built test binary and ddsc library are
 mounted read-only and executed with the publisher inside the **same disposable
-`--network none` container**, on its private loopback/domain 67. No host/LAN/robot
+`--network none` container**, on its private loopback/domain 67.
+The same fixture gate also exercises all supported structured/primitive types,
+Unicode and truncation boundaries, NaN/Inf, numeric paths and reader recovery.
+The fixture image tag hashes its Dockerfile, publisher and loopback configuration
+together so parallel feature worktrees cannot reuse a stale publisher image. No host/LAN/robot
 network or device is accessible. Containers have unique names, resource limits,
 120-second publisher lifetimes and cleanup traps; the existing tablet fixture
 name is never reused or stopped. JUnit XML stays under `build/native-host/`.

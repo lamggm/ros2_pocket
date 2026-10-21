@@ -205,8 +205,11 @@ def record_result(report, metadata, gate_id, status, evidence, evidence_root, op
         raise ValueError('manual gate requires explicit operator and attestation note')
     if gate_id in {'soak', 'installed-apk'} and status == 'passed':
         validate_structured_evidence(gate_id, evidence, evidence_root, metadata)
-    files = [{'path': name, 'sha256': hashlib.sha256(evidence_file(evidence_root, name).read_bytes()).hexdigest()}
-             for name in evidence]
+    resolved_paths = [evidence_file(evidence_root, name) for name in evidence]
+    if len(set(resolved_paths)) != len(resolved_paths):
+        raise ValueError('duplicate evidence')
+    files = [{'path': name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+             for name, path in zip(evidence, resolved_paths)]
     result = copy.deepcopy(report)
     for gate in result['gates']:
         if gate['id'] == gate_id:
@@ -241,8 +244,11 @@ def evaluate_report(report, metadata, current_source, evidence_root):
             paths = [item['path'] for item in gate['evidence']]
             if len(set(paths)) != len(paths):
                 raise ValueError('duplicate evidence')
-            for item in gate['evidence']:
-                actual = hashlib.sha256(evidence_file(evidence_root, item['path']).read_bytes()).hexdigest()
+            resolved_paths = [evidence_file(evidence_root, path) for path in paths]
+            if len(set(resolved_paths)) != len(resolved_paths):
+                raise ValueError('duplicate evidence')
+            for item, path in zip(gate['evidence'], resolved_paths):
+                actual = hashlib.sha256(path.read_bytes()).hexdigest()
                 if actual != item['sha256']:
                     raise ValueError('evidence hash mismatch')
             if gate_id in {'soak', 'installed-apk'}:

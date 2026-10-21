@@ -60,6 +60,8 @@ class ToolTests(unittest.TestCase):
             shutil.copy(ROOT / 'tools/test.sh', root / 'tools/test.sh')
             (root / 'tests').mkdir()
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
+            (root / 'tests/fixture.py').write_text('test publisher')
+            (root / 'tests/fixture-loopback.xml').write_text('test discovery')
             (root / 'build/native-host').mkdir(parents=True)
             (root / 'bin').mkdir()
             for command in ('cmake', 'idlc', 'ctest'):
@@ -79,6 +81,9 @@ class ToolTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             runs = [line for line in calls.read_text().splitlines() if line.startswith('run ')]
             self.assertEqual(len(runs), 2)
+            import hashlib
+            expected = hashlib.sha256(''.join(hashlib.sha256(data.encode()).hexdigest()+'  '+name+'\n' for data,name in [('test recipe','tests/fixture.Dockerfile'),('test publisher','tests/fixture.py'),('test discovery','tests/fixture-loopback.xml')]).encode()).hexdigest()[:12]
+            self.assertTrue(all('ros2-pocket-ci-fixture:'+expected in run for run in runs), 'Image identity must include publisher/config, not only Dockerfile')
             for run in runs:
                 self.assertIn('--network none', run)
                 self.assertNotIn('--network host', run)
@@ -87,6 +92,24 @@ class ToolTests(unittest.TestCase):
             self.assertEqual(sum(line.startswith('rm -f ') for line in calls.read_text().splitlines()), 2)
             self.assertFalse(any(line.startswith('cp ') for line in calls.read_text().splitlines()),
                              'Read tmpfs reports through exec, not docker cp')
+
+    def test_fixture_lifetime_covers_combined_suites_but_remains_bounded(self):
+        # 04 first-burst + both 06 coexistence measurements + all 05 typed gates
+        # exceed the former 120s container lifetime, independently of CTest limits.
+        import json
+        recipe = (ROOT / 'tests/fixture.Dockerfile').read_text()
+        command = json.loads(next(line[4:] for line in recipe.splitlines() if line.startswith('CMD ')))
+        self.assertEqual(command[0], 'timeout')
+        self.assertGreaterEqual(int(command[1]), 300)
+        self.assertLessEqual(int(command[1]), 600)
+        self.assertEqual(command[2:], ['python3', '/fixture/fixture.py'])
+
+    def test_fixture_image_hash_covers_every_build_input(self):
+        runner = (ROOT / 'tools/test.sh').read_text()
+        self.assertIn('sha256sum tests/fixture.Dockerfile tests/fixture.py tests/fixture-loopback.xml', runner)
+        dockerfile = (ROOT / 'tests/fixture.Dockerfile').read_text()
+        copied = [line.split()[1] for line in dockerfile.splitlines() if line.startswith('COPY ')]
+        self.assertEqual(copied, ['fixture.py', 'fixture-loopback.xml'])
 
     def test_portable_runner_rejects_empty_ctest_selection(self):
         result, _, ctest_calls = self.run_ctest_gate('--portable')
@@ -191,6 +214,8 @@ class ToolTests(unittest.TestCase):
             if scenario == 'mkdir-failure':
                 (root / 'container-tmp/native').write_text('not a directory')
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
+            (root / 'tests/fixture.py').write_text('test publisher')
+            (root / 'tests/fixture-loopback.xml').write_text('test discovery')
             # Register a real test, but not under either selected label by default.
             label = 'unselected' if scenario == 'empty' else 'portable;fixture'
             command = '/bin/false' if scenario == 'ctest-failure' else '/bin/true'

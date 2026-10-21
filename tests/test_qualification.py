@@ -273,6 +273,75 @@ class QualificationTests(unittest.TestCase):
             (root / 'host.txt').unlink()
             self.assertFalse(q.evaluate_report(recorded, candidate, candidate['source'], root)['ready'])
 
+    def test_record_rejects_resolved_evidence_aliases_without_mutation(self):
+        q = tool()
+        candidate = metadata()
+        report = q.new_report(candidate)
+        before = copy.deepcopy(report)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'file.json').write_text('{"unit": "synthetic evidence only"}')
+            (root / 'alias.json').symlink_to('file.json')
+            for alias in ('./file.json', 'alias.json'):
+                self.assertEqual(q.evidence_file(root, alias), (root / 'file.json').resolve())
+                for status in ('passed', 'pending', 'failed', 'blocked'):
+                    with self.subTest(alias=alias, status=status):
+                        with self.assertRaisesRegex(ValueError, 'duplicate evidence'):
+                            q.record_result(report, candidate, 'host-tests', status,
+                                            ['file.json', alias], root)
+                        self.assertEqual(report, before, 'Rejected records must not mutate input')
+
+    def test_cli_record_evidence_alias_rejection_preserves_report_atomically(self):
+        q = tool()
+        scratch = ROOT / 'build/qualification/unit'
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
+            root = Path(directory)
+            candidate, _ = cli_candidate(root)
+            meta = root / 'metadata.json'
+            meta.write_text(json.dumps(candidate))
+            report = root / 'report.json'
+            before = (json.dumps(q.new_report(candidate), indent=2) + '\n').encode()
+            (root / 'file.json').write_text('{"unit": "synthetic evidence only"}')
+            (root / 'alias.json').symlink_to('file.json')
+            for alias in ('./file.json', 'alias.json'):
+                with self.subTest(alias=alias):
+                    report.write_bytes(before)
+                    result = run_cli('record', '--metadata', meta, '--report', report,
+                                     '--evidence-root', root, '--repo', ROOT,
+                                     '--gate', 'host-tests', '--status', 'passed',
+                                     '--evidence', 'file.json', '--evidence', alias)
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertIn('duplicate evidence', result.stderr)
+                    self.assertEqual(result.stdout, '')
+                    self.assertNotIn('Traceback', result.stderr)
+                    self.assertEqual(report.read_bytes(), before)
+                    self.assertFalse(list(root.glob('*.part')))
+
+    def test_evaluate_blocks_tampered_resolved_evidence_aliases(self):
+        q = tool()
+        candidate = metadata()
+        report = q.new_report(candidate)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'file.json').write_text('{"unit": "synthetic evidence only"}')
+            (root / 'alias.json').symlink_to('file.json')
+            (root / 'soak.json').write_text(json.dumps(self.synthetic_soak(q)))
+            (root / 'installed.json').write_text(json.dumps(candidate))
+            for gate_id in q.GATES:
+                evidence = {'soak': 'soak.json', 'installed-apk': 'installed.json'}.get(gate_id, 'file.json')
+                report = q.record_result(report, candidate, gate_id, 'passed', [evidence], root,
+                                         operator='UNIT TEST ONLY', note='Synthetic validation control')
+            self.assertTrue(q.evaluate_report(report, candidate, candidate['source'], root)['ready'])
+            for alias in ('./file.json', 'alias.json'):
+                with self.subTest(alias=alias):
+                    tampered = copy.deepcopy(report)
+                    evidence = tampered['gates'][0]['evidence']
+                    evidence.append(dict(evidence[0], path=alias))
+                    result = q.evaluate_report(tampered, candidate, candidate['source'], root)
+                    self.assertFalse(result['ready'])
+                    self.assertEqual(result['blockers'], ['host-tests: invalid evidence (duplicate evidence)'])
+
     def test_missing_evidence_traversal_empty_file_and_forged_binding_fail_closed(self):
         q = tool()
         candidate = metadata()
