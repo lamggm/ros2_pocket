@@ -35,7 +35,7 @@ are intentionally not a persistent dashboard feature.
   for a count that can now belong to a different slot.
 - Every `poll()` includes a four-element `watches` array, ordered by stable `slot`.
   Each entry contains `slot`, `generation`, `subscription`, `type`, `readerActive`,
-  `subscriptionState`, `fresh`, `last`, `count`, `hz`, `age`, `matched`, `qos`,
+  `subscriptionState`, `fresh`, `last`, `message`, `count`, `hz`, `age`, `matched`, `qos`,
   `error`. Age is seconds from a steady clock, or -1 without a sample. States use
   the existing connection-diagnostics vocabulary. Hz is received intake.
 - `generation` advances for an accepted replacement/removal, including actual
@@ -62,12 +62,19 @@ its own 128-sample intake / 200-entry, 256-KiB retained-ring budgets. Combined
 real DDS tests below prove four-watch/log coexistence; this is not physical
 Android acceptance or permission to merge increment 06 before 05.
 
-Increment **05 structured messages is not integrated**. The existing six
-primitive descriptors are unchanged; discovery registry, graph and endpoint QoS
-contracts remain intact. Extend the shared `descriptor()` dispatch and the
-per-watch `Watch::values()` decoder when reconciling 05, preserving its field /
-header contract. Structured multiwatch and plot acceptance are still integration
-dependencies; this branch does not claim support for those types.
+Increment **05 structured messages is reconciled locally** from
+`cee351a8fe282db7d1398789bba1d3eed1218a6a`. All eleven supported descriptors use
+the same per-slot intake path; each watch owns its latest schema-v1 `message`
+tree independently. The legacy root `message` is exactly slot zero, not the
+currently edited watch. Four bounded `StructuredMessageView` instances expose
+numeric selection locally, labeled by watch/generation; replacement, QoS,
+removal, errors and lifecycle clear only the affected tree (all on Stop/offline).
+Selection is scoped to topic/type because every subscription request clears its
+own view, while normal value refresh preserves its local numeric path.
+
+See [MERGE-05-06](MERGE-05-06.md) for hunk decisions, combined typed/log tests,
+measured budgets and remaining qualification boundaries. No plots, bridge,
+commands or publication actions were introduced.
 
 ## Resource acceptance budgets (defined before implementation)
 

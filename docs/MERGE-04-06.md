@@ -1,5 +1,8 @@
 # Neutral reconciliation: increment 06 × integration increment 04
 
+Historical 04 reconciliation. Its statement that 05 is absent is superseded by
+[MERGE-05-06](MERGE-05-06.md); all 04 gates and dedicated-reader semantics remain.
+
 Parents: `40173e8fab1b07f3a35089e3422f567ca89c8b9b` (06) and
 `bc7230178cbfeda5010bb524fe83183b4a1cd330` (04); merge base `e71bdf3`.
 

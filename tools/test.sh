@@ -32,8 +32,8 @@ else
   name="ros2-pocket-ci-${rmw}-$$-${RANDOM}"
   docker run --detach --name "$name" --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
    --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 \
-   -v "$PWD/build/native-host:$PWD/build/native-host:ro" \
    -v "$PWD/tests:$PWD/tests:ro" \
+   -v "$PWD/build/native-host:$PWD/build/native-host:ro" \
    -v "$TOOLCHAINS/host:$TOOLCHAINS/host:ro" \
    -e ROS_DOMAIN_ID=67 -e ROS_LOCALHOST_ONLY=1 -e POCKET_ROSOUT_FIXTURE=1 -e RMW_IMPLEMENTATION="$rmw" \
    -e CYCLONEDDS_URI=file:///fixture/loopback.xml "$image" >/dev/null

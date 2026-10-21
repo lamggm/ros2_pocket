@@ -35,6 +35,8 @@ public final class MainActivity extends Activity {
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
+ private StructuredMessageView structured;
+ private final StructuredMessageView[] watchStructured=new StructuredMessageView[4];
  private RosoutConsoleView rosoutConsole;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
@@ -106,7 +108,7 @@ public final class MainActivity extends Activity {
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
   topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
   TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
-  LinearLayout echo=card();selectedTitle=label("LEITURA · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
+  LinearLayout echo=card();selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
   for(int i=0;i<4;i++){
@@ -116,8 +118,7 @@ public final class MainActivity extends Activity {
   echo.addView(slots);
   watchEditorTitle=label("Editando Watch 1 · QoS e seleção abaixo/no Explorer",14,ACCENT);watchEditorTitle.setTag("watch-editor");echo.addView(watchEditorTitle);
   Button remove=new Button(this);remove.setTag("watch-remove");remove.setText("Remover watch selecionado");remove.setOnClickListener(v->removeSelectedWatch());echo.addView(remove);
-  for(int i=1;i<4;i++){watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);}
-  TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64. Outros tipos aparecem na lista, mas ainda não são decodificados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
+  TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64; geometry_msgs Vector3, Quaternion, Twist e Pose; nav_msgs Odometry. Campos numéricos selecionáveis abaixo. Outros tipos permanecem não suportados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
   LinearLayout qos=new LinearLayout(this);qos.setOrientation(LinearLayout.HORIZONTAL);
   reliable=new CheckBox(this);reliable.setId(R.id.qos_reliable);reliable.setText("Reliable");reliable.setTextColor(FG);qos.addView(reliable);
   transientLocal=new CheckBox(this);transientLocal.setId(R.id.qos_transient);transientLocal.setText("Transient local");transientLocal.setTextColor(FG);qos.addView(transientLocal);echo.addView(qos);
@@ -126,7 +127,12 @@ public final class MainActivity extends Activity {
   transientLocal.setOnCheckedChangeListener((b,on)->{if(switchingWatch)return;if(activeWatch>0){updateExtraQos();return;}transientValue=on;prefs.edit().putBoolean("transient",on).apply();resubscribe();});
   TextView qoshint=label("Padrão: best effort / volatile — recebe publicadores reliable e best effort. Hz = taxa recebida, não garantia da taxa de origem.",12,MUTED);echo.addView(qoshint);
   counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
-  message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);body.addView(echo);
+  message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);structured=new StructuredMessageView(this);watchStructured[0]=structured;structured.setTag("structuredMessage");echo.addView(structured);
+  for(int i=1;i<4;i++){
+   watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);
+   watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
+  }
+  body.addView(echo);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);body.addView(logCard);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
@@ -198,11 +204,12 @@ public final class MainActivity extends Activity {
   runOnUiThread(()->{if(foregroundActivity.get()==this&&resumed&&generation==token&&policy.accepts(epoch))action.run();});
  }
  private void inactive(String state){
+  structured.update(null,false);
   counts.setText(state);counts.setTextColor(WARNING);message.setTextColor(MUTED);
   message.setText("Aguardando nova mensagem desta sessão.");
  }
  private void extrasInactive(String state){
-  for(int i=1;i<4;i++)if(watchText[i]!=null){watchText[i].setText("Watch "+(i+1)+" · "+state);watchText[i].setTextColor(WARNING);}
+  for(int i=1;i<4;i++)if(watchText[i]!=null){watchStructured[i].update(null,false);watchText[i].setText("Watch "+(i+1)+" · "+state);watchText[i].setTextColor(WARNING);}
  }
  private void unavailable(String state,String error){
   extrasInactive(state);
@@ -242,6 +249,7 @@ public final class MainActivity extends Activity {
     workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
     subscriptionFailure="";lastUi=0;watchSlots.resetApplied();
     if(!selectedWire.isEmpty()&&policy.accepts(epoch))subscribeSelected(selectedWire,selectedType,reliableValue,transientValue,epoch);
+    else if(selectedWire.isEmpty())appliedReaderEpoch=epoch; // New session has no primary reader to await.
     for(int i=1;i<4;i++){WatchSlots.Request r=watchSlots.get(i);if(!r.wire.isEmpty())applyExtra(r);}
    }
    // Peer absence or a failed reader never tears down/rebuilds this healthy participant.
@@ -250,11 +258,11 @@ public final class MainActivity extends Activity {
    final long consoleEpoch=workerRosoutEpoch;
    long capturedNanos=System.nanoTime();
    final WatchSlots.Frame[] frames={null,watchSlots.frame(1),watchSlots.frame(2),watchSlots.frame(3)};
+   final boolean pendingReader=appliedReaderEpoch!=epoch;
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
    policy.recovered();
    final String failure=subscriptionFailure;
-   final boolean pendingReader=appliedReaderEpoch!=epoch&&(!selectedWire.isEmpty()||snapshot.optBoolean("readerActive"));
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · "+binding+" · domínio "+config.domain;
    long paint=System.nanoTime();
    if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
@@ -306,19 +314,21 @@ public final class MainActivity extends Activity {
   boolean fresh=failure.isEmpty()&&snapshot.optBoolean("readerActive")&&snapshot.optLong("count")>0&&snapshot.optInt("matched")>0&&"receiving".equals(subscriptionState)&&ConnectionPolicy.fresh(snapshot.optBoolean("fresh"),age,capturedNanos,System.nanoTime());
   if(!failure.isEmpty()){
    inactive("ERRO DE ASSINATURA/SESSÃO · último valor não é telemetria atual");
-   selectedTitle.setText("LEITURA · "+(snapshot.optBoolean("readerActive")?subscription+" · leitor anterior preservado":"sem assinatura ativa"));
+   selectedTitle.setText("LEITURA · Watch 1 · "+(snapshot.optBoolean("readerActive")?subscription+" · leitor anterior preservado":"sem assinatura ativa"));
    status.setText(failure);status.setTextColor(WARNING);
   }else if(pendingReader){
-   inactive("RECONECTANDO · aguardando nova assinatura");selectedTitle.setText("LEITURA · assinatura solicitada pendente");
+   inactive("RECONECTANDO · aguardando nova assinatura");selectedTitle.setText("LEITURA · Watch 1 · assinatura solicitada pendente");
   }else if(!subscription.isEmpty()&&snapshot.optBoolean("readerActive")){
-   selectedTitle.setText("LEITURA · "+subscription);
+   selectedTitle.setText("LEITURA · Watch 1 · geração "+snapshot.optLong("readerGeneration")+" · "+subscription);
    if(age>=0)age+=paintDelay;long count=snapshot.optLong("count");int matched=snapshot.optInt("matched");
    String state=fresh?"RECEBENDO":(count==0?"AGUARDANDO":"SEM DADOS RECENTES");
    counts.setText(String.format(Locale.ROOT,"%s · %d msgs · %.1f Hz recebidos\n%d publicador(es) compatível(is) · idade %s\n%s",state,count,snapshot.optDouble("hz"),matched,age<0?"—":String.format(Locale.ROOT,"%.1f s",age),snapshot.optString("qos")));
    counts.setTextColor(fresh?ACCENT:WARNING);message.setTextColor(fresh?FG:MUTED);
    message.setText(count>0?snapshot.optString("last"):"Nenhuma mensagem recebida. Confira publicadores e QoS.");
+   structured.update(count>0?snapshot.optJSONObject("message"):null,fresh);
   }else{
-   selectedTitle.setText("LEITURA · sem assinatura ativa");
+   structured.update(null,false);
+   selectedTitle.setText("LEITURA · Watch 1 · sem assinatura ativa");
    counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setTextColor(MUTED);
    message.setText("Nenhuma mensagem recebida.");
   }
@@ -344,9 +354,10 @@ public final class MainActivity extends Activity {
  private void disconnect(){
   extrasInactive("Desconectado · sem assinatura ativa");
   for(int i=1;i<4;i++)watchSlots.request(i,"","",false,false);
+  structured.update(null,false);
   policy.reset();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
-  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
+  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · Watch 1 · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
   rosoutEpoch++;rosoutConsole.clearNow();
  }
@@ -369,6 +380,7 @@ public final class MainActivity extends Activity {
  private void updateExtraQos(){WatchSlots.Request r=watchSlots.get(activeWatch);requestExtra(activeWatch,r.wire,r.type,reliable.isChecked(),transientLocal.isChecked());}
  private void requestExtra(int slot,String wire,String type,boolean r,boolean t){
   WatchSlots.Request next=watchSlots.request(slot,wire,type,r,t);
+  watchStructured[slot].update(null,false);
   watchText[slot].setText("Watch "+(slot+1)+" · assinatura pendente");watchText[slot].setTextColor(WARNING);
   final Config expected=requested;final int token=generation;
   if(worker!=null)worker.execute(()->{
@@ -384,6 +396,7 @@ public final class MainActivity extends Activity {
  private void removeSelectedWatch(){
   if(activeWatch>0){requestExtra(activeWatch,"","",false,false);return;}
   selectedWire="";selectedType="";policy.invalidate();long epoch=policy.generation();
+  structured.update(null,false);
   counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");
   final int token=generation;final Config expected=requested;
   if(worker!=null)worker.execute(()->{if(foregroundActivity.get()==this&&resumed&&generation==token&&connectWanted&&requested==expected&&policy.accepts(epoch)&&nativeRunning){bridge.removeWatch(0);subscriptionFailure="";appliedReaderEpoch=epoch;lastUi=0;}});
@@ -406,7 +419,9 @@ public final class MainActivity extends Activity {
     if(!fresh&&"receiving".equals(state))state="SEM DADOS RECENTES";
     text=String.format(Locale.ROOT,"%s · %s\n%d msgs · %.1f Hz recebidos · idade %s · %d compatíveis\n%s\n%s",f.request.wire.substring(2),fresh?"RECEBENDO":state,w.optLong("count"),w.optDouble("hz"),age<0?"—":String.format(Locale.ROOT,"%.1f s",age),w.optInt("matched"),w.optString("qos"),w.optString("last"));
    }
-   watchText[i].setText("Watch "+(i+1)+" · "+text);watchText[i].setTextColor(fresh?ACCENT:WARNING);
+   boolean treeVisible=!f.pending&&f.error.isEmpty()&&!f.request.wire.isEmpty()&&w!=null&&w.optString("error").isEmpty()&&w.optBoolean("readerActive")&&w.optLong("count")>0;
+   watchStructured[i].update(treeVisible?w.optJSONObject("message"):null,fresh);
+   watchText[i].setText("Watch "+(i+1)+" · geração "+(w==null?"—":Long.toString(w.optLong("generation")))+" · "+text);watchText[i].setTextColor(fresh?ACCENT:WARNING);
   }
  }
 }
