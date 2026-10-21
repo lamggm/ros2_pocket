@@ -54,29 +54,101 @@ excluded app cannot use the VPN/tailnet connection.
 
 ## Build on Linux (x86_64)
 
-Prerequisites: JDK 17, Android SDK platform 35/build-tools 35.0.0, Gradle 8.7,
-C/C++ compiler, CMake, Ninja, Python 3, Git, curl and unzip. Install the Android SDK
-and accept its licenses separately. No credentials or release-signing keys are
-required to build the debug package.
-
-Set `JAVA_HOME` if JDK 17 is not the active `javac`; set `ANDROID_HOME` (or
-`ANDROID_SDK_ROOT`) to your SDK. `POCKET_GRADLE` can name the Gradle 8.7 executable
-if `gradle` is not in PATH. There is no Gradle wrapper in this prototype.
+Prerequisites: **JDK 17**, Android SDK platform 35/build-tools 35.0.0,
+C/C++ compiler, CMake ≥3.16, Ninja, Python ≥3.11, Git, curl and unzip. Docker
+is needed only for the isolated Jazzy fixtures. Install the SDK and accept its
+licenses separately; e.g. with Android's command-line tools:
 
 ```bash
-bash tools/bootstrap.sh   # verified NDK r28c download; pinned Cyclone host/Android build
-bash tools/build.sh       # tests, native build, Android unit tests/lint/debug APK
+export JAVA_HOME=/path/to/jdk-17
+export ANDROID_HOME=/path/to/android-sdk
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+sdkmanager --licenses
 ```
 
-`POCKET_TOOLCHAINS` can override the external user-cache toolchain directory.
-The Gradle invocation is **offline**, so AGP 8.5.2/JUnit 4.13.2 must already be in
-your Gradle cache. For a new machine, run the final Gradle tasks once without
-`--offline` to resolve dependencies, then repeat `tools/build.sh`.
+No account, credentials, bare Gradle installation, private dependency cache or
+release-signing key is required. The versioned **official Gradle 8.7 wrapper**
+checks the distribution against its official SHA-256. Wrapper JAR and upstream
+checksum references are recorded in [dependency provenance](docs/DEPENDENCIES.md).
 
-Output: `app/build/outputs/apk/debug/app-debug.apk`, **arm64-v8a**, debug-signed.
-A debug build is not a signed/store release. Binaries, signing keys, toolchains,
-local environment files, packet captures, screenshots and device dumps are not
-stored in this repository. Upstream native LICENSE/NOTICE are included in APK assets.
+### Clean online bootstrap/build
+
+From the repository root, with network access to Google's Android/Maven
+repositories, Maven Central, Gradle distributions and GitHub:
+
+```bash
+# Optional: new empty caches prove independence from existing private caches.
+export POCKET_TOOLCHAINS="$PWD/build/toolchains"
+export GRADLE_USER_HOME="$PWD/build/gradle-user-home"
+bash tools/bootstrap.sh --online
+bash tools/build.sh --online
+bash tools/test.sh --fixture  # Docker: real Jazzy Fast DDS + Cyclone DDS
+```
+
+Both scripts default to `--online`. Bootstrap verifies the official NDK r28c
+archive (size and upstream SHA-1), checks the pinned Cyclone DDS source commit,
+and builds host IDLC/ddsc and Android ddsc. Build generates typed descriptors,
+runs portable C++/Java/Python tests and the real loopback DDS session test,
+builds native Android libraries, then runs wrapper tasks
+`:app:testDebugUnitTest :app:lintDebug :app:assembleDebug`. The scripts accept no
+arbitrary Gradle executable override. Use separate build directories/caches when
+switching toolchains; CMake caches contain absolute compiler/library paths.
+
+### Warmed offline mode
+
+```bash
+# Keep the SAME POCKET_TOOLCHAINS and GRADLE_USER_HOME used online.
+bash tools/bootstrap.sh --offline
+bash tools/build.sh --offline
+bash tools/test.sh --portable
+```
+
+Offline is **not** first-time provisioning: it requires the previously verified
+NDK, pinned Cyclone Git checkout and all native build prerequisites, installed
+JDK/SDK/licenses, the official wrapper distribution extracted in that Gradle
+user home, and every Gradle/Maven dependency (including lint and JUnit) resolved
+by a successful online build. Missing native downloads/distribution fail early;
+missing Maven artifacts fail in Gradle with `--offline`, never fall back online.
+The official wrapper itself does not honor `--offline` for distribution downloads,
+so the build script checks its exact distribution-cache location before running it.
+The fixture mode is separate and may require image/package downloads; it is **not**
+part of the offline promise. `POCKET_TOOLCHAINS`, `GRADLE_USER_HOME`, `TMPDIR` and
+`ANDROID_HOME` (or `ANDROID_SDK_ROOT`) are configurable; caches default outside Git.
+
+### Outputs and source provenance
+
+- `app/build/outputs/apk/debug/app-debug.apk`: arm64-v8a, debug-signed.
+- `build/artifacts/app-debug.json`: actual APK package/versionCode/versionName,
+  native ABI list, byte size, SHA-256, verified debug certificate DN/SHA-256, and
+  Git HEAD plus `dirty` and content snapshot SHA-256.
+
+Metadata is extracted with SDK `aapt2`/`apksigner` and ZIP inspection, **not** copied
+from Gradle defaults. A before/after source snapshot rejects edits during a build.
+Dirty local builds identify their base HEAD **and** `dirty: true`; they do not claim
+to be exact artifacts of that clean commit. The snapshot covers sorted tracked
+and nonignored untracked paths/content (including deletions), not user caches.
+Debug certificates can differ between machines/CI runs and from the tablet;
+these APKs do not authorize uninstalling/replacing a differently signed install.
+This is reproducible provisioning/build, not a claim of byte-identical signed APKs.
+No production signing, release upload or device installation is performed.
+
+### Public CI
+
+[`.github/workflows/verify.yml`](.github/workflows/verify.yml) runs on standard,
+ephemeral GitHub-hosted `ubuntu-24.04` runners, with `contents: read`, no persisted
+checkout credentials, no secrets/release keys or personal/self-hosted runners.
+PRs use `pull_request` (including forks), never `pull_request_target`. Actions
+are pinned to upstream-verified commits, the secret scanner to an image digest.
+A bounded job performs full-history redacted secret scanning, wrapper integrity,
+fresh-cache bootstrap, portable/unit tests, lint, debug assembly, both isolated
+Jazzy RMW regressions and a warmed offline rerun. Only the debug APK and its JSON
+are uploaded, for **7 days**; no device dumps, fixture snapshots, private logs,
+keystores or toolchains. CI success must be observed for the published SHA; local
+validation is not evidence that a remote workflow already ran.
+
+Upstream native LICENSE/NOTICE are included in APK assets. Generated binaries,
+signing keys, local environment files and test evidence remain ignored.
 
 ## Verification
 
@@ -93,7 +165,30 @@ and a persistent error. Successful resubscription and session reset clear it.
 Reader-creation failure was not separately induced. C++ domain/endpoint/name/JSON
 and Java input/network-selection tests accompany the source.
 
-### Reproduce on your own isolated bench
+### Automated isolated host fixtures (no tablet)
+
+`bash tools/test.sh --portable` runs the registered `core` and `session` CTests
+(`portable` label, real session on 127.0.0.1/domain 67), Java rules and Python
+script/metadata contracts. It does not need Docker or a running ROS publisher.
+`bash tools/test.sh --fixture` builds [tests/fixture.Dockerfile](tests/fixture.Dockerfile)
+from a digest-pinned public Jazzy ROS base plus exact package versions (including
+transitive additions). It runs `subscribe_failure` (`fixture` label) once per
+Fast DDS/Cyclone DDS RMW. The real host-built test binary and ddsc library are
+mounted read-only and executed with the publisher inside the **same disposable
+`--network none` container**, on its private loopback/domain 67. No host/LAN/robot
+network or device is accessible. Containers have unique names, resource limits,
+120-second publisher lifetimes and cleanup traps; the existing tablet fixture
+name is never reused or stopped. JUnit XML stays under `build/native-host/`.
+
+The recipe is intentionally Linux x86_64 (host ABI compatible with Ubuntu 24.04).
+Its base digest and all additional APT versions are pinned; signed upstream APT
+metadata validates the packages. If upstream removes a pinned version, provisioning
+fails instead of silently upgrading: review/update pins and rerun both RMWs. This
+is a reproducible recipe, not a promise of permanent upstream package retention or
+byte-identical image layers. Keep a built image locally for disconnected benches.
+Only synthetic fixture logs are involved; they are not uploaded as CI artifacts.
+
+### Reproduce on your own isolated tablet bench
 
 Never run these destructive fixture lifecycle tests against a robot domain.
 The synthetic fixture uses domains **67/68**, node `/pocket_fixture`, and topics

@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
+MODE="${1:---online}"
+if [[ $# -gt 1 || ( "$MODE" != --online && "$MODE" != --offline ) ]]; then
+ printf 'Usage: bash tools/bootstrap.sh [--online|--offline]\n' >&2; exit 2
+fi
 export TMPDIR="${TMPDIR:-$HOME/.cache/ros2-pocket/tmp}"
 CACHE="${POCKET_TOOLCHAINS:-$HOME/.cache/ros2-pocket/toolchains}"
 mkdir -p "$TMPDIR" "$CACHE"
 cd "$CACHE"
+if [[ "$MODE" == --offline ]] && { ! test -x android-ndk-r28c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang || ! test -d cyclonedds/.git; }; then
+ printf 'Offline bootstrap requires the previously verified NDK r28c and pinned Cyclone source. Run --online first.\n' >&2; exit 2
+fi
 if ! test -x android-ndk-r28c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang; then
  curl --fail --location --retry 2 --connect-timeout 20 --max-time 900 --output android-ndk-r28c-linux.zip.part https://dl.google.com/android/repository/android-ndk-r28c-linux.zip
  python3 -c 'import hashlib;from pathlib import Path;p=Path("android-ndk-r28c-linux.zip.part");h=hashlib.file_digest(p.open("rb"),"sha1").hexdigest();assert p.stat().st_size==722261334 and h=="a7b54a5de87fecd125a17d54f73c446199e72a64";p.rename("android-ndk-r28c-linux.zip")'
