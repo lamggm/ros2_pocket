@@ -16,6 +16,7 @@ import time
 import rclpy
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from std_msgs.msg import String, Float64, Int32, Bool
+from rcl_interfaces.msg import Log
 
 
 def main():
@@ -47,6 +48,26 @@ def main():
                          durability=DurabilityPolicy.TRANSIENT_LOCAL if i == 3 else DurabilityPolicy.VOLATILE)
         pubs.append(node.create_publisher(typ, '/multiwatch/t'+str(i), qos))
         timers.append(node.create_timer(1/rates[i], lambda i=i: send(i)))
+    # A separate typed rclpy Log writer on the same isolated domain proves
+    # transport coexistence; it is not native-injected or a borrowed watch slot.
+    log_pub = node.create_publisher(Log, '/rosout', QoSProfile(depth=128,
+        reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE))
+    log_lock = threading.Lock()
+    log_paused = [False]
+    log_sequence = [0]
+    def send_log():
+        with log_lock:
+            if log_paused[0]:
+                return
+            log_sequence[0] += 1
+            sample = Log()
+            sample.stamp = node.get_clock().now().to_msg()
+            sample.level = 20
+            sample.name = 'multiwatch.coexistence'
+            sample.msg = 'coexistence λ '+str(log_sequence[0])
+            sample.line = log_sequence[0]
+            log_pub.publish(sample)
+    timers.append(node.create_timer(.1, send_log))
     thread = threading.Thread(target=lambda: rclpy.spin(node), daemon=True)
     thread.start()
     child = subprocess.Popen([sys.argv[1]], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
@@ -71,6 +92,7 @@ def main():
         while True:
             snapshot = poll()
             check(snapshot)
+            assert snapshot['rosout']['active'] and snapshot['rosout']['error']=='', (label, snapshot['rosout'])
             for i in healthy:
                 watch = snapshot['watches'][i]
                 assert watch['readerActive'] and watch['fresh'] and watch['matched'] > 0, (label, i, watch)
@@ -82,6 +104,8 @@ def main():
             time.sleep(.1)
         deltas = {i: previous[i]['count'] - baseline['watches'][i]['count'] for i in healthy}
         assert all(delta > 0 for delta in deltas.values()), (label, deltas, snapshot)
+        if not log_paused[0]:
+            assert log_sequence_in(snapshot)>log_sequence_in(baseline), (label, 'rosout stalled')
         observations.append({'case': label, 'seconds': time.monotonic()-begin,
                              'healthyCountDeltas': deltas})
         return snapshot
@@ -113,6 +137,13 @@ def main():
         for i in range(4):
             assert watch(i, i==1, i==3)['ok']
         live=until(lambda s: all(w['count']>1 and w['fresh'] for w in s['watches']))
+        live=until(lambda s: all(w['fresh'] for w in s['watches']) and
+                   any(e['logger']=='multiwatch.coexistence' for e in s['rosout']['entries']))
+        def log_sequence_in(snapshot):
+            return max((e['line'] for e in snapshot['rosout']['entries']
+                        if e['logger']=='multiwatch.coexistence'), default=0)
+        coexistence_start = log_sequence_in(live)
+        assert live['rosout']['active'] and live['rosout']['error']==''
         assert len(live['watches'])==4
         assert live['count']==live['watches'][0]['count'], 'legacy slot zero snapshot'
         assert not cmd('watch 4 rt/fifth std_msgs::msg::dds_::String_ 0 0')['ok']
@@ -173,6 +204,8 @@ def main():
             peer=snapshot['watches'][1]
             assert peer['subscription'] == '/multiwatch/t1' and peer['qos'] == 'reliable / volatile', peer
         observe('same-topic peer advances after removal', before, (1,2,3), shared_removed)
+        after_reassignment = until(lambda s: log_sequence_in(s)>coexistence_start)
+        assert after_reassignment['rosout']['active']
         # Restore all FOUR ORIGINAL topic/type/QoS tuples before performance budgets.
         assert watch(0)['ok']
         restored=until(lambda s: all(w['fresh'] and w['count'] > 1 for w in s['watches']))
@@ -182,6 +215,30 @@ def main():
             assert w['subscription'] == '/multiwatch/t'+str(i), w
             assert w['type'] == 'std_msgs::msg::dds_::'+names[i]+'_', w
             assert w['qos'] == expected_qos[i] and w['matched'] > 0, w
+        # Clear only logs while every restored healthy telemetry reader advances.
+        with log_lock:
+            log_paused[0] = True
+        time.sleep(.2)
+        before_clear = poll()
+        assert before_clear['rosout']['count'] > 0
+        assert cmd('clear_rosout')['ok']
+        def cleared(snapshot):
+            connected(snapshot)
+            assert snapshot['rosout']['active'] and snapshot['rosout']['error']==''
+            assert snapshot['rosout']['count']==0 and snapshot['rosout']['entries']==[]
+        cleared_snapshot=observe('rosout clear preserves four advancing watch generations',
+                                 before_clear, (0,1,2,3), cleared)
+        with log_lock:
+            log_paused[0] = False
+        resumed=until(lambda s: log_sequence_in(s)>log_sequence_in(before_clear))
+        assert all(w['fresh'] for w in resumed['watches'])
+        print('COEXISTENCE '+json.dumps({'rmw':os.environ.get('RMW_IMPLEMENTATION'),
+            'firstLogSequence':coexistence_start,
+            'postReassignmentLogSequence':log_sequence_in(after_reassignment),
+            'postClearLogSequence':log_sequence_in(resumed),
+            'clearHealthyCountDeltas':[cleared_snapshot['watches'][i]['count']-
+                 before_clear['watches'][i]['count'] for i in range(4)],
+            'generationsPreserved':True}), flush=True)
         # Poll at the app's actual 500ms intake cadence. /proc is the native child,
         # not rclpy, Docker or the Python assertion driver.
         def proc():
@@ -209,6 +266,7 @@ def main():
         assert all(after['watches'][i]['count']>before['watches'][i]['count'] for i in (1,2,3))
         stopped=cmd('stop')
         assert not stopped['running']
+        assert not stopped['rosout']['active'] and stopped['rosout']['entries']==[]
         for i in range(4):
             inactive(stopped, i)
         print('PASS independent subscriptions, sustained QoS mismatch/recovery, fifth-slot rejection, '

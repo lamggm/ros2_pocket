@@ -14,6 +14,7 @@ class Session {
  // Stable slots 0..3. Slot zero is the legacy subscribe/poll projection.
  std::string watch(int slot, const std::string& topic, const std::string& type, bool reliable, bool transient);
  std::string remove_watch(int slot);
+ void clear_rosout();
  void stop();
 };
 }

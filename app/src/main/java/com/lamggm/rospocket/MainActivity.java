@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
+ private RosoutConsoleView rosoutConsole;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
  // Foreground identity is read across UI/worker threads; nativeOwner is confined to DDS_WORKER.
@@ -55,6 +56,8 @@ public final class MainActivity extends Activity {
  private String workerAddress="",workerInterface="";
  private Network workerNetwork;
  private long lastUi=0,appliedReaderEpoch=-1;
+ private volatile long workerRosoutEpoch=0;
+ private volatile long rosoutEpoch=0;
  private String subscriptionFailure="",binding="";
  private final WatchSlots watchSlots=new WatchSlots();
  private final TextView[] watchText=new TextView[4];
@@ -124,6 +127,8 @@ public final class MainActivity extends Activity {
   TextView qoshint=label("Padrão: best effort / volatile — recebe publicadores reliable e best effort. Hz = taxa recebida, não garantia da taxa de origem.",12,MUTED);echo.addView(qoshint);
   counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
   message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);body.addView(echo);
+  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
+  LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);body.addView(logCard);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);body.addView(nodeCard);
   TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));body.addView(footer);
@@ -202,6 +207,7 @@ public final class MainActivity extends Activity {
  private void unavailable(String state,String error){
   extrasInactive(state);
   inactive(state);status.setText(error);status.setTextColor(WARNING);
+  rosoutConsole.clearNow();
   diagnostics.setText("Rede indisponível · DDS peers: — · Nós ROS: —");
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Grafo indisponível nesta conexão");lastNodes="";
  }
@@ -233,12 +239,15 @@ public final class MainActivity extends Activity {
     workerNetwork=network;
     JSONObject result=NativeBridge.Api.json(bridge.start(config.domain,address,config.peer));
     if(!result.optBoolean("ok"))throw new IllegalStateException(result.optString("error","Falha no DDS"));
-    workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
+    workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
     subscriptionFailure="";lastUi=0;watchSlots.resetApplied();
     if(!selectedWire.isEmpty()&&policy.accepts(epoch))subscribeSelected(selectedWire,selectedType,reliableValue,transientValue,epoch);
     for(int i=1;i<4;i++){WatchSlots.Request r=watchSlots.get(i);if(!r.wire.isEmpty())applyExtra(r);}
    }
    // Peer absence or a failed reader never tears down/rebuilds this healthy participant.
+   // Tag the snapshot with the clear actually applied on this DDS worker,
+   // not a newer UI request whose native clear may still be queued.
+   final long consoleEpoch=workerRosoutEpoch;
    long capturedNanos=System.nanoTime();
    final WatchSlots.Frame[] frames={null,watchSlots.frame(1),watchSlots.frame(2),watchSlots.frame(3)};
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
@@ -248,7 +257,7 @@ public final class MainActivity extends Activity {
    final boolean pendingReader=appliedReaderEpoch!=epoch&&(!selectedWire.isEmpty()||snapshot.optBoolean("readerActive"));
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · "+binding+" · domínio "+config.domain;
    long paint=System.nanoTime();
-   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);}});}
+   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
   }catch(Throwable ex){
    String e=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());
    try{stopSession();}catch(Throwable cleanup){android.util.Log.w("RosPocket","DDS teardown: "+cleanup.getClass().getSimpleName());}
@@ -257,6 +266,16 @@ public final class MainActivity extends Activity {
    final String failedNetwork=details;
    ui(token,epoch,()->{if(connectWanted&&requested==config){unavailable("ERRO · dados indisponíveis","Falha DDS: "+e+" · nova tentativa em até "+policy.delayMillis()/1000+" s");diagnostics.setText(failedNetwork+"\nDDS peers: — · Nós ROS: —");}});
   }
+ }
+ private void clearRosout(){
+  final long clearEpoch=++rosoutEpoch;final Config clearConfig=requested;final int clearGeneration=generation;
+  rosoutConsole.clearNow();
+  if(worker!=null)worker.execute(()->{
+   if(foregroundActivity.get()!=this||!resumed||generation!=clearGeneration||requested!=clearConfig)return;
+   if(nativeRunning&&workerConfig==clearConfig)bridge.clearRosout();
+   else if(nativeRunning)return;
+   workerRosoutEpoch=clearEpoch;
+  });
  }
  private void subscribeSelected(String wire,String type,boolean r,boolean t,long epoch){
   try{
@@ -329,6 +348,7 @@ public final class MainActivity extends Activity {
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
+  rosoutEpoch++;rosoutConsole.clearNow();
  }
  @Override protected void onStop(){
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
@@ -337,6 +357,7 @@ public final class MainActivity extends Activity {
   extrasInactive("OFFLINE · aplicativo fora do primeiro plano");
   if(ticker!=null){ticker.cancel(false);ticker=null;}
   queueStop();worker=null;
+  rosoutEpoch++;rosoutConsole.clearNow();
   super.onStop();
  }
  private void chooseWatch(int slot){

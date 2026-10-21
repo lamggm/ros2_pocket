@@ -39,12 +39,15 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   filters and favorites; publisher/subscriber details, real graph-GID associations
   (unknown explicitly), announced endpoint QoS and conservative incompatibility
   reasons. Filtering/favorites do not restart DDS or subscribe.
+- `/rosout` console with typed Jazzy decoding, an independent bounded reader,
+  local filters, pause and clear: [scope and validation](docs/ROSOUT-CONSOLE.md).
 - Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`.
   Custom/other types are listed but **not decoded**.
 - [Up to four independent watches](docs/MULTIWATCH.md): latest value, count,
   received Hz, compatible publisher count, requested QoS, persistent errors and
   monotonic age per slot. Data older than three seconds is marked stale. Replace
   or remove one slot without restarting the other readers or discovery.
+- The dedicated bounded `/rosout` reader runs independently of all four watches.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
 - Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
@@ -169,7 +172,8 @@ advancing sequence, actual ROS node graph, Home return with a new sample, produc
 loss/stale display/removal, replacement by Cyclone DDS, reliable-versus-best-effort
 QoS rejection/recovery, wrong/correct domain isolation, Float64 samples, process
 restart, retained connection settings and resumed topic reading. Both Jazzy
-Fast DDS and Cyclone DDS were exercised.
+Fast DDS and Cyclone DDS were exercised. The isolated fixture also validates
+real Jazzy `/rosout` messages in separate ROS publisher and Cyclone reader processes.
 
 Additional native regression: after a real live sample, an invalid DDS topic name
 forces actual topic-creation failure; repeated polls must show inactive telemetry
@@ -184,8 +188,10 @@ and Java input/network-selection tests accompany the source.
 script/metadata contracts. It does not need Docker or a running ROS publisher.
 `bash tools/test.sh --fixture` builds [tests/fixture.Dockerfile](tests/fixture.Dockerfile)
 from a digest-pinned public Jazzy ROS base plus exact package versions (including
-transitive additions). It runs `subscribe_failure` (`fixture` label) once per
-Fast DDS/Cyclone DDS RMW. The real host-built test binary and ddsc library are
+transitive additions). It runs `rosout_jazzy_interop` first with a fresh
+producer, then the remaining fixtures, once per Fast DDS/Cyclone DDS RMW. The
+producer waits for a DDS subscriber instead of relying on a startup sleep. The
+real host-built test binary and ddsc library are
 mounted read-only and executed with the publisher inside the **same disposable
 `--network none` container**, on its private loopback/domain 67. No host/LAN/robot
 network or device is accessible. Containers have unique names, resource limits,

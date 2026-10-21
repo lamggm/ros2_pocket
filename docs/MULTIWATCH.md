@@ -55,12 +55,12 @@ are intentionally not a persistent dashboard feature.
 
 ### Parallel dependencies, not claimed complete
 
-Increment **04 `/rosout` is not integrated** here. There is no competing log
-manager or Log reader. Its future dedicated reader should live in the same
-Session/participant and executor, with its own explicit cache/intake budget;
-it must neither consume/reassign a watch slot nor silently increase this four
-watch API boundary. Rosout + four-watch coexistence requires post-integration
-DDS and lifecycle acceptance.
+Increment **04 `/rosout` is reconciled locally** from integration commit
+`bc7230178cbfeda5010bb524fe83183b4a1cd330`. Its dedicated reader shares the
+Session/participant and serialized executor, but consumes no watch slot and has
+its own 128-sample intake / 200-entry, 256-KiB retained-ring budgets. Combined
+real DDS tests below prove four-watch/log coexistence; this is not physical
+Android acceptance or permission to merge increment 06 before 05.
 
 Increment **05 structured messages is not integrated**. The existing six
 primitive descriptors are unchanged; discovery registry, graph and endpoint QoS
@@ -94,11 +94,12 @@ plots or graph history are introduced.
 
 ## Validation evidence
 
-Base: `e71bdf3` from `origin/integration/v0.2` (01/02/03), with **uncommitted**
-06 changes. The final build's ignored `build/artifacts/app-debug.json` records
-actual APK identity/signature/hash plus exact dirty-source content snapshot;
-`build/source-before.json` must match its source. No commit, push or PR is made
-for this increment.
+The original increment-06 evidence below was collected over base `e71bdf3`.
+The reconciled local tree combines committed 06 `40173e8` and integration 04
+`bc72301`; final clean-commit identity is derived from ignored
+`build/artifacts/app-debug.json` after the merge commit and rebuild. Historical
+pre-merge artifact hashes are not the current candidate. Publication and final
+qualification remain the parent's separate gates.
 
 ### Real RED → GREEN cycles
 
@@ -135,52 +136,68 @@ surviving generations, backlog intake, long Unicode and oversized wire samples.
 The normal fixture gate runs all its tests once for Fast DDS and once for Cyclone.
 The existing domain-67/69 fixture regressions remain included, not bypassed.
 
-Measurements from the final bounded-sample GREEN run (`final-fixture.log`,
-corresponding archived `build/multiwatch-evidence/measured-rmw_*.xml`), private `--network none` containers
-limited to one CPU / 512 MiB, native child `/proc` only:
+### Reconciled 04 + 06 gate on Ryzen
+
+Evidence is ignored under `build/reconcile04-evidence/`; the definitive APK,
+clean source SHA/content snapshot and signature are in
+`build/artifacts/app-debug.json`. No artifact hash is embedded in this source
+document because documentation itself participates in the source snapshot.
+
+- Full `tools/build.sh --offline` passed in a private `unshare -Urn` network
+  namespace with only loopback up: Python tool/provenance **20/20**, portable
+  CTest **11/11**, both standalone Java harnesses, native arm64 build, JVM
+  **66/66**, lint **0 errors / 73 warnings**, and debug assembly/provenance.
+  Explicit `--rerun-tasks` JVM/lint also passed. JVM totals include inherited
+  connection scenarios repeated through the multiwatch Activity harness, not
+  66 distinct new scenarios.
+- `tools/test.sh --fixture`: dedicated rosout **1/1 first**, then all other
+  fixtures **4/4**, for each RMW (**10/10** total). Containers are unique,
+  resource-bounded and `--network none`. Image identity hashes all Docker build
+  inputs: Dockerfile, fixture.py, fixture-loopback.xml; scripts and exact native
+  libraries/binaries remain read-only mounted. Passed-test output retention is
+  16 KiB so XML retains measured values rather than truncating the evidence.
+- New coexistence fixture publishes actual Jazzy `rcl_interfaces/msg/Log` over
+  domain 71 alongside String/Float64/Int32/Bool at 5/10/20/40 Hz. All four
+  watches and dedicated logs receive; log sequence advances throughout sustained
+  QoS mismatch, failed creation, removal, reassignment and same-topic/different-QoS
+  cases. Clearing logs with the log publisher paused leaves log count zero while
+  all four healthy counters advance **6/12/24/48** with unchanged generations
+  (both RMWs). Resuming the log publisher produces new log sequence numbers.
+  Stop clears all five readers' presentation. No host/LAN publisher is used.
+- RED/GREEN: `image-hash-red.log` exposes incomplete image identity;
+  `coexistence-red.log` fails the unknown helper `clear_rosout` command after
+  real log/watch reception. Adding the test-only native helper command and
+  full-input image key makes the complete fixture green; no app fault-injection
+  or publisher API is introduced.
+- Existing deterministic stale-paint regression covers all extra slots 1..3;
+  Explorer compatibility remains explicitly labeled **Watch 1**. Rosout retains
+  its worker-applied pre-poll clear epoch and both policy-monitor / blocked-poll
+  clear-race regressions. Both features retain ordered process-wide JNI teardown.
+- Pinned Gitleaks **8.30.1** current tracked-source scan passed: **74 files,
+  zero findings**, redacted report retained. This is separate from CI's
+  full-history scan, which is not claimed as newly executed here.
+
+Measurements with the dedicated rosout reader active, private containers limited
+to one CPU / 512 MiB, native child `/proc` only (`fixture-final.log`, per-RMW XML):
 
 | Publisher RMW | Duration s | CPU % one core | Peak RSS bytes | RSS span bytes | Received Hz (5/10/20/40 requested) |
 |---|---:|---:|---:|---:|---|
-| Fast DDS | 20.0177 | 0.1998 | 7,925,760 | 0 | 4.9956 / 9.9911 / 20.0322 / 40.0145 |
-| Cyclone DDS | 20.0188 | 0.1998 | 7,946,240 | 0 | 4.9953 / 9.9906 / 20.0312 / 40.0124 |
+| Fast DDS | 20.0400 | 0.2495 | 8,028,160 | 0 | 4.9900 / 9.9800 / 20.0099 / 40.0199 |
+| Cyclone DDS | 20.0412 | 0.2495 | 7,843,840 | 0 | 4.9897 / 9.9795 / 20.0088 / 40.0176 |
 
-No inference from host numbers to tablet CPU/RSS, battery, Wi-Fi endurance,
-physical 16-KiB loading, RF loss/IP change or long-duration soak is made.
-Robolectric uses an explicit JNI double; it is not Android native-load evidence.
-Reader-creation failure distinct from topic-creation failure is not fault-injected.
+The native 64-KiB serialized sample ceiling is shared by watches, dedicated
+rosout and discovery in this Session. A bounded rosout ring is not a claim of
+bounded total process/JNI/UI memory or lossless DDS intake.
 
-### Final gate result on Ryzen
-
-- `tools/build.sh --offline`: passed; Python tool/provenance tests **19/19**,
-  portable CTest **10/10** (including real loopback Session and Explorer),
-  standalone Java input/connection-policy harnesses passed, Android/JVM tests
-  **51/51**, `lintDebug` **0 errors / 66 warnings**, and `assembleDebug` passed.
-  The JVM total includes the inherited lifecycle suite exercised against the
-  multiwatch Activity harness; it is not 51 new independent scenarios.
-- `tools/test.sh --fixture`: **4/4 per RMW, 8/8 total**, real DDS in disposable
-  `--network none` containers. `final-fixture.log` and per-RMW XML preserve the
-  final assertions and measurements. Synthetic publishers never use host/LAN
-  networking in this gate.
-- Redacted pinned Gitleaks current-source scan: **no leaks**, exit 0. The scan
-  copies the exact nonignored tracked/untracked source snapshot, not just HEAD.
-  This is distinct from CI's full-history scan; no claim of a new full-history
-  scan is made here.
-- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`, **4,768,614 bytes**,
-  `com.lamggm.rospocket.dev`, version **0.1.0 (1)**, debug certificate
-  `beb0d55eb6b42476aef6f769f20c0c887eb7b58562df83c4e32fc0396fe3aa5d`,
-  verified APK Signature Scheme **v2**. SHA-256:
-  `bab8aeaea76240710ddcc31b272b013da03548660b6670fd12195c9d77737001`.
-  Only **arm64-v8a** is packaged; both `libddsc.so` / `librospocket.so` are
-  AArch64 with all ELF LOAD segments aligned to **16384**. This is artifact
-  inspection, not physical 16-KiB-device execution.
-- Dirty-source provenance: `build/artifacts/app-debug.json` matches
-  `build/source-before.json`; detailed source-file hashes, ELF evidence, scan
-  log, signature report and gate summary are under ignored
-  `build/multiwatch-evidence/`. Documentation belongs to the source snapshot;
-  the ignored metadata, rather than this document, is the final snapshot ID.
-- No device installation/ADB mutation, release signing/publication, commit,
-  push, PR or feature merge was performed. The required integration baseline
-  was incorporated only by fast-forward, without a merge commit.
+**Not complete:** increment 05 structured descriptors/fields/headers and its
+post-integration coexistence are absent. Increment 06 must not merge into
+integration before 05 is merged, reconciled and re-tested. No physical device
+installation/native loading, Wi-Fi loss/IP change, tablet CPU/RSS/battery,
+physical 16-KiB-device execution, plots or long-duration soak is claimed.
+Robolectric uses a JNI double, not Android native-load evidence. DDS reader
+creation failure distinct from topic creation is not fault-injected. No push,
+PR publication, integration/main merge, ADB, VPN or firewall mutation is performed
+by this reconciliation; the parent owns the existing draft PR and publication.
 
 ### Reproduction (no device or LAN mutation)
 

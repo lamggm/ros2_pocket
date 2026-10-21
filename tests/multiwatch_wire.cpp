@@ -26,6 +26,8 @@ int main() {
     std::cout << session.remove_watch(slot) << std::endl;
   } else if(cmd=="poll") {
    std::cout << session.poll() << std::endl;
+  } else if(cmd=="clear_rosout") {
+   session.clear_rosout();std::cout << "{\"ok\":true}" << std::endl;
   } else if(cmd=="stop") {
    session.stop();session.stop();std::cout << session.poll() << std::endl;
   } else if(cmd=="exit") {
