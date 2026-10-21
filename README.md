@@ -162,6 +162,12 @@ signing keys, local environment files and test evidence remain ignored.
 
 ## Verification
 
+The [v0.2 device qualification plan](docs/DEVICE-QUALIFICATION-v0.2.md) defines
+21 required evidence gates, exact source/APK binding, and a predeclared measured
+soak. The offline report toolkit never touches a device and cannot replace
+physical acceptance. [v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) remain draft;
+preparation of this matrix is not final qualification or release approval.
+
 The prototype passed **16 real-tablet checks**: live String samples with an
 advancing sequence, actual ROS node graph, Home return with a new sample, producer
 loss/stale display/removal, replacement by Cyclone DDS, reliable-versus-best-effort
