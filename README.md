@@ -62,7 +62,14 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   supported or validated by this prototype.
 - Node graph uses Jazzy's 16-byte GID schema. Older ROS graph formats can differ;
   topic discovery is independent of graph decoding.
-- No parameter editing, services/actions, plots, images, LaserScan, maps, TF or RViz.
+- [Numeric snapshot plots](docs/LIVE-PLOTS.md): select typed numeric paths from
+  any of the four independent watches, including all 87 Odometry numeric leaves;
+  bounded 30-second/600-point histories and up to four overlaid series. Plot
+  checkboxes are separate from the structured inspector's field selection.
+  Pause freezes the display only; per-reader replacement/removal/error retires
+  only that reader's traces. No display-text parsing or source-rate reconstruction.
+  Real isolated DDS integration is tested; physical plot acceptance is **pending**.
+- No parameter editing, services/actions, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
   Each watch cache/intake is capped at 64 samples (256 total per poll); latest

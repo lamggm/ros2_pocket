@@ -78,10 +78,56 @@ static const dds_topic_descriptor_t* descriptor(const std::string& type) {
  if(type=="nav_msgs::msg::dds_::Odometry_")return &nav_msgs_msg_dds__Odometry__desc;
  return nullptr;
 }
+// Project the typed decoder's path/order/exact JSON tokens, not last/display text.
+// Field currently stores nonfinite metadata in its rendered JSON only. Classify
+// raw typed numbers here rather than interpreting its localized display strings.
+static void plot_states(std::vector<const char*>& states,double value) {
+ states.push_back(std::isfinite(value)?"finite":(std::isnan(value)?"nan":(value>0?"positive_infinity":"negative_infinity")));
+}
+static void plot_states(std::vector<const char*>& s,const geometry_msgs_msg_dds__Vector3_& v) {
+ plot_states(s,v.x);plot_states(s,v.y);plot_states(s,v.z);
+}
+static void plot_states(std::vector<const char*>& s,const geometry_msgs_msg_dds__Quaternion_& v) {
+ plot_states(s,v.x);plot_states(s,v.y);plot_states(s,v.z);plot_states(s,v.w);
+}
+static void plot_states(std::vector<const char*>& s,const geometry_msgs_msg_dds__Pose_& v) {
+ plot_states(s,v.position.x);plot_states(s,v.position.y);plot_states(s,v.position.z);plot_states(s,v.orientation);
+}
+static void plot_states(std::vector<const char*>& s,const geometry_msgs_msg_dds__Twist_& v) {
+ plot_states(s,v.linear);plot_states(s,v.angular);
+}
+static void plot_states(std::vector<const char*>& s,const nav_msgs_msg_dds__Odometry_& v) {
+ plot_states(s,v.header.stamp.sec);plot_states(s,v.header.stamp.nanosec);
+ plot_states(s,v.pose.pose);for(double n:v.pose.covariance)plot_states(s,n);
+ plot_states(s,v.twist.twist);for(double n:v.twist.covariance)plot_states(s,n);
+}
+static void plot_leaves(const Field& f,const std::vector<const char*>& states,size_t& index,std::string& out) {
+ if(f.kind=="number") {
+  if(index)out+=',';
+  const auto* state=states.at(index++);
+  out+="{\"path\":"+json_quote(f.path)+",\"unit\":null,\"state\":"+json_quote(state)+",\"value\":"+f.json_value+"}";
+ }
+ for(const auto& child:f.children)plot_leaves(child,states,index,out);
+}
+static std::string plot_fields(const std::string& type,const void* sample,const Field& tree) {
+ std::vector<const char*> states;
+ if(type=="geometry_msgs::msg::dds_::Vector3_")plot_states(states,*static_cast<const geometry_msgs_msg_dds__Vector3_*>(sample));
+ else if(type=="geometry_msgs::msg::dds_::Quaternion_")plot_states(states,*static_cast<const geometry_msgs_msg_dds__Quaternion_*>(sample));
+ else if(type=="geometry_msgs::msg::dds_::Twist_")plot_states(states,*static_cast<const geometry_msgs_msg_dds__Twist_*>(sample));
+ else if(type=="geometry_msgs::msg::dds_::Pose_")plot_states(states,*static_cast<const geometry_msgs_msg_dds__Pose_*>(sample));
+ else if(type=="nav_msgs::msg::dds_::Odometry_")plot_states(states,*static_cast<const nav_msgs_msg_dds__Odometry_*>(sample));
+ else if(type=="std_msgs::msg::dds_::Float32_")plot_states(states,static_cast<const std_msgs_msg_dds__Float32_*>(sample)->data);
+ else if(type=="std_msgs::msg::dds_::Float64_")plot_states(states,static_cast<const std_msgs_msg_dds__Float64_*>(sample)->data);
+ else if(type=="std_msgs::msg::dds_::Int32_" || type=="std_msgs::msg::dds_::Int64_")states.push_back("finite");
+ size_t index=0;std::string out="[";plot_leaves(tree,states,index,out);
+ if(index!=states.size())throw std::logic_error("Typed plot/schema leaf count mismatch");
+ return out+"]";
+}
 struct Watch {
  dds_entity_t reader=0,topic=0;
  uint64_t generation=0;
  bool requested_reliable=false,requested_transient=false;
+ std::string numeric_fields="[]"; int64_t received_ns=0,source_ns=0;
  std::string message="null",value_error,selected,type,last,last_error,mode="best_effort / volatile";
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
  void stop_reader() {
@@ -89,9 +135,14 @@ struct Watch {
   reader=0;
   if(topic>0)dds_delete(topic);
   topic=0;
-  selected.clear();type.clear();last.clear();message="null";last_error.clear();value_error.clear();count=0;hz=0;rate_count=0;
+  selected.clear();type.clear();last.clear();message="null";numeric_fields="[]";received_ns=0;source_ns=0;last_error.clear();value_error.clear();count=0;hz=0;rate_count=0;
  }
  void values();
+ std::string plot_json() const {
+  return ",\"receivedMonotonicNs\":"+(count?std::to_string(received_ns):"null")+
+         ",\"sourceTimestampNs\":"+(count?std::to_string(source_ns):"null")+
+         ",\"numericFields\":"+numeric_fields;
+ }
  std::string json(int slot) const {
   const double age=count?std::chrono::duration<double>(Clock::now()-last_sample).count():-1;
   dds_subscription_matched_status_t matched{};if(reader>0)dds_get_subscription_matched_status(reader,&matched);
@@ -102,7 +153,7 @@ struct Watch {
    <<",\"type\":"<<json_quote(type)<<",\"readerActive\":"<<(reader>0?"true":"false")
    <<",\"subscriptionState\":"<<json_quote(state)<<",\"fresh\":"<<(state=="receiving"?"true":"false")
    <<",\"last\":"<<json_quote(last)<<",\"message\":"<<message<<",\"count\":"<<count<<",\"hz\":"<<hz<<",\"age\":"<<age
-   <<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(mode)<<",\"error\":"<<json_quote(failure)<<"}";
+   <<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(mode)<<",\"error\":"<<json_quote(failure)<<plot_json()<<"}";
   return o.str();
  }
 };
@@ -237,9 +288,11 @@ struct Session::Impl : Watch {
      else if(type=="std_msgs::msg::dds_::Bool_")out<<(static_cast<std_msgs_msg_dds__Bool_*>(p)->data?"true":"false");
      last=out.str();
     }
-    auto tree=decode_fields(type,p);message=message_json(type,tree);
+    auto tree=decode_fields(type,p);message=message_json(type,tree);numeric_fields=plot_fields(type,p,tree);
     if(type.rfind("std_msgs::",0)!=0)last=field_summary(tree);
     ++count;last_sample=Clock::now();
+     received_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(last_sample.time_since_epoch()).count();
+     source_ns=infos[i].source_timestamp;
    }
    if(n>0)dds_return_loan(reader,samples,n);
    if(n<64)break;
@@ -347,6 +400,7 @@ std::string Session::poll() {
     <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,running?s.discovery_error:failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
+  out<<s.plot_json();
  out<<",\"watches\":[";for(int i=0;i<4;i++){if(i)out<<',';out<<s.slot(i).json(i);}out<<']';
  out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"message\":"<<s.message<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);
  std::string rosout_status=s.rosout_error;bool rosout_expected_writer=false;std::string rosout_other_type;

@@ -126,6 +126,13 @@ A ordem preferencial de integração continua 01 → 02 → 03 → 04 → 05 →
 
 **Gates:** memória não cresce sem limite; NaN/Inf e lacunas não viram zeros inventados; separar tempo de recebimento monotônico de timestamp de origem e resets de relógio. Unidades só quando conhecidas, sem inferi-las de qualquer campo chamado x.
 
+**Estado da frente 07 reconciliada com 04/05/06 (`d1f7a3d`):** históricos/Canvas
+ligados aos snapshots tipados de cada um dos quatro readers, incluindo todos os
+87 campos numéricos de Odometry, com identidade por slot/reader/sessão.
+Limites, contratos e regressões reais isoladas estão em [LIVE-PLOTS.md](LIVE-PLOTS.md).
+Fixtures DDS e Robolectric não substituem revisão independente, CI do SHA final
+nem qualificação física/endurance e aceite do operador, que permanecem gates.
+
 ### 08 — Qualificação física e candidato v0.2
 
 **Branch:** `test/v0.2-08-device-qualification`.

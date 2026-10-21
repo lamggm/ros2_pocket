@@ -9,8 +9,8 @@ final class WatchSlots {
   Request(int s,long v,String w,String t,boolean r,boolean l){slot=s;version=v;wire=w;type=t;reliable=r;transientLocal=l;}
  }
  static final class Frame {
-  final Request request; final boolean pending; final String error;
-  Frame(Request r,boolean p,String e){request=r;pending=p;error=e;}
+  final Request request; final long appliedVersion; final boolean pending; final String error;
+  Frame(Request r,long a,boolean p,String e){request=r;appliedVersion=a;pending=p;error=e;}
  }
  private final Request[] desired=new Request[4];
  private final long[] applied={-1,-1,-1,-1};
@@ -22,6 +22,14 @@ final class WatchSlots {
  }
  synchronized boolean current(Request r){return desired[r.slot]==r;}
  synchronized void complete(Request r,String e){if(current(r)){applied[r.slot]=r.version;errors[r.slot]=e;}}
- synchronized Frame frame(int slot){Request r=desired[slot];return new Frame(r,!r.wire.isEmpty()&&applied[slot]!=r.version,errors[slot]);}
+ synchronized Frame frame(int slot){Request r=desired[slot];return new Frame(r,applied[slot],!r.wire.isEmpty()&&applied[slot]!=r.version,errors[slot]);}
+ synchronized Frame[] frames(){return new Frame[]{frame(0),frame(1),frame(2),frame(3)};}
+ // Caller holds this monitor through intake, so request() cannot race acceptance.
+ synchronized Frame[] capture(Frame[] beforeIdentity){
+  Frame[] result=new Frame[4];
+  for(int i=0;i<4;i++)result[i]=current(beforeIdentity[i].request)?frame(i):beforeIdentity[i];
+  return result;
+ }
+ synchronized boolean current(Frame f){return current(f.request)&&applied[f.request.slot]==f.appliedVersion&&errors[f.request.slot].equals(f.error);}
  synchronized void resetApplied(){for(int i=0;i<4;i++)applied[i]=-1;}
 }
