@@ -60,6 +60,8 @@ class ToolTests(unittest.TestCase):
             shutil.copy(ROOT / 'tools/test.sh', root / 'tools/test.sh')
             (root / 'tests').mkdir()
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
+            (root / 'tests/fixture.py').write_text('test publisher')
+            (root / 'tests/fixture-loopback.xml').write_text('test config')
             (root / 'build/native-host').mkdir(parents=True)
             (root / 'bin').mkdir()
             for command in ('cmake', 'idlc', 'ctest'):
@@ -79,6 +81,9 @@ class ToolTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             runs = [line for line in calls.read_text().splitlines() if line.startswith('run ')]
             self.assertEqual(len(runs), 2)
+            import hashlib
+            expected = hashlib.sha256(('test recipe'+'test publisher'+'test config').encode()).hexdigest()[:12]
+            self.assertTrue(all('ros2-pocket-ci-fixture:'+expected in run for run in runs), 'Image identity must include publisher/config, not only Dockerfile')
             for run in runs:
                 self.assertIn('--network none', run)
                 self.assertNotIn('--network host', run)
@@ -191,6 +196,8 @@ class ToolTests(unittest.TestCase):
             if scenario == 'mkdir-failure':
                 (root / 'container-tmp/native').write_text('not a directory')
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
+            (root / 'tests/fixture.py').write_text('test publisher')
+            (root / 'tests/fixture-loopback.xml').write_text('test config')
             # Register a real test, but not under either selected label by default.
             label = 'unselected' if scenario == 'empty' else 'portable;fixture'
             command = '/bin/false' if scenario == 'ctest-failure' else '/bin/true'

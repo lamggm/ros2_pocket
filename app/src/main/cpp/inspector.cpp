@@ -1,5 +1,6 @@
 #include "inspector.hpp"
 #include "model.hpp"
+#include "structured.hpp"
 #include "PocketTypes.h"
 #include <dds/dds.h>
 #include <arpa/inet.h>
@@ -69,6 +70,11 @@ static const dds_topic_descriptor_t* descriptor(const std::string& type) {
  if(type=="std_msgs::msg::dds_::Int32_") return &std_msgs_msg_dds__Int32__desc;
  if(type=="std_msgs::msg::dds_::Int64_") return &std_msgs_msg_dds__Int64__desc;
  if(type=="std_msgs::msg::dds_::Bool_") return &std_msgs_msg_dds__Bool__desc;
+ if(type=="geometry_msgs::msg::dds_::Vector3_")return &geometry_msgs_msg_dds__Vector3__desc;
+ if(type=="geometry_msgs::msg::dds_::Quaternion_")return &geometry_msgs_msg_dds__Quaternion__desc;
+ if(type=="geometry_msgs::msg::dds_::Twist_")return &geometry_msgs_msg_dds__Twist__desc;
+ if(type=="geometry_msgs::msg::dds_::Pose_")return &geometry_msgs_msg_dds__Pose__desc;
+ if(type=="nav_msgs::msg::dds_::Odometry_")return &nav_msgs_msg_dds__Odometry__desc;
  return nullptr;
 }
 struct Session::Impl {
@@ -91,7 +97,7 @@ struct Session::Impl {
  }
  bool requested_reliable=false,requested_transient=false;
  bool seen_peer=false;
- std::string discovery_error,value_error;
+ std::string discovery_error,value_error,message="null";
  std::string selected,type,last,last_error,mode="best_effort / volatile";
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
  RosoutBuffer rosout; std::string rosout_error;
@@ -117,7 +123,7 @@ struct Session::Impl {
   reader=0;
   if(topic>0) dds_delete(topic);
   topic=0;
-  selected.clear(); type.clear(); last.clear(); last_error.clear(); value_error.clear(); count=0; hz=0;rate_count=0;
+  selected.clear(); type.clear(); last.clear(); message="null"; last_error.clear(); value_error.clear(); count=0; hz=0;rate_count=0;
  }
  void stop_rosout() {if(rosout_reader>0)dds_delete(rosout_reader);rosout_reader=0;if(rosout_topic>0)dds_delete(rosout_topic);rosout_topic=0;rosout.clear();rosout_error.clear();}
  void endpoints(dds_entity_t source,bool writer) {
@@ -200,7 +206,7 @@ struct Session::Impl {
     if(!infos[i].valid_data)continue;
     void* p=samples[i]; std::ostringstream out;out<<std::setprecision(10);
     if(type=="std_msgs::msg::dds_::String_") {
-     auto* v=static_cast<std_msgs_msg_dds__String_*>(p);last=v->data?std::string(v->data,std::min<size_t>(std::strlen(v->data),8192)):"";
+     auto* v=static_cast<std_msgs_msg_dds__String_*>(p);last=bounded_utf8(v->data,8192);
     } else {
      if(type=="std_msgs::msg::dds_::Float64_")out<<static_cast<std_msgs_msg_dds__Float64_*>(p)->data;
      else if(type=="std_msgs::msg::dds_::Float32_")out<<static_cast<std_msgs_msg_dds__Float32_*>(p)->data;
@@ -209,6 +215,8 @@ struct Session::Impl {
      else if(type=="std_msgs::msg::dds_::Bool_")out<<(static_cast<std_msgs_msg_dds__Bool_*>(p)->data?"true":"false");
      last=out.str();
     }
+    auto tree=decode_fields(type,p);message=message_json(type,tree);
+    if(type.rfind("std_msgs::",0)!=0)last=field_summary(tree);
     ++count;last_sample=Clock::now();
    }
    if(n>0)dds_return_loan(reader,samples,n);
@@ -237,7 +245,9 @@ std::string Session::start(int domain,const std::string& address,const std::stri
  auto& s=*impl;s.domain_id=domain;
  std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast><DontRoute>true</DontRoute></General><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
- config+="</Discovery></Domain></CycloneDDS>";
+ // Cyclone 0.10.5 checks this serialized-size ceiling before RTPS fragment
+ // reassembly/deserialization; retained UTF-8/tree limits alone are too late.
+ config+="</Discovery><Internal><MaxSampleSize>64 KiB</MaxSampleSize></Internal></Domain></CycloneDDS>";
  s.domain=dds_create_domain(domain,config.c_str());
  if(s.domain<0){auto msg=std::string("Falha ao iniciar dominio DDS: ")+dds_strretcode(s.domain);return failed(msg);}
  s.participant=dds_create_participant(domain,nullptr,nullptr);
@@ -304,7 +314,7 @@ std::string Session::poll() {
     <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
- out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);
+ out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"message\":"<<s.message<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);
  std::string rosout_status=s.rosout_error;bool rosout_expected_writer=false;std::string rosout_other_type;
  for(const auto& row:s.registry.topics())if(row.name=="/rosout")for(const auto& ep:row.endpoints)if(ep.writer){if(row.wire_type=="rcl_interfaces::msg::dds_::Log_")rosout_expected_writer=true;else rosout_other_type=row.type;}
  if(!rosout_expected_writer&&!rosout_other_type.empty())rosout_status="Tipo /rosout incompatível anunciado: "+rosout_other_type;

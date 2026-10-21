@@ -20,7 +20,7 @@ if [[ "$MODE" == --portable ]]; then
  java -cp build/tests ConnectionPolicyTest
  ctest --test-dir build/native-host -L portable --no-tests=error --output-on-failure --output-junit portable.xml
 else
- image="ros2-pocket-ci-fixture:$(sha256sum tests/fixture.Dockerfile | cut -c1-12)"
+ image="ros2-pocket-ci-fixture:$(python3 -c 'import hashlib;from pathlib import Path;print(hashlib.sha256(b"".join(Path(p).read_bytes() for p in ["tests/fixture.Dockerfile","tests/fixture.py","tests/fixture-loopback.xml"])).hexdigest()[:12])')"
  docker build --platform linux/amd64 -f tests/fixture.Dockerfile -t "$image" tests
  name=""
  cleanup() { if [[ -n "$name" ]]; then docker rm -f "$name" >/dev/null 2>&1 || true; fi; }
@@ -32,6 +32,7 @@ else
   name="ros2-pocket-ci-${rmw}-$$-${RANDOM}"
   docker run --detach --name "$name" --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
    --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 \
+   -v "$PWD/tests:$PWD/tests:ro" \
    -v "$PWD/build/native-host:$PWD/build/native-host:ro" \
    -v "$TOOLCHAINS/host:$TOOLCHAINS/host:ro" \
    -e ROS_DOMAIN_ID=67 -e ROS_LOCALHOST_ONLY=1 -e POCKET_ROSOUT_FIXTURE=1 -e RMW_IMPLEMENTATION="$rmw" \

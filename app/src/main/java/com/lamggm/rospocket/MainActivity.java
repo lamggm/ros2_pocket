@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
+ private StructuredMessageView structured;
  private RosoutConsoleView rosoutConsole;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
@@ -102,7 +103,7 @@ public final class MainActivity extends Activity {
   topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
   TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout echo=card();selectedTitle=label("LEITURA · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
-  TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64. Outros tipos aparecem na lista, mas ainda não são decodificados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
+  TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64; geometry_msgs Vector3, Quaternion, Twist e Pose; nav_msgs Odometry. Campos numéricos selecionáveis abaixo. Outros tipos permanecem não suportados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
   LinearLayout qos=new LinearLayout(this);qos.setOrientation(LinearLayout.HORIZONTAL);
   reliable=new CheckBox(this);reliable.setId(R.id.qos_reliable);reliable.setText("Reliable");reliable.setTextColor(FG);qos.addView(reliable);
   transientLocal=new CheckBox(this);transientLocal.setId(R.id.qos_transient);transientLocal.setText("Transient local");transientLocal.setTextColor(FG);qos.addView(transientLocal);echo.addView(qos);
@@ -111,7 +112,7 @@ public final class MainActivity extends Activity {
   transientLocal.setOnCheckedChangeListener((b,on)->{transientValue=on;prefs.edit().putBoolean("transient",on).apply();resubscribe();});
   TextView qoshint=label("Padrão: best effort / volatile — recebe publicadores reliable e best effort. Hz = taxa recebida, não garantia da taxa de origem.",12,MUTED);echo.addView(qoshint);
   counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
-  message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);body.addView(echo);
+  message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);structured=new StructuredMessageView(this);structured.setTag("structuredMessage");echo.addView(structured);body.addView(echo);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);body.addView(logCard);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
@@ -182,6 +183,7 @@ public final class MainActivity extends Activity {
   runOnUiThread(()->{if(foregroundActivity.get()==this&&resumed&&generation==token&&policy.accepts(epoch))action.run();});
  }
  private void inactive(String state){
+  structured.update(null,false);
   counts.setText(state);counts.setTextColor(WARNING);message.setTextColor(MUTED);
   message.setText("Aguardando nova mensagem desta sessão.");
  }
@@ -295,7 +297,9 @@ public final class MainActivity extends Activity {
    counts.setText(String.format(Locale.ROOT,"%s · %d msgs · %.1f Hz recebidos\n%d publicador(es) compatível(is) · idade %s\n%s",state,count,snapshot.optDouble("hz"),matched,age<0?"—":String.format(Locale.ROOT,"%.1f s",age),snapshot.optString("qos")));
    counts.setTextColor(fresh?ACCENT:WARNING);message.setTextColor(fresh?FG:MUTED);
    message.setText(count>0?snapshot.optString("last"):"Nenhuma mensagem recebida. Confira publicadores e QoS.");
+   structured.update(count>0?snapshot.optJSONObject("message"):null,fresh);
   }else{
+   structured.update(null,false);
    selectedTitle.setText("LEITURA · sem assinatura ativa");
    counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setTextColor(MUTED);
    message.setText("Nenhuma mensagem recebida.");
@@ -319,6 +323,7 @@ public final class MainActivity extends Activity {
   });
  }
  private void disconnect(){
+  structured.update(null,false);
   policy.reset();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
