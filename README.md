@@ -34,6 +34,10 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
 
 - Real DDS endpoint discovery, publisher/subscriber counts excluding this
   inspector, and ROS node names from Jazzy `ros_discovery_info`.
+- [Topic Explorer / QoS](docs/EXPLORER-QOS.md): local search, namespace/type
+  filters and favorites; publisher/subscriber details, real graph-GID associations
+  (unknown explicitly), announced endpoint QoS and conservative incompatibility
+  reasons. Filtering/favorites do not restart DDS or subscribe.
 - Decoders: `std_msgs/msg/{String,Bool,Int32,Int64,Float32,Float64}`.
   Custom/other types are listed but **not decoded**.
 - One active reader: latest value, count, received Hz, compatible publisher count

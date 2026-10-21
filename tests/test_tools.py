@@ -94,6 +94,12 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(len(ctest_calls), 1, 'The real CTest gate must run')
         self.assertNotEqual(result.returncode, 0, 'An empty portable label must fail')
 
+    def test_portable_runner_executes_connection_policy_contract(self):
+        result, _, _ = self.run_ctest_gate('--portable', 'success')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('ConnectionPolicyTest', result.stdout)
+        self.assertIn('ConnectionPolicy.java', result.stdout)
+
     def test_fixture_runner_rejects_empty_ctest_selection(self):
         result, calls, ctest_calls = self.run_ctest_gate('--fixture')
         self.assertIn('No tests were found', result.stdout + result.stderr)
@@ -194,7 +200,8 @@ class ToolTests(unittest.TestCase):
                     f'set_tests_properties(probe PROPERTIES LABELS "{label}")\n')
             for command in ('cmake', 'python3', 'javac', 'java'):
                 path = root / 'bin' / command
-                path.write_text('#!/bin/sh\nexit 0\n')
+                path.write_text('#!/bin/sh\nprintf "%s\\n" "$*"\nexit 0\n'
+                                if command in ('javac', 'java') else '#!/bin/sh\nexit 0\n')
                 path.chmod(0o755)
             idlc = root / 'host/bin/idlc'
             idlc.write_text('#!/bin/sh\nexit 0\n')

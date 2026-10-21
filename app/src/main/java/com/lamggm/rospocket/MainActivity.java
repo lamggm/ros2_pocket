@@ -34,7 +34,7 @@ public final class MainActivity extends Activity {
  private TextView status,diagnostics,nodes,message,counts,topicTitle,selectedTitle;
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
- private LinearLayout topicList;
+ private ExplorerView topicList;
  private SharedPreferences prefs;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
  // Foreground identity is read across UI/worker threads; nativeOwner is confined to DDS_WORKER.
@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
  private volatile String selectedWire="",selectedType="";
  private volatile boolean reliableValue=false,transientValue=false;
  private volatile int generation=0;
- private String lastTopics="",lastNodes="",wifiDisplay="";
+ private String lastNodes="",wifiDisplay="";
  // Confined to the single DDS executor:
  private boolean nativeRunning=false;
  private Config workerConfig;
@@ -96,7 +96,7 @@ public final class MainActivity extends Activity {
   diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);body.addView(diagnosticCard);
   body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
-  topicList=column();topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
+  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
   TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
   LinearLayout echo=card();selectedTitle=label("LEITURA · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64. Outros tipos aparecem na lista, mas ainda não são decodificados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
@@ -128,7 +128,7 @@ public final class MainActivity extends Activity {
    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(domain.getWindowToken(),0);
    domain.clearFocus();peer.clearFocus();
    foregroundActivity=new WeakReference<>(this);policy.reset();
-   if(resetSelection){selectedWire="";selectedType="";lastTopics="";topicList.removeAllViews();}
+   if(resetSelection){selectedWire="";selectedType="";topicList.update(new JSONArray());}
    requested=new Config(d,p);connectWanted=true;
    inactive("RECONECTANDO · aguardando dados desta sessão");
    prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putBoolean("wanted",true).apply();
@@ -183,7 +183,7 @@ public final class MainActivity extends Activity {
  private void unavailable(String state,String error){
   inactive(state);status.setText(error);status.setTextColor(WARNING);
   diagnostics.setText("Rede indisponível · DDS peers: — · Nós ROS: —");
-  topicList.removeAllViews();topicTitle.setText("TÓPICOS · 0");nodes.setText("Grafo indisponível nesta conexão");lastTopics="";lastNodes="";
+  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Grafo indisponível nesta conexão");lastNodes="";
  }
  private static long monotonicMillis(){return System.nanoTime()/1_000_000L;}
  private void tick(int token){
@@ -245,18 +245,7 @@ public final class MainActivity extends Activity {
  }
  private void render(JSONObject snapshot,Config config,String networkDisplay,String pendingError,long capturedNanos,boolean pendingReader){
   JSONArray topics=snapshot.optJSONArray("topics");if(topics==null)topics=new JSONArray();
-  String signature=topics.toString()+selectedWire;
-  if(!signature.equals(lastTopics)){
-   lastTopics=signature;topicList.removeAllViews();topicTitle.setText("TÓPICOS · "+topics.length());
-   for(int i=0;i<topics.length();i++){
-    JSONObject topic=topics.optJSONObject(i);if(topic==null)continue;
-    String name=topic.optString("name"),type=topic.optString("type");boolean supported=topic.optBoolean("supported");
-    TextView item=label(name+"\n"+type+"\n"+topic.optInt("publishers")+" pub · "+topic.optInt("subscribers")+" sub"+(supported?" · tocar para ler":" · só descoberta nesta versão"),14,supported?FG:MUTED);
-    item.setPadding(dp(10),dp(12),dp(10),dp(12));item.setBackground(shape(topic.optString("wireName").equals(selectedWire)?0xff24443f:CARD));
-    item.setContentDescription("Tópico "+name);item.setOnClickListener(v->select(topic));topicList.addView(item);
-   }
-   if(topics.length()==0)topicList.addView(label("Nenhum tópico visível ainda.\nConfira domínio, multicast, firewall e isolamento do Wi-Fi.",14,MUTED));
-  }
+  topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
   String connection=snapshot.optString("connectionState","offline");
   String connectionLabel="connected".equals(connection)?"CONECTADO":("reconnecting".equals(connection)?"RECONECTANDO":("discovering".equals(connection)?"DESCOBERTA":"ERRO/OFFLINE"));
   status.setText(connectionLabel+" · domínio "+config.domain+" · Wi-Fi "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; mesma rede não garante multicast.":""));
@@ -296,7 +285,7 @@ public final class MainActivity extends Activity {
  private void select(JSONObject topic){
   if(!connectWanted)return;
   if(!topic.optBoolean("supported")){Toast.makeText(this,"Tipo descoberto, mas ainda sem decodificador: "+topic.optString("type"),Toast.LENGTH_LONG).show();return;}
-  selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");lastTopics="";resubscribe();
+  selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");resubscribe();
  }
  private void resubscribe(){
   if(worker==null||!connectWanted||selectedWire.isEmpty())return;
@@ -313,7 +302,7 @@ public final class MainActivity extends Activity {
  private void disconnect(){
   policy.reset();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
-  topicList.removeAllViews();topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastTopics="";lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
+  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
  }
  @Override protected void onStop(){

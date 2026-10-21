@@ -3,5 +3,8 @@
 <item name="status" type="id"/><item name="topics" type="id"/><item name="nodes" type="id"/>
 <item name="message" type="id"/><item name="counts" type="id"/><item name="qos_reliable" type="id"/>
 <item name="qos_transient" type="id"/>
+<item name="explorer_search" type="id"/><item name="explorer_namespace" type="id"/>
+<item name="explorer_type" type="id"/><item name="explorer_favorites" type="id"/>
+<item name="explorer_rows" type="id"/><item name="explorer_details" type="id"/>
 <item name="diagnostics" type="id"/>
 </resources>

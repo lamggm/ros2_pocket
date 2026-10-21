@@ -61,6 +61,25 @@ public class ConnectionActivityTest {
   assertTrue(text(R.id.counts).contains("OFFLINE"));assertFalse(text(R.id.message).equals("42.5"));assertNotEquals(0xff48d7bb,((TextView)a.findViewById(R.id.counts)).getCurrentTextColor());
   assertNull(((ConnectivityManager)a.getSystemService(Context.CONNECTIVITY_SERVICE)).getBoundNetworkForProcess());
  }
+ @Test public void networkLossClearsExplorerSnapshotButKeepsLocalControlsAndExplicitReader()throws Exception{
+  org.json.JSONObject topic=new org.json.JSONObject().put("name","/numeric").put("type","std_msgs/msg/Float64").put("wireName","rt/numeric").put("wireType","std_msgs::msg::dds_::Float64_").put("supported",true);
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("topics",new org.json.JSONArray().put(topic)).toString();
+  ExplorerView explorer=a.findViewById(R.id.topics);EditText search=explorer.findViewById(R.id.explorer_search);
+  tick();paint();assertSame("Session startup must not remove Explorer controls",search,explorer.findViewById(R.id.explorer_search));search.setText("numeric");
+  ((CheckBox)explorer.findViewWithTag("favorite:rt/numeric\nstd_msgs::msg::dds_::Float64_")).performClick();
+  ((Button)explorer.findViewWithTag("details:rt/numeric\nstd_msgs::msg::dds_::Float64_")).performClick();
+  assertEquals(1,explorer.visibleCount());assertEquals(1,bridge.subscriptions);
+  cm.clearAllNetworks();tick();paint();
+  assertSame("Network loss must not remove Explorer controls",search,explorer.findViewById(R.id.explorer_search));
+  assertEquals("numeric",search.getText().toString());assertEquals(0,explorer.visibleCount());
+  assertTrue(((TextView)explorer.findViewById(R.id.explorer_details)).getText().toString().contains("não está anunciado"));
+  assertFalse(text(R.id.counts).contains("RECEBENDO"));assertEquals(1,bridge.subscriptions);
+  cm.addNetwork(wifi,null);NetworkCapabilities caps=new NetworkCapabilities();shadowOf(caps).addTransportType(NetworkCapabilities.TRANSPORT_WIFI);shadowOf(caps).addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN);cm.setNetworkCapabilities(wifi,caps);address("192.0.2.2");
+  tick();paint();assertEquals(1,explorer.visibleCount());assertEquals(2,bridge.starts);assertEquals(2,bridge.subscriptions);
+  assertTrue(((CheckBox)explorer.findViewWithTag("favorite:rt/numeric\nstd_msgs::msg::dds_::Float64_")).isChecked());
+  ((Button)explorer.findViewWithTag("read:rt/numeric\nstd_msgs::msg::dds_::Float64_")).performClick();
+  ((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);assertEquals(3,bridge.subscriptions);
+ }
  @Test public void addressChangeFencesOldCallbackAndRecreatesOnlyOnce()throws Exception{
   tick();address("192.0.2.3");tick();paint();assertEquals(2,bridge.starts);assertTrue(text(R.id.diagnostics).contains("192.0.2.3"));assertEquals("rt/numeric",get("selectedWire"));
  }
