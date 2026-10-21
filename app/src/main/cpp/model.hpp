@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <stdexcept>
@@ -6,6 +7,18 @@
 #include <sstream>
 #include <iomanip>
 namespace pocket {
+inline std::string connection_state(bool running, size_t peers, bool seen_peer, const std::string& error) {
+ if (!error.empty()) return "error";
+ if (!running) return "offline";
+ if (peers) return "connected";
+ return seen_peer ? "reconnecting" : "discovering";
+}
+inline std::string subscription_state(bool reader, uint64_t count, int matched, double age, const std::string& error) {
+ if (!error.empty()) return "error";
+ if (!reader) return "inactive";
+ if (!count) return "waiting";
+ return matched > 0 && age >= 0 && age <= 3 ? "receiving" : "stale";
+}
 inline bool valid_domain(int domain) { return domain >= 0 && domain <= 101; }
 struct TopicRow { std::string name, type, wire_name, wire_type; int publishers=0, subscribers=0; };
 inline std::string ros_type(std::string type) {

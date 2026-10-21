@@ -14,7 +14,16 @@ android {
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
  packaging { jniLibs { useLegacyPackaging true } }
  sourceSets { main { assets.srcDirs += rootProject.file('third_party') } }
+ testOptions {
+  unitTests.includeAndroidResources = true
+  unitTests.all {
+   if (System.getenv('POCKET_ROBOLECTRIC_JARS')) {
+    systemProperty 'robolectric.offline', 'true'
+    systemProperty 'robolectric.dependency.dir', System.getenv('POCKET_ROBOLECTRIC_JARS')
+   }
+  }
+ }
  lint { abortOnError true }
 }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
-dependencies { testImplementation 'junit:junit:4.13.2' }
+dependencies { testImplementation 'junit:junit:4.13.2'; testImplementation 'org.robolectric:robolectric:4.14.1' }
