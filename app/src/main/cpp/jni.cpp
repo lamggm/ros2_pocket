@@ -28,3 +28,6 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stop(JNIEnv*,jclass) {
  std::lock_guard<std::mutex> lock(mutex);session.stop();
 }
+extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_clearRosout(JNIEnv*,jclass) {
+ std::lock_guard<std::mutex> lock(mutex);session.clear_rosout();
+}
