@@ -12,4 +12,4 @@ COPY fixture.py /fixture/fixture.py
 COPY fixture-loopback.xml /fixture/loopback.xml
 ENV ROS_DOMAIN_ID=67 ROS_LOCALHOST_ONLY=1 PYTHONDONTWRITEBYTECODE=1 ROS_LOG_DIR=/tmp/ros/log HOME=/tmp
 USER 65534:65534
-CMD ["timeout", "120", "python3", "/fixture/fixture.py"]
+CMD ["timeout", "420", "python3", "/fixture/fixture.py"]

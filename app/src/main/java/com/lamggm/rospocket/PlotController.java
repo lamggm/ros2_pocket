@@ -5,7 +5,7 @@ import java.util.*;
 
 /** Intake contract independent of reader management and Android rendering. */
 final class PlotController {
- static final int MAX_FIELDS=64;
+ static final int MAX_FIELDS=192;
  final PlotHistory history=new PlotHistory(600,30_000_000_000L);
  static final class Field {
   final String watch,path,unit;final Double value;
@@ -13,7 +13,7 @@ final class PlotController {
   String id(){return watch+"\n"+path;}
  }
  // One immutable frame per actual received message or latest-sample snapshot.
- // Future 05/06 adapters supply typed paths/watch identity here, never display text.
+ // Typed paths/watch identity come from native structured values, never display text.
  static final class Frame {
   final String watch;final long epoch,sequence,received;final Long source;final List<Field> fields;
   Frame(String w,long e,long s,long r,Long source,List<Field> fields){
@@ -24,10 +24,13 @@ final class PlotController {
  private final LinkedHashMap<String,Field> available=new LinkedHashMap<>();
  private final LinkedHashMap<String,Long> sequences=new LinkedHashMap<>();
  private long nativeSession=-1,nativeReader=-1;
- private long nativeEpoch=-1,revision;private String nativeIdentity="";
+ private final long[] readers={-1,-1,-1,-1},minimumReaders={-1,-1,-1,-1};
+ private final String[] slotWatches={"","","",""};
+ private long nativeEpoch=-1,revision,resetRevision;private String nativeIdentity="";
  synchronized long revision(){return revision;}
+ synchronized long resetRevision(){return resetRevision;}
  synchronized void reset(long epoch) {
-  if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";sequences.clear();available.clear();history.clear();revision++;
+  if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(slotWatches,"");sequences.clear();available.clear();history.clear();resetRevision=++revision;
  }
  synchronized List<Field> fields(){return new ArrayList<>(available.values());}
  synchronized void retire(String watch) {
@@ -54,6 +57,7 @@ final class PlotController {
   for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(key+"\n")&&!present.contains(s.id))history.append(s.id,frame.received,null,frame.source);
  }
  synchronized void acceptNative(JSONObject snapshot,long epoch,boolean pending){
+  if(snapshot.optJSONArray("watches")!=null){acceptWatches(snapshot,epoch,pending,null,null);return;}
   if(epoch<nativeEpoch)return;
   long session=snapshot.optLong("sessionGeneration"),reader=snapshot.optLong("readerGeneration");
   if(epoch==nativeEpoch&&(session<nativeSession||(session==nativeSession&&reader<nativeReader)))return;
@@ -61,10 +65,10 @@ final class PlotController {
   if(epoch>nativeEpoch||!identity.equals(nativeIdentity)){reset(epoch);nativeIdentity=identity;nativeSession=session;nativeReader=reader;}
   if(pending||!snapshot.optBoolean("running")||!snapshot.optBoolean("readerActive")||!snapshot.optBoolean("fresh")
      ||!"receiving".equals(snapshot.optString("subscriptionState"))||!snapshot.optString("error").isEmpty()){
-   available.clear();history.clear();revision++;return;
+   available.clear();history.clear();resetRevision=++revision;return;
   }
   JSONArray fields=snapshot.optJSONArray("numericFields");
-  String watch=snapshot.optString("subscription");
+  String watch=snapshot.optString("subscription");slotWatches[0]=watch;
   Object received=snapshot.opt("receivedMonotonicNs"),source=snapshot.opt("sourceTimestampNs");
   if(fields==null||!(received instanceof Number)||watch.isEmpty())return;
   List<Field> typed=new ArrayList<>();
@@ -76,4 +80,62 @@ final class PlotController {
   }
   accept(new Frame(watch,epoch,snapshot.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed));
  }
+ static boolean matches(WatchSlots.Request request,JSONObject row){
+  String topic=request.wire.startsWith("rt/")?request.wire.substring(2):request.wire;
+  return topic.equals(row.optString("subscription"))&&request.type.equals(row.optString("type"));
+ }
+ static String watchName(int slot,JSONObject row){return "Watch "+(slot+1)+" · "+row.optString("subscription");}
+ synchronized void requestSlot(int slot){
+  minimumReaders[slot]=readers[slot]<0?-1:readers[slot]+1;
+  retireSlot(slot);
+ }
+ synchronized void retireSlot(int slot){
+  if(!slotWatches[slot].isEmpty())retire(slotWatches[slot]);
+ }
+ void acceptNative(JSONObject snapshot,long epoch,WatchSlots slots,WatchSlots.Frame[] frames){
+  // Lock order is policy -> slots -> controller. Immutable pre-poll frames are
+  // checked under request()'s monitor until ingestion finishes.
+  synchronized(slots){synchronized(this){
+   if(snapshot.optJSONArray("watches")!=null)acceptWatches(snapshot,epoch,false,slots,frames);
+   else if(slots.current(frames[0]))acceptNative(snapshot,epoch,frames[0].pending||!frames[0].error.isEmpty()||frames[0].request.wire.isEmpty());
+  }}
+ }
+ private void acceptWatches(JSONObject snapshot,long epoch,boolean pending,WatchSlots slots,WatchSlots.Frame[] frames){
+  long session=snapshot.optLong("sessionGeneration",-1);
+  if(epoch<nativeEpoch||session<nativeSession)return;
+  if(session!=nativeSession){reset(epoch);nativeSession=session;}
+  nativeEpoch=epoch;
+  JSONArray rows=snapshot.optJSONArray("watches");
+  for(int slot=0;slot<4;slot++){
+   if(frames!=null){
+    WatchSlots.Frame f=frames[slot];
+    if(!slots.current(f))continue; // A newer UI request has already retired it.
+    if(f.pending||!f.error.isEmpty()||f.request.wire.isEmpty()){retireSlot(slot);continue;}
+   }
+   JSONObject row=rows.optJSONObject(slot);
+   if(row==null||row.optInt("slot",-1)!=slot){retireSlot(slot);continue;}
+   long reader=row.optLong("generation",-1);
+   if(reader<readers[slot]||reader<minimumReaders[slot])continue;
+   if(frames!=null&&!matches(frames[slot].request,row)){retireSlot(slot);continue;}
+   String watch=watchName(slot,row);
+   if(reader!=readers[slot]||!slotWatches[slot].equals(watch)){
+    retireSlot(slot);readers[slot]=reader;slotWatches[slot]=watch;
+   }
+   if((pending&&slot==0)||!snapshot.optBoolean("running")||!row.optBoolean("readerActive")||!row.optBoolean("fresh")
+      ||!"receiving".equals(row.optString("subscriptionState"))||!row.optString("error").isEmpty()){
+    retireSlot(slot);continue;
+   }
+   JSONArray fields=row.optJSONArray("numericFields");Object received=row.opt("receivedMonotonicNs"),source=row.opt("sourceTimestampNs");
+   if(fields==null||!(received instanceof Number)||row.optString("subscription").isEmpty())continue;
+   List<Field> typed=new ArrayList<>();
+   for(int i=0;i<Math.min(MAX_FIELDS,fields.length());i++){
+    JSONObject f=fields.optJSONObject(i);if(f==null)continue;
+    Object value=f.opt("value"),unit=f.opt("unit");
+    typed.add(new Field(watch,f.optString("path"),unit instanceof String?(String)unit:null,
+     value instanceof Number&&"finite".equals(f.optString("state"))?((Number)value).doubleValue():null));
+   }
+   accept(new Frame(watch,epoch,row.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed));
+  }
+ }
+
 }

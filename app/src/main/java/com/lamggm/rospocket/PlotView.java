@@ -20,7 +20,7 @@ final class PlotView extends LinearLayout {
  PlotView(Context context,PlotController controller){
   super(context);this.controller=controller;setOrientation(VERTICAL);setTag("live-plot");
   TextView title=new TextView(context);title.setText("GRÁFICO · snapshots numéricos");title.setTextColor(COLORS[0]);addView(title);
-  TextView hint=new TextView(context);hint.setText("Selecione até 4 campos · 30 s / 600 pontos por série.\nEixo Y bruto compartilhado (autoescala); unidades somente declaradas.\nRecepção monotônica, não horário da origem. Lacunas não são zeros.");hint.setTextColor(0xff9aa9bc);addView(hint);
+  TextView hint=new TextView(context);hint.setText("Para traçar campos da inspeção estruturada, marque as caixas abaixo (Watch + caminho).\nToques na árvore selecionam apenas o inspetor; as caixas selecionam o gráfico.\nAté 4 séries · 30 s / 600 pontos por série.\nEixo Y bruto compartilhado (autoescala); unidades somente declaradas.\nRecepção monotônica, não horário da origem. Lacunas não são zeros.");hint.setTextColor(0xff9aa9bc);addView(hint);
   pause=new Button(context);pause.setTag("plot-pause");pause.setText("Pausar gráfico");pause.setOnClickListener(v->{paused=!paused;pause.setText(paused?"Retomar gráfico":"Pausar gráfico");refresh();});addView(pause);
   choices=new LinearLayout(context);choices.setOrientation(VERTICAL);addView(choices);
   legend=new TextView(context);legend.setTextColor(0xffe6edf3);addView(legend);
@@ -30,7 +30,15 @@ final class PlotView extends LinearLayout {
  void refresh(){refresh(controller.revision());}
  // A worker invalidation may occur after this revision is observed.
  void refresh(long observedRevision){
-  if(!paused||revision!=observedRevision)visible=controller.history.snapshot();
+  long resetRevision=controller.resetRevision();
+  if(!paused||(resetRevision>revision&&resetRevision<=observedRevision))visible=controller.history.snapshot();
+  else if(revision!=observedRevision){
+   // Slot retirement removes only that frozen trace. Healthy paused traces never
+   // get replaced by advancing intake just because another reader changed.
+   List<PlotHistory.Series> retained=new ArrayList<>();
+   for(PlotHistory.Series s:visible)if(controller.selected(s.id))retained.add(s);
+   visible=Collections.unmodifiableList(retained);
+  }
   revision=observedRevision;
   choices.removeAllViews();
   for(PlotController.Field f:controller.fields()){

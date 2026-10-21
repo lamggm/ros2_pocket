@@ -20,12 +20,14 @@ import static org.robolectric.Shadows.shadowOf;
 public class ConnectionActivityTest {
  MainActivity a; Fake bridge; ShadowConnectivityManager cm; Network wifi;
  static class Fake implements NativeBridge.Api {
-  int starts,stops,subscriptions,polls;boolean failStart,failSubscribe,throwSubscribe;
+  int starts,stops,subscriptions,polls,rosoutClears;boolean failStart,failSubscribe,throwSubscribe;
+  volatile CountDownLatch pollEntered,pollRelease;
   String snapshot="{\"running\":true,\"ddsPeers\":1,\"rosNodes\":0,\"connectionState\":\"connected\",\"subscriptionState\":\"receiving\",\"readerActive\":true,\"fresh\":true,\"subscription\":\"/numeric\",\"count\":12,\"age\":0.1,\"matched\":1,\"last\":\"42.5\",\"topics\":[],\"nodes\":[],\"error\":\"\"}";
   public byte[] start(int d,String address,String peer){starts++;return bytes(failStart?"{\"ok\":false,\"error\":\"start failed\"}":"{\"ok\":true}");}
-  public byte[] poll(){polls++;return bytes(snapshot);}
+  public byte[] poll(){polls++;CountDownLatch entered=pollEntered,release=pollRelease;if(entered!=null&&release!=null){entered.countDown();try{release.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}}return bytes(snapshot);}
   public byte[] subscribe(String w,String t,boolean r,boolean l){subscriptions++;if(throwSubscribe)throw new IllegalStateException("reader exception");return bytes(failSubscribe?"{\"ok\":false,\"error\":\"subscribe failed\"}":"{\"ok\":true}");}
   public void stop(){stops++;}
+  public void clearRosout(){rosoutClears++;}
   static byte[] bytes(String s){return s.getBytes(java.nio.charset.StandardCharsets.UTF_8);}
  }
  static Field field(String name)throws Exception{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f;}
@@ -48,6 +50,7 @@ public class ConnectionActivityTest {
   set("resumed",true);set("generation",1);set("worker",field("DDS_WORKER").get(null));
   call("requestConnection",new Class<?>[]{boolean.class},false);
   set("selectedWire","rt/numeric");set("selectedType","std_msgs::msg::dds_::Float64_");
+  ((WatchSlots)get("watchSlots")).request(0,"rt/numeric","std_msgs::msg::dds_::Float64_",false,false);
  }
  @After public void cleanup()throws Exception{call("onStop",new Class<?>[]{});((ScheduledExecutorService)field("DDS_WORKER").get(null)).submit(()->{}).get(5,TimeUnit.SECONDS);paint();}
  @Test public void plotIntakeIsIndependentOfUiThrottleAndPauseAndStopClearsIt()throws Exception{
@@ -192,5 +195,65 @@ public class ConnectionActivityTest {
   assertFalse((Boolean)get("nativeRunning"));assertNull(get("multicast"));assertEquals("rt/numeric",get("selectedWire"));
   assertEquals("0",a.getSharedPreferences("connection",Context.MODE_PRIVATE).getString("domain","missing"));
   assertTrue(a.getSharedPreferences("connection",Context.MODE_PRIVATE).getBoolean("wanted",false));
+ }
+ @Test public void rosoutControlsFilterPauseClearAndFenceActivityLifecycle()throws Exception{
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"bytes\":120,\"entries\":[{\"level\":40,\"logger\":\"camera.driver\",\"message\":\"sensor failed\",\"sourceSec\":123,\"sourceNanosec\":4,\"intakeAgeMs\":8}]}")).toString();
+  tick();paint();TextView logs=a.findViewById(R.id.rosout_entries);assertTrue("rosout missing; logs="+logs.getText()+" status="+text(R.id.status),logs.getText().toString().contains("sensor failed"));
+  a.findViewById(R.id.rosout_pause).performClick();
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":2,\"bytes\":240,\"entries\":[{\"level\":20,\"logger\":\"planner\",\"message\":\"new sample\",\"sourceSec\":124,\"sourceNanosec\":0,\"intakeAgeMs\":1}]}")).toString();set("lastUi",0L);tick();paint();
+  assertTrue(logs.getText().toString().contains("sensor failed"));assertFalse(logs.getText().toString().contains("new sample"));assertTrue(text(R.id.counts).contains("RECEBENDO"));assertEquals("42.5",text(R.id.message));
+  a.findViewById(R.id.rosout_clear).performClick();((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);
+  assertEquals(1,bridge.rosoutClears);assertTrue(logs.getText().toString().contains("Console limpo"));
+  a.findViewById(R.id.rosout_pause).performClick();((RosoutConsoleView)a.findViewById(R.id.rosout_entries).getParent()).update(new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":20,\"logger\":\"old\",\"message\":\"old session secret\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}] }"));
+  assertTrue(logs.getText().toString().contains("old session secret"));call("onStop",new Class<?>[]{});assertFalse("Activity stop must not leave old-session logs visible",logs.getText().toString().contains("old session secret"));
+ }
+ @Test public void clearBeforePollCaptureCannotRepaintAfterNativeClear()throws Exception{
+  field("foregroundActivity").set(null,new java.lang.ref.WeakReference<>(a));
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":40,\"logger\":\"old\",\"message\":\"preclear policy snapshot\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}]}")).toString();
+  tick();paint();assertTrue(text(R.id.rosout_entries).contains("preclear policy snapshot"));set("lastUi",0L);
+  ScheduledExecutorService executor=(ScheduledExecutorService)get("worker");
+  Thread thread=executor.submit(()->Thread.currentThread()).get(5,TimeUnit.SECONDS);
+  Object policy=get("policy");Future<?> pending;
+  synchronized(policy){
+   pending=executor.submit(()->{try{call("tick",new Class<?>[]{int.class},1);}catch(Exception e){throw new RuntimeException(e);}});
+   long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);boolean blocked=false;
+   while(System.nanoTime()<deadline){
+    for(StackTraceElement f:thread.getStackTrace())if(f.getClassName().endsWith("ConnectionPolicy")&&f.getMethodName().equals("identity")&&thread.getState()==Thread.State.BLOCKED)blocked=true;
+    if(blocked)break;Thread.sleep(2);
+   }
+   assertTrue("Tick must block before console epoch capture",blocked);
+   a.findViewById(R.id.rosout_clear).performClick();assertTrue(text(R.id.rosout_entries).contains("Console limpo"));
+  }
+  pending.get(5,TimeUnit.SECONDS);executor.submit(()->{}).get(5,TimeUnit.SECONDS);paint();
+  assertEquals(1,bridge.rosoutClears);
+  assertFalse("Snapshot collected while native clear was pending must never repaint",text(R.id.rosout_entries).contains("preclear policy snapshot"));
+  assertTrue(text(R.id.rosout_entries).contains("Console limpo"));
+ }
+ @Test public void clearDuringBlockedPollCannotPaintPreclearSnapshot()throws Exception{
+  field("foregroundActivity").set(null,new java.lang.ref.WeakReference<>(a));
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"bytes\":80,\"entries\":[{\"level\":40,\"logger\":\"old\",\"message\":\"preclear secret\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}]}" )).toString();
+  bridge.pollEntered=new CountDownLatch(1);bridge.pollRelease=new CountDownLatch(1);set("lastUi",0L);
+  Future<?> pending=((ScheduledExecutorService)get("worker")).submit(()->{try{call("tick",new Class<?>[]{int.class},1);}catch(Exception e){throw new RuntimeException(e);}});
+  assertTrue("poll should be blocked with its old snapshot in flight",bridge.pollEntered.await(5,TimeUnit.SECONDS));
+  a.findViewById(R.id.rosout_clear).performClick();bridge.pollRelease.countDown();pending.get(5,TimeUnit.SECONDS);
+  ((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);paint();
+  assertEquals(1,bridge.rosoutClears);assertTrue(text(R.id.rosout_entries).contains("Console limpo"));assertFalse("in-flight pre-clear logs must never resurrect",text(R.id.rosout_entries).contains("preclear secret"));
+ }
+ @Test public void pauseKeepsNewestSnapshotAndResumeRendersIt()throws Exception{
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":20,\"logger\":\"camera\",\"message\":\"visible before pause\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}]}" )).toString();tick();paint();
+  a.findViewById(R.id.rosout_pause).performClick();
+  bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":20,\"logger\":\"camera\",\"message\":\"newest during pause\",\"sourceSec\":2,\"sourceNanosec\":0,\"intakeAgeMs\":7}]}" )).toString();set("lastUi",0L);tick();paint();
+  assertTrue(text(R.id.rosout_entries).contains("visible before pause"));assertTrue(text(R.id.rosout_status).contains("pausada"));
+  a.findViewById(R.id.rosout_pause).performClick();assertTrue("resume must immediately render the newest buffered snapshot",text(R.id.rosout_entries).contains("newest during pause"));
+ }
+ @Test public void clearWhileOfflineIsLocalAndDoesNotCallNative()throws Exception{
+  tick();cm.clearAllNetworks();tick();bridge.rosoutClears=0;a.findViewById(R.id.rosout_clear).performClick();
+  ((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);assertEquals(0,bridge.rosoutClears);assertTrue(text(R.id.rosout_entries).contains("Console limpo"));
+ }
+ @Test public void queuedClearCannotAffectReplacementSession()throws Exception{
+  field("foregroundActivity").set(null,new java.lang.ref.WeakReference<>(a));tick();assertTrue((Boolean)get("nativeRunning"));
+  CountDownLatch blocked=new CountDownLatch(1),release=new CountDownLatch(1);Future<?> gate=((ScheduledExecutorService)get("worker")).submit(()->{blocked.countDown();try{release.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}});assertTrue(blocked.await(5,TimeUnit.SECONDS));
+  a.findViewById(R.id.rosout_clear).performClick();((EditText)a.findViewById(R.id.domain)).setText("1");call("requestConnection",new Class<?>[]{boolean.class},false);release.countDown();gate.get(5,TimeUnit.SECONDS);
+  ((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);assertEquals("stale clear request must not call into a replacement session",0,bridge.rosoutClears);
  }
 }

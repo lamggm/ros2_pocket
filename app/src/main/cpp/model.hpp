@@ -9,7 +9,54 @@
 #include <cstdint>
 #include <set>
 #include <algorithm>
+#include <deque>
 namespace pocket {
+struct RosoutEntry {
+ int level=0; std::string logger,message,file,function; uint32_t line=0;
+ int32_t source_sec=0; uint32_t source_nanosec=0; uint64_t intake_ms=0;
+ bool truncated=false;
+};
+class RosoutBuffer {
+ std::deque<RosoutEntry> entries;
+ size_t used=0;
+ uint64_t evicted_count=0;
+ static size_t cost(const RosoutEntry& e) { return sizeof(e)+e.logger.size()+e.message.size()+e.file.size()+e.function.size(); }
+ static std::string clipped(const std::string& value,size_t limit) {
+  if(value.size()<=limit)return value;
+  size_t end=limit;
+  while(end>0 && (static_cast<unsigned char>(value[end])&0xc0)==0x80)--end;
+  if(end==0)return {};
+  const auto first=static_cast<unsigned char>(value[end]);
+  const size_t width=first<0x80?1:(first&0xe0)==0xc0?2:(first&0xf0)==0xe0?3:(first&0xf8)==0xf0?4:1;
+  if(end+width>limit)return value.substr(0,end);
+  return value.substr(0,limit);
+ }
+ public:
+ static constexpr size_t max_entries=200,max_bytes=256*1024;
+ static constexpr size_t max_logger_bytes=256,max_message_bytes=4096,max_source_bytes=1024;
+ static std::string bounded_field(const char* value,size_t limit) {
+  if(!value)return {};
+  size_t size=0;while(size<limit+3&&value[size]!='\0')++size;
+  return std::string(value,size);
+ }
+ void push(RosoutEntry e) {
+  e.truncated=e.truncated||e.logger.size()>max_logger_bytes||e.message.size()>max_message_bytes||e.file.size()>max_source_bytes||e.function.size()>max_source_bytes;
+  e.logger=clipped(e.logger,max_logger_bytes);e.message=clipped(e.message,max_message_bytes);
+  e.file=clipped(e.file,max_source_bytes);e.function=clipped(e.function,max_source_bytes);
+  const size_t bytes=cost(e);
+  if(bytes>max_bytes)return;
+  while(!entries.empty()&&(entries.size()>=max_entries||used+bytes>max_bytes)){
+   used-=cost(entries.front());entries.pop_front();++evicted_count;
+  }
+  used+=bytes;entries.push_back(std::move(e));
+ }
+ void clear(){entries.clear();used=0;evicted_count=0;}
+ size_t size() const { return entries.size(); }
+ size_t bytes() const { return used; }
+ uint64_t evicted() const { return evicted_count; }
+ const RosoutEntry& front() const { return entries.front(); }
+ const std::deque<RosoutEntry>& entries_view() const { return entries; }
+};
 inline std::string connection_state(bool running, size_t peers, bool seen_peer, const std::string& error) {
  if (!error.empty()) return "error";
  if (!running) return "offline";
@@ -121,16 +168,25 @@ class Registry {
 };
 inline std::string json_quote(const std::string& text) {
  std::ostringstream out; out << '"';
- for (unsigned char c : text) {
+ for (size_t i=0;i<text.size();) {
+   const auto c=static_cast<unsigned char>(text[i]);
    switch (c) {
-    case '"': out << "\\\""; break;
-    case '\\': out << "\\\\"; break;
-    case '\n': out << "\\n"; break;
-    case '\r': out << "\\r"; break;
-    case '\t': out << "\\t"; break;
+    case '"': out << "\\\""; ++i; continue;
+    case '\\': out << "\\\\"; ++i; continue;
+    case '\n': out << "\\n"; ++i; continue;
+    case '\r': out << "\\r"; ++i; continue;
+    case '\t': out << "\\t"; ++i; continue;
     default:
-     if(c < 0x20) out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << (int)c << std::dec;
-     else out << (char)c;
+     if(c < 0x20) {out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << (int)c << std::dec;++i;continue;}
+     if(c<0x80){out<<(char)c;++i;continue;}
+     size_t width=0;
+     if(c>=0xc2&&c<=0xdf)width=2;else if(c>=0xe0&&c<=0xef)width=3;else if(c>=0xf0&&c<=0xf4)width=4;
+     bool valid=width>0&&i+width<=text.size();
+     for(size_t j=1;valid&&j<width;j++){const auto next=static_cast<unsigned char>(text[i+j]);if((next&0xc0)!=0x80)valid=false;}
+     if(valid&&width==3){const auto second=static_cast<unsigned char>(text[i+1]);if((c==0xe0&&second<0xa0)||(c==0xed&&second>=0xa0))valid=false;}
+     if(valid&&width==4){const auto second=static_cast<unsigned char>(text[i+1]);if((c==0xf0&&second<0x90)||(c==0xf4&&second>0x8f))valid=false;}
+     if(valid){out.write(text.data()+i,static_cast<std::streamsize>(width));i+=width;}
+     else {out<<"\\ufffd";++i;}
    }
  }
  out << '"'; return out.str();
