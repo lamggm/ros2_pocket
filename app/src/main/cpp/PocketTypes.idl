@@ -29,6 +29,17 @@ module nav_msgs { module msg { module dds_ {
  geometry_msgs::msg::dds_::TwistWithCovariance_ twist;
 };
 }; }; };
+module rcl_interfaces { module msg { module dds_ {
+@final struct Log_ {
+ builtin_interfaces::msg::dds_::Time_ stamp;
+ octet level;
+ string name;
+ string msg;
+ string file;
+ string function;
+ unsigned long line;
+};
+}; }; };
 module rmw_dds_common { module msg { module dds_ {
 @final struct Gid_ { octet data[16]; };
 @final struct NodeEntitiesInfo_ {

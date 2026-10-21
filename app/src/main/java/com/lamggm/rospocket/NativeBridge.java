@@ -11,6 +11,7 @@ final class NativeBridge {
   byte[] poll();
   byte[] subscribe(String topic,String type,boolean reliable,boolean transientLocal);
   void stop();
+  default void clearRosout() {}
   static JSONObject json(byte[] bytes) throws org.json.JSONException {return new JSONObject(new String(bytes,StandardCharsets.UTF_8));}
  }
  static final class JniApi implements Api {
@@ -18,10 +19,12 @@ final class NativeBridge {
   public byte[] poll(){return NativeBridge.poll();}
   public byte[] subscribe(String w,String t,boolean r,boolean l){return NativeBridge.subscribe(w,t,r,l);}
   public void stop(){NativeBridge.stop();}
+  public void clearRosout(){NativeBridge.clearRosout();}
  }
  static native byte[] start(int domain,String address,String peer);
  static native byte[] poll();
  static native byte[] subscribe(String topic,String type,boolean reliable,boolean transientLocal);
  static native void stop();
+ static native void clearRosout();
  static JSONObject json(byte[] bytes) throws org.json.JSONException {return Api.json(bytes);}
 }

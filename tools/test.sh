@@ -35,14 +35,15 @@ else
    -v "$PWD/tests:$PWD/tests:ro" \
    -v "$PWD/build/native-host:$PWD/build/native-host:ro" \
    -v "$TOOLCHAINS/host:$TOOLCHAINS/host:ro" \
-   -e ROS_DOMAIN_ID=67 -e ROS_LOCALHOST_ONLY=1 -e RMW_IMPLEMENTATION="$rmw" \
+   -e ROS_DOMAIN_ID=67 -e ROS_LOCALHOST_ONLY=1 -e POCKET_ROSOUT_FIXTURE=1 -e RMW_IMPLEMENTATION="$rmw" \
    -e CYCLONEDDS_URI=file:///fixture/loopback.xml "$image" >/dev/null
   # The reader and publisher share only this container's loopback, not the host.
   # Copy CTest's small manifest to writable tmpfs; executables/libs stay read-only.
   rc=0
-  docker exec "$name" sh -ec 'mkdir -p /tmp/native; cp "$1/CTestTestfile.cmake" /tmp/native/; ctest --test-dir /tmp/native -L fixture --no-tests=error --output-on-failure --output-junit /tmp/fixture.xml' sh "$PWD/build/native-host" || rc=$?
+  docker exec "$name" sh -ec 'mkdir -p /tmp/native; cp "$1/CTestTestfile.cmake" /tmp/native/; ctest --test-dir /tmp/native -R "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --output-junit /tmp/rosout.xml && ctest --test-dir /tmp/native -L fixture -E "^rosout_jazzy_interop$" --no-tests=error --output-on-failure --output-junit /tmp/fixture.xml' sh "$PWD/build/native-host" || rc=$?
   if [[ "$rc" -ne 0 ]]; then docker logs "$name" || true; exit "$rc"; fi
   docker exec "$name" cat /tmp/fixture.xml > "build/native-host/$rmw.xml"
+  docker exec "$name" cat /tmp/rosout.xml > "build/native-host/$rmw-rosout.xml"
   cleanup
   name=""
  done

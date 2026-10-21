@@ -149,7 +149,7 @@ class ToolTests(unittest.TestCase):
         result, calls, ctest_calls = self.run_ctest_gate('--fixture', 'report-failure')
         self.assertEqual(result.returncode, 78, result.stderr)
         self.assertIn('100% tests passed', result.stdout)
-        self.assertEqual(len(ctest_calls), 1)
+        self.assertEqual(len(ctest_calls), 2)
         self.assertEqual(sum(call[0] == 'exec' and call[2] == 'cat' for call in calls), 1)
         self.assert_fixture_failure_cleanup(calls)
 
@@ -160,7 +160,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(len(ctest_calls), 1)
 
     def test_runner_accepts_real_passing_ctest_and_reads_fixture_reports(self):
-        for mode, expected in (('--portable', 1), ('--fixture', 2)):
+        for mode, expected in (('--portable', 1), ('--fixture', 4)):
             with self.subTest(mode=mode):
                 result, calls, ctest_calls = self.run_ctest_gate(mode, 'success')
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -173,7 +173,7 @@ class ToolTests(unittest.TestCase):
                     self.assertEqual([call for call in calls if call[0] == 'rm'],
                                      [['rm', '-f', name] for name in names])
                     self.assertEqual(sum(call[0] == 'exec' and call[2] == 'cat'
-                                         for call in calls), 2)
+                                         for call in calls), 4)
 
     def assert_fixture_failure_cleanup(self, calls):
         runs = [call for call in calls if call[0] == 'run']
@@ -202,9 +202,16 @@ class ToolTests(unittest.TestCase):
             label = 'unselected' if scenario == 'empty' else 'portable;fixture'
             command = '/bin/false' if scenario == 'ctest-failure' else '/bin/true'
             if scenario != 'missing-manifest':
-                (root / 'build/native-host/CTestTestfile.cmake').write_text(
-                    f'add_test(probe "{command}")\n'
-                    f'set_tests_properties(probe PROPERTIES LABELS "{label}")\n')
+                if scenario == 'empty':
+                    entries = f'add_test(unselected "{command}")\nset_tests_properties(unselected PROPERTIES LABELS "{label}")\n'
+                elif mode == '--fixture':
+                    entries = (f'add_test(rosout_jazzy_interop "{command}")\n'
+                               f'set_tests_properties(rosout_jazzy_interop PROPERTIES LABELS "{label}")\n'
+                               f'add_test(probe "{command}")\n'
+                               f'set_tests_properties(probe PROPERTIES LABELS "{label}")\n')
+                else:
+                    entries = f'add_test(probe "{command}")\nset_tests_properties(probe PROPERTIES LABELS "{label}")\n'
+                (root / 'build/native-host/CTestTestfile.cmake').write_text(entries)
             for command in ('cmake', 'python3', 'javac', 'java'):
                 path = root / 'bin' / command
                 path.write_text('#!/bin/sh\nprintf "%s\\n" "$*"\nexit 0\n'
@@ -233,12 +240,14 @@ if args[0] == 'exec':
         # Only relocate the container tmpfs; preserve/execute the runner's shell.
         command = [arg.replace('/tmp/native', os.environ['CONTAINER_TMP'] + '/native')
                    .replace('/tmp/fixture.xml', os.environ['CONTAINER_TMP'] + '/fixture.xml')
+                   .replace('/tmp/rosout.xml', os.environ['CONTAINER_TMP'] + '/rosout.xml')
                    for arg in command]
     else:
         if os.environ['GATE_SCENARIO'] == 'report-failure':
             sys.exit(78)
         command = [arg.replace('/tmp/native', os.environ['CONTAINER_TMP'] + '/native')
                    .replace('/tmp/fixture.xml', os.environ['CONTAINER_TMP'] + '/fixture.xml')
+                   .replace('/tmp/rosout.xml', os.environ['CONTAINER_TMP'] + '/rosout.xml')
                    for arg in command]
     sys.exit(subprocess.run(command).returncode)
 ''')
