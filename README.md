@@ -5,6 +5,14 @@ Eclipse Cyclone DDS 0.10.5. No rosbridge, auxiliary bridge/server, application
 command publishers, service calls or motion commands. This is a development
 prototype, not a port of desktop rqt plugins or a full rcljava client.
 
+## Development sequence
+
+The v0.2 development base is **`integration/v0.2`**. Follow the ordered
+[roadmap and acceptance gates](docs/ROADMAP-v0.2.md); implementation branches
+start from the latest integration and target it in their PRs, not `main`.
+Read [AGENTS.md](AGENTS.md) before agent-driven work. The final integration PR
+stays draft until qualification and operator acceptance on the physical tablet.
+
 ## Connect
 
 1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.1.0).
