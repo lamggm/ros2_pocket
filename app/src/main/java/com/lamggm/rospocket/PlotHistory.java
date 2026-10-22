@@ -18,7 +18,7 @@ final class PlotHistory {
   Ring(String p,String u){path=p;unit=u;}
  }
  private final LinkedHashMap<String,Ring> rings=new LinkedHashMap<>();
- private final int capacity; private final long window;
+ final int capacity; final long window;
  PlotHistory(int capacity,long window){
   if(capacity<1||capacity>2048||window<1||window>300_000_000_000L)throw new IllegalArgumentException("plot budget");
   this.capacity=capacity;this.window=window;

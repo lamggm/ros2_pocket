@@ -185,6 +185,11 @@ soak. The offline report toolkit never touches a device and cannot replace
 physical acceptance. [v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) remain draft;
 preparation of this matrix is not final qualification or release approval.
 
+Debug builds provide a bounded, metadata-only [device QA dump contract](docs/DEVICE-QA-CONTRACT.md)
+for all four actual worker counters while the chart remains on-screen. This is
+read-only, does not poll DDS again, and is disabled in release builds. A valid
+dump is not qualification approval; unavailable test-hook state still blocks soak.
+
 The prototype passed **16 real-tablet checks**: live String samples with an
 advancing sequence, actual ROS node graph, Home return with a new sample, producer
 loss/stale display/removal, replacement by Cyclone DDS, reliable-versus-best-effort

@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
  private final PlotController plots=new PlotController();
+ private final QaSnapshot qa=new QaSnapshot();
  private PlotView plotView;
  private StructuredMessageView structured;
  private final StructuredMessageView[] watchStructured=new StructuredMessageView[4];
@@ -114,12 +115,12 @@ public final class MainActivity extends Activity {
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
   for(int i=0;i<4;i++){
-   final int slot=i;Button button=new Button(this);button.setTag("watch-select:"+i);button.setText("Watch "+(i+1));
+   final int slot=i;Button button=new Button(this);button.setId(new int[]{R.id.watch_select_0,R.id.watch_select_1,R.id.watch_select_2,R.id.watch_select_3}[i]);button.setTag("watch-select:"+i);button.setText("Watch "+(i+1));
    button.setContentDescription("Selecionar Watch "+(i+1));button.setOnClickListener(v->chooseWatch(slot));slots.addView(button,new LinearLayout.LayoutParams(0,dp(52),1));
   }
   echo.addView(slots);
-  watchEditorTitle=label("Editando Watch 1 · QoS e seleção abaixo/no Explorer",14,ACCENT);watchEditorTitle.setTag("watch-editor");echo.addView(watchEditorTitle);
-  Button remove=new Button(this);remove.setTag("watch-remove");remove.setText("Remover watch selecionado");remove.setOnClickListener(v->removeSelectedWatch());echo.addView(remove);
+  watchEditorTitle=label("Editando Watch 1 · QoS e seleção abaixo/no Explorer",14,ACCENT);watchEditorTitle.setId(R.id.watch_editor);watchEditorTitle.setTag("watch-editor");echo.addView(watchEditorTitle);
+  Button remove=new Button(this);remove.setId(R.id.watch_remove);remove.setTag("watch-remove");remove.setText("Remover watch selecionado");remove.setOnClickListener(v->removeSelectedWatch());echo.addView(remove);
   TextView supported=label("Decodificadores: std_msgs String, Bool, Int32, Int64, Float32 e Float64; geometry_msgs Vector3, Quaternion, Twist e Pose; nav_msgs Odometry. Campos numéricos selecionáveis abaixo. Outros tipos permanecem não suportados.",12,MUTED);supported.setPadding(0,dp(8),0,dp(8));echo.addView(supported);
   LinearLayout qos=new LinearLayout(this);qos.setOrientation(LinearLayout.HORIZONTAL);
   reliable=new CheckBox(this);reliable.setId(R.id.qos_reliable);reliable.setText("Reliable");reliable.setTextColor(FG);qos.addView(reliable);
@@ -128,10 +129,10 @@ public final class MainActivity extends Activity {
   reliable.setOnCheckedChangeListener((b,on)->{if(switchingWatch)return;if(activeWatch>0){updateExtraQos();return;}reliableValue=on;prefs.edit().putBoolean("reliable",on).apply();resubscribe();});
   transientLocal.setOnCheckedChangeListener((b,on)->{if(switchingWatch)return;if(activeWatch>0){updateExtraQos();return;}transientValue=on;prefs.edit().putBoolean("transient",on).apply();resubscribe();});
   TextView qoshint=label("Padrão: best effort / volatile — recebe publicadores reliable e best effort. Hz = taxa recebida, não garantia da taxa de origem.",12,MUTED);echo.addView(qoshint);
-  counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
+  counts=label("Sem assinatura ativa",14,MUTED);counts.setId(R.id.counts);counts.setTag("watch-state:0");counts.setPadding(0,dp(12),0,dp(8));echo.addView(counts);
   message=label("Nenhuma mensagem recebida.",17,FG);message.setId(R.id.message);message.setTypeface(Typeface.MONOSPACE);message.setTextIsSelectable(true);message.setMinHeight(dp(90));echo.addView(message);structured=new StructuredMessageView(this);watchStructured[0]=structured;structured.setTag("structuredMessage");echo.addView(structured);
   for(int i=1;i<4;i++){
-   watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);
+   watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setId(new int[]{R.id.watch_state_1,R.id.watch_state_2,R.id.watch_state_3}[i-1]);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
   body.addView(echo);
@@ -157,6 +158,7 @@ public final class MainActivity extends Activity {
    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(domain.getWindowToken(),0);
    domain.clearFocus();peer.clearFocus();
    foregroundActivity=new WeakReference<>(this);policy.reset();
+   qa.invalidate();
    if(resetSelection){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
    requested=new Config(d,p);connectWanted=true;plots.reset(policy.generation());
    inactive("RECONECTANDO · aguardando dados desta sessão");
@@ -193,6 +195,7 @@ public final class MainActivity extends Activity {
  }
  // All acquisition/teardown uses the same process-wide queue, including across Activity instances.
  private void stopSession(){
+  qa.invalidate();
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
   try{if(owns)bridge.stop();}finally{
@@ -275,7 +278,10 @@ public final class MainActivity extends Activity {
    // Serialize the final epoch check against UI reader replacement/teardown.
    synchronized(policy){
     if(policy.accepts(epoch)&&resumed&&generation==token&&connectWanted&&requested==config){
-     plots.acceptNative(snapshot,epoch,watchSlots,frames);
+     synchronized(watchSlots){
+      plots.acceptNative(snapshot,epoch,watchSlots,frames);
+      if(BuildConfig.DEBUG)qa.publish(snapshot,watchSlots,frames,plots,token,epoch,capturedNanos);
+     }
     }
    }
    long paint=System.nanoTime();
@@ -288,6 +294,24 @@ public final class MainActivity extends Activity {
    final String failedNetwork=details;
    ui(token,epoch,()->{if(connectWanted&&requested==config){unavailable("ERRO · dados indisponíveis","Falha DDS: "+e+" · nova tentativa em até "+policy.delayMillis()/1000+" s");diagnostics.setText(failedNetwork+"\nDDS peers: — · Nós ROS: —");}});
   }
+ }
+ @Override public void dump(String prefix,java.io.FileDescriptor fd,java.io.PrintWriter writer,String[] args){
+  if(args!=null&&args.length==1&&"--pocket-qa-v1".equals(args[0])){
+   if(!BuildConfig.DEBUG){writer.println("ROS Pocket QA unavailable");return;}
+   try{
+    long now=System.nanoTime();
+    JSONObject out=qa.export(now).put("plotDisplay",plotView.qaState(now)).put("foreground",resumed&&foregroundActivity.get()==this)
+     .put("testHooks",new JSONObject().put("capability","unavailable").put("armed",JSONObject.NULL))
+     .put("debuggable",(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0).put("applicationId",BuildConfig.APPLICATION_ID)
+     .put("versionName",BuildConfig.VERSION_NAME).put("versionCode",BuildConfig.VERSION_CODE)
+     .put("pid",android.os.Process.myPid());
+    String data=out.toString();
+    if(data.getBytes(java.nio.charset.StandardCharsets.UTF_8).length>QaSnapshot.MAX_JSON_BYTES){writer.println("ROS Pocket QA unavailable");return;}
+    writer.println("ROS_POCKET_QA_V1_BEGIN");writer.println(data);writer.println("ROS_POCKET_QA_V1_END");
+   }catch(JSONException ex){writer.println("ROS Pocket QA unavailable");}
+   return;
+  }
+  super.dump(prefix,fd,writer,args);
  }
  private void clearRosout(){
   final long clearEpoch=++rosoutEpoch;final Config clearConfig=requested;final int clearGeneration=generation;
@@ -363,6 +387,7 @@ public final class MainActivity extends Activity {
   if(worker==null||!connectWanted||selectedWire.isEmpty())return;
   final WatchSlots.Request primary;
   synchronized(watchSlots){primary=watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);plots.requestSlot(0);}
+  qa.invalidate();
   policy.invalidate();long epoch=policy.generation();inactive("RECONECTANDO · aguardando nova assinatura");
   final Config expected=requested;final int token=generation;
   worker.execute(()->{
@@ -373,10 +398,14 @@ public final class MainActivity extends Activity {
   });
  }
  private void disconnect(){
+  qa.invalidate();
   extrasInactive("Desconectado · sem assinatura ativa");
   for(int i=0;i<4;i++)watchSlots.request(i,"","",false,false);
   structured.update(null,false);
   policy.reset();plots.reset(policy.generation());plotView.refresh();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
+  // A poll already holding policy/slots may publish after the early invalidation.
+  // policy.reset() fences that poll; clear once more before returning to the UI.
+  qa.invalidate();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · Watch 1 · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
@@ -385,6 +414,7 @@ public final class MainActivity extends Activity {
  @Override protected void onStop(){
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
   resumed=false;generation++;policy.invalidate();plots.reset(policy.generation());
+  qa.invalidate();
   inactive("OFFLINE · aplicativo fora do primeiro plano");
   extrasInactive("OFFLINE · aplicativo fora do primeiro plano");
   if(ticker!=null){ticker.cancel(false);ticker=null;}
@@ -402,6 +432,7 @@ public final class MainActivity extends Activity {
  private void requestExtra(int slot,String wire,String type,boolean r,boolean t){
   WatchSlots.Request next;
   synchronized(watchSlots){next=watchSlots.request(slot,wire,type,r,t);plots.requestSlot(slot);}
+  qa.invalidate();
   plotView.refresh();
   watchStructured[slot].update(null,false);
   watchText[slot].setText("Watch "+(slot+1)+" · assinatura pendente");watchText[slot].setTextColor(WARNING);
@@ -421,6 +452,7 @@ public final class MainActivity extends Activity {
   selectedWire="";selectedType="";
   final WatchSlots.Request removal;
   synchronized(watchSlots){removal=watchSlots.request(0,"","",false,false);plots.requestSlot(0);}
+  qa.invalidate();
   policy.invalidate();long epoch=policy.generation();plotView.refresh();
   structured.update(null,false);
   counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");

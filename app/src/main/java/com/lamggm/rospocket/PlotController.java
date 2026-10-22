@@ -29,6 +29,27 @@ final class PlotController {
  private long nativeEpoch=-1,revision,resetRevision;private String nativeIdentity="";
  synchronized long revision(){return revision;}
  synchronized long resetRevision(){return resetRevision;}
+ synchronized boolean qaCurrent(long session,int slot,long reader){
+  return session==nativeSession&&reader>=readers[slot]&&reader>=minimumReaders[slot];
+ }
+ synchronized JSONObject qaStatistics() throws JSONException {
+  return new JSONObject().put("capacityPerSeries",history.capacity).put("windowNs",history.window)
+   .put("maximumSeries",PlotHistory.MAX_SERIES).put("invalidationRevision",revision)
+   .put("series",qaSeries(history.snapshot()));
+ }
+ synchronized JSONArray qaSeries(List<PlotHistory.Series> series) throws JSONException {
+  JSONArray result=new JSONArray();
+  for(PlotHistory.Series s:series){
+   int slot=-1;for(int i=0;i<4;i++)if(!slotWatches[i].isEmpty()&&s.id.startsWith(slotWatches[i]+"\n"))slot=i;
+   int finite=0,gaps=0,breaks=0;
+   for(PlotHistory.Point p:s.points){if(p.value==null)gaps++;else finite++;if(p.breakBefore)breaks++;}
+   result.put(new JSONObject().put("seriesIndex",result.length()).put("slot",slot)
+    .put("pointCount",s.points.size()).put("finitePoints",finite).put("gapPoints",gaps).put("breakBeforePoints",breaks)
+    .put("oldestReceiveNs",s.points.isEmpty()?JSONObject.NULL:s.points.get(0).time)
+    .put("newestReceiveNs",s.points.isEmpty()?JSONObject.NULL:s.points.get(s.points.size()-1).time));
+  }
+  return result;
+ }
  synchronized void reset(long epoch) {
   if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(slotWatches,"");sequences.clear();available.clear();history.clear();resetRevision=++revision;
  }

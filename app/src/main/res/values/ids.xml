@@ -11,4 +11,9 @@
 <item name="rosout_search" type="id"/><item name="rosout_logger" type="id"/>
 <item name="rosout_timestamp" type="id"/><item name="rosout_severity" type="id"/>
 <item name="rosout_status" type="id"/><item name="rosout_entries" type="id"/>
+<item name="watch_select_0" type="id"/><item name="watch_select_1" type="id"/>
+<item name="watch_select_2" type="id"/><item name="watch_select_3" type="id"/>
+<item name="watch_state_1" type="id"/><item name="watch_state_2" type="id"/><item name="watch_state_3" type="id"/>
+<item name="watch_editor" type="id"/><item name="watch_remove" type="id"/>
+<item name="plot_panel" type="id"/><item name="plot_pause" type="id"/><item name="plot_chart" type="id"/>
 </resources>
