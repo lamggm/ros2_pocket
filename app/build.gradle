@@ -2,6 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'com.lamggm.rospocket'
  compileSdk 35
+ buildFeatures { buildConfig true }
  buildToolsVersion '35.0.0'
  defaultConfig {
   applicationId 'com.lamggm.rospocket.dev'

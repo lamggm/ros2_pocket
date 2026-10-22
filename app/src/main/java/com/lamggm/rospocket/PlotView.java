@@ -16,20 +16,35 @@ final class PlotView extends LinearLayout {
  private final Button pause;
  private final Chart chart;
  private boolean paused;private long revision=-1;
+ private long lastDrawNanos;
+ private long preparedRevision,drawnRevision=-1;
+ private String drawnSeries="[]";
  private List<PlotHistory.Series> visible=Collections.emptyList();
  PlotView(Context context,PlotController controller){
-  super(context);this.controller=controller;setOrientation(VERTICAL);setTag("live-plot");
+  super(context);this.controller=controller;setId(R.id.plot_panel);setOrientation(VERTICAL);setTag("live-plot");
   TextView title=new TextView(context);title.setText("GRÁFICO · snapshots numéricos");title.setTextColor(COLORS[0]);addView(title);
   TextView hint=new TextView(context);hint.setText("Para traçar campos da inspeção estruturada, marque as caixas abaixo (Watch + caminho).\nToques na árvore selecionam apenas o inspetor; as caixas selecionam o gráfico.\nAté 4 séries · 30 s / 600 pontos por série.\nEixo Y bruto compartilhado (autoescala); unidades somente declaradas.\nRecepção monotônica, não horário da origem. Lacunas não são zeros.");hint.setTextColor(0xff9aa9bc);addView(hint);
-  pause=new Button(context);pause.setTag("plot-pause");pause.setText("Pausar gráfico");pause.setOnClickListener(v->{paused=!paused;pause.setText(paused?"Retomar gráfico":"Pausar gráfico");refresh();});addView(pause);
+  pause=new Button(context);pause.setId(R.id.plot_pause);pause.setTag("plot-pause");pause.setText("Pausar gráfico");pause.setOnClickListener(v->{paused=!paused;pause.setText(paused?"Retomar gráfico":"Pausar gráfico");refresh();});addView(pause);
   choices=new LinearLayout(context);choices.setOrientation(VERTICAL);addView(choices);
   legend=new TextView(context);legend.setTextColor(0xffe6edf3);addView(legend);
-  chart=new Chart(context);chart.setContentDescription("Gráfico numérico: tempo de recepção monotônico, valores brutos");addView(chart,new LayoutParams(-1,(int)(240*getResources().getDisplayMetrics().density)));
+  chart=new Chart(context);chart.setId(R.id.plot_chart);chart.setContentDescription("Gráfico numérico: tempo de recepção monotônico, valores brutos");addView(chart,new LayoutParams(-1,(int)(240*getResources().getDisplayMetrics().density)));
  }
  List<PlotHistory.Series> displayed(){return visible;}
+ org.json.JSONObject qaState(long now) throws org.json.JSONException {
+  android.graphics.Rect rect=new android.graphics.Rect();
+  boolean fullyVisible=chart.isShown()&&chart.hasWindowFocus()&&chart.getWidth()>0&&chart.getHeight()>0
+   &&chart.getGlobalVisibleRect(rect)&&rect.width()==chart.getWidth()&&rect.height()==chart.getHeight();
+  return new org.json.JSONObject().put("observedMonotonicNs",now).put("paused",paused).put("chartFullyVisible",fullyVisible)
+   .put("lastDrawMonotonicNs",lastDrawNanos==0?org.json.JSONObject.NULL:lastDrawNanos)
+   .put("drawAgeNs",lastDrawNanos==0||now<lastDrawNanos?org.json.JSONObject.NULL:now-lastDrawNanos)
+   .put("preparedRevision",preparedRevision).put("drawnRevision",drawnRevision<0?org.json.JSONObject.NULL:drawnRevision)
+   .put("drawPending",drawnRevision!=preparedRevision).put("drawnSeries",new org.json.JSONArray(drawnSeries))
+   .put("series",controller.qaSeries(visible));
+ }
  void refresh(){refresh(controller.revision());}
  // A worker invalidation may occur after this revision is observed.
  void refresh(long observedRevision){
+  preparedRevision++;
   long resetRevision=controller.resetRevision();
   if(!paused||(resetRevision>revision&&resetRevision<=observedRevision))visible=controller.history.snapshot();
   else if(revision!=observedRevision){
@@ -71,7 +86,17 @@ final class PlotView extends LinearLayout {
   private final Paint pen=new Paint(Paint.ANTI_ALIAS_FLAG);
   Chart(Context c){super(c);setBackgroundColor(0xff0d1117);}
   @Override protected void onDraw(Canvas canvas){
-   super.onDraw(canvas);float left=12,top=40,right=getWidth()-12,bottom=getHeight()-35;
+   super.onDraw(canvas);
+   if(getWidth()<=24||getHeight()<=75)return;
+   drawChart(canvas);
+   // Bind statistics to this completed draw, not refresh()'s future frame.
+   if(BuildConfig.DEBUG){
+    try{drawnSeries=controller.qaSeries(visible).toString();drawnRevision=preparedRevision;lastDrawNanos=System.nanoTime();}
+    catch(org.json.JSONException ex){drawnSeries="[]";drawnRevision=-1;lastDrawNanos=0;}
+   }
+  }
+  private void drawChart(Canvas canvas){
+   float left=12,top=40,right=getWidth()-12,bottom=getHeight()-35;
    if(right<=left||bottom<=top)return;
    pen.setColor(0xff9aa9bc);pen.setStrokeWidth(1);pen.setTextSize(12*getResources().getDisplayMetrics().scaledDensity);
    canvas.drawLine(left,bottom,right,bottom,pen);
