@@ -190,7 +190,7 @@ for all four actual worker counters while the chart remains on-screen. This is
 read-only, does not poll DDS again, and is disabled in release builds. A valid
 dump is not qualification approval; unavailable test-hook state still blocks soak.
 
-The prototype passed **16 real-tablet checks**: live String samples with an
+The **v0.1 prototype** passed **16 real-tablet checks** (not v0.2 acceptance): live String samples with an
 advancing sequence, actual ROS node graph, Home return with a new sample, producer
 loss/stale display/removal, replacement by Cyclone DDS, reliable-versus-best-effort
 QoS rejection/recovery, wrong/correct domain isolation, Float64 samples, process
@@ -235,29 +235,31 @@ Only synthetic fixture logs are involved; they are not uploaded as CI artifacts.
 
 ### Reproduce on your own isolated tablet bench
 
-Never run these destructive fixture lifecycle tests against a robot domain.
-The synthetic fixture uses domains **67/68**, node `/pocket_fixture`, and topics
-`/pocket_test/chatter` (String) and `/pocket_test/value` (Float64). It exits after
-30 minutes. It is a benchmark publisher, not a bridge and not a runtime dependency.
+Never run synthetic publisher lifecycle tests against a robot domain. The
+[scoped tablet harness](docs/TABLET-HARNESS.md) documents explicit transport/image
+configuration, user/package/focus guards, private dump handling, bounded navigation,
+source freshness and the distinction between synthetic and physical evidence.
 
-Configure these values locally; no device addresses or personal image names are
-embedded in the scripts:
+`tests/tablet_regression.py` starts its **own unique labeled fixture** on the
+reserved domains 67/68, with run-specific String/Float64 topic and node remaps.
+Do not precreate a fixed-name container or preselect a topic for this command.
+It uses an explicit existing local image without pulling, verifies ownership,
+stops by immutable container ID, and independently disconnects the DEV app.
+It never stops an unrelated container merely because its name/domain resembles
+an old fixture. No VPN, firewall or Wi-Fi policy is changed.
 
-- `POCKET_TABLET`: your authorized `adb devices` serial or wireless endpoint.
-- `POCKET_EXPECT_WIFI_IPV4`: your tablet's actual Wi-Fi IPv4 address, for acceptance.
-- `POCKET_ROS_IMAGE`: your local ROS Jazzy test image containing rclpy/std_msgs and
-  both `rmw_fastrtps_cpp` and `rmw_cyclonedds_cpp`.
+`tests/tablet_accept.py` is a separate **LAN-address/discovery-only** check. It
+requires `POCKET_TABLET`, the exact `POCKET_EXPECT_WIFI_IPV4`, the app already
+connected and a separately controlled generic `/pocket_test/chatter` publisher.
+It does not create that fixture or establish v0.2 acceptance. The regression
+additionally requires `POCKET_ROS_IMAGE`; `POCKET_FIXTURE_INTERFACE` optionally
+pins only its owned Cyclone publisher to the independently verified LAN interface.
+`POCKET_BENCH_PEER` optionally configures the existing app IPv4 peer field when
+multicast discovery is unavailable. Default is empty/automatic; the private report
+records the mode, and explicit-peer success is not automatic-discovery acceptance.
 
-Start an owned `ros2-pocket-fixture` container in domain 67 using that image,
-host networking, the Fast DDS RMW and `tests/fixture.py` mounted read-only as
-`/pocket-fixture.py`. Source `/opt/ros/jazzy/setup.bash`, then run
-`timeout 1800 python3 /pocket-fixture.py`. The tablet regression verifies the
-mounted script/domain before stopping and replacing that **specific** container.
-Select `/pocket_test/chatter` in the app before running `tests/tablet_regression.py`.
-`tests/tablet_accept.py` performs the initial discovery/LAN-address assertion.
-UI automation is restricted to this development app, not VPN/settings apps.
-
-For the native failure regression, configure the native host CMake build with
+For the separate native failure regression, use a separately controlled generic
+`/pocket_test/chatter` publisher and configure the native host CMake build with
 `-DPOCKET_TEST_ADDRESS=<host-LAN-IPv4>` and, with the fixture running, execute:
 
 ```bash

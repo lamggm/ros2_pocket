@@ -1,5 +1,5 @@
 """Explicit synthetic fixture: publishes only test topics in isolated domain."""
-import os
+import os,json,time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Bool, Int32, Int64, Float32, Float64
@@ -42,6 +42,21 @@ if os.environ.get("POCKET_ROSOUT_FIXTURE")=="1":
         rosout_pub.publish(sample)
     node.create_timer(0.025,publish_rosout)
 sequence=0
+qos_heartbeat_owner=os.environ.get("POCKET_QOS_HEARTBEAT","")
+qos_writer_gid=None
+def emit_qos_heartbeat():
+ global qos_writer_gid
+ if not qos_heartbeat_owner:return
+ if qos_writer_gid is None:
+  own=[info for info in node.get_publishers_info_by_topic(pub.topic_name)
+       if info.node_name==node.get_name() and info.node_namespace==node.get_namespace()]
+  if len(own)!=1:return
+  qos_writer_gid=bytes(own[0].endpoint_gid).hex()
+ event=dict(sequence=sequence,monotonicNs=time.monotonic_ns(),writerGid=qos_writer_gid,
+            owner=qos_heartbeat_owner,topic=pub.topic_name,node=node.get_fully_qualified_name(),
+            reliability="best_effort" if q.reliability==ReliabilityPolicy.BEST_EFFORT else "reliable")
+ print("POCKET_QOS_EVENT "+json.dumps(event,separators=(",",":")),flush=True)
+
 def publish():
  global sequence
  sequence+=1
@@ -66,6 +81,7 @@ def publish():
  twist.publish(Twist(linear=Vector3(x=1.25,y=-2.5,z=3.75),angular=Vector3(x=1.25,y=-2.5,z=3.75)))
  pub.publish(String(data=f"pocket-real-jazzy seq={sequence}"))
  number.publish(Float64(data=sequence/10.0))
+ emit_qos_heartbeat()
 node.create_timer(0.2,publish)
 try:rclpy.spin(node)
 finally:node.destroy_node(); rclpy.shutdown()
