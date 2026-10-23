@@ -3,4 +3,17 @@
 <item name="status" type="id"/><item name="topics" type="id"/><item name="nodes" type="id"/>
 <item name="message" type="id"/><item name="counts" type="id"/><item name="qos_reliable" type="id"/>
 <item name="qos_transient" type="id"/>
+<item name="explorer_search" type="id"/><item name="explorer_namespace" type="id"/>
+<item name="explorer_type" type="id"/><item name="explorer_favorites" type="id"/>
+<item name="explorer_rows" type="id"/><item name="explorer_details" type="id"/>
+<item name="diagnostics" type="id"/>
+<item name="rosout_pause" type="id"/><item name="rosout_clear" type="id"/>
+<item name="rosout_search" type="id"/><item name="rosout_logger" type="id"/>
+<item name="rosout_timestamp" type="id"/><item name="rosout_severity" type="id"/>
+<item name="rosout_status" type="id"/><item name="rosout_entries" type="id"/>
+<item name="watch_select_0" type="id"/><item name="watch_select_1" type="id"/>
+<item name="watch_select_2" type="id"/><item name="watch_select_3" type="id"/>
+<item name="watch_state_1" type="id"/><item name="watch_state_2" type="id"/><item name="watch_state_3" type="id"/>
+<item name="watch_editor" type="id"/><item name="watch_remove" type="id"/>
+<item name="plot_panel" type="id"/><item name="plot_pause" type="id"/><item name="plot_chart" type="id"/>
 </resources>

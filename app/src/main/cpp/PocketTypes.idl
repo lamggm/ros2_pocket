@@ -6,6 +6,40 @@ module std_msgs { module msg { module dds_ {
 @final struct Int64_ { long long data; };
 @final struct Bool_ { boolean data; };
 }; }; };
+module builtin_interfaces { module msg { module dds_ {
+@final struct Time_ { long sec; unsigned long nanosec; };
+}; }; };
+module std_msgs { module msg { module dds_ {
+@final struct Header_ { builtin_interfaces::msg::dds_::Time_ stamp; string frame_id; };
+}; }; };
+module geometry_msgs { module msg { module dds_ {
+@final struct Vector3_ { double x; double y; double z; };
+@final struct Quaternion_ { double x; double y; double z; double w; };
+@final struct Twist_ { Vector3_ linear; Vector3_ angular; };
+@final struct Point_ { double x; double y; double z; };
+@final struct Pose_ { Point_ position; Quaternion_ orientation; };
+@final struct PoseWithCovariance_ { Pose_ pose; double covariance[36]; };
+@final struct TwistWithCovariance_ { Twist_ twist; double covariance[36]; };
+}; }; };
+module nav_msgs { module msg { module dds_ {
+@final struct Odometry_ {
+ std_msgs::msg::dds_::Header_ header;
+ string child_frame_id;
+ geometry_msgs::msg::dds_::PoseWithCovariance_ pose;
+ geometry_msgs::msg::dds_::TwistWithCovariance_ twist;
+};
+}; }; };
+module rcl_interfaces { module msg { module dds_ {
+@final struct Log_ {
+ builtin_interfaces::msg::dds_::Time_ stamp;
+ octet level;
+ string name;
+ string msg;
+ string file;
+ string function;
+ unsigned long line;
+};
+}; }; };
 module rmw_dds_common { module msg { module dds_ {
 @final struct Gid_ { octet data[16]; };
 @final struct NodeEntitiesInfo_ {
