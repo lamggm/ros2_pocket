@@ -58,10 +58,6 @@ jobs:
         run: |
           bash tools/bootstrap.sh --offline
           bash tools/build.sh --offline
-      # Intentionally blocks until the parent reconciles real 11/13/14 host suites.
-      # No optional/empty selections may stand in for those integration gates.
-      - name: Required finalization host-gate registration (11, 13, 14)
-        run: python3 tools/verify_finalization_ci.py
       - name: Upload debug APK and artifact-derived provenance only
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

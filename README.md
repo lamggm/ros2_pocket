@@ -183,14 +183,25 @@ are uploaded, for **7 days**; no device dumps, fixture snapshots, private logs,
 keystores or toolchains. CI success must be observed for the published SHA; local
 validation is not evidence that a remote workflow already ran.
 
-The required finalization registration step is deliberately **blocking** in this
-parallel preparation: 11/13/14 are `pending_integration` in
-[`ci/finalization-gates.json`](ci/finalization-gates.json). The parent must register
-and review their actual nonempty host unittest suites after reconciliation.
-`python3 tools/verify_finalization_ci.py` rejects pending/missing/empty selections,
-skips, failures and counts below the reviewed minimum; it never runs a device.
-Existing native/Java/fixture gates remain mandatory. This registry does not cover
-or replace physical acceptance, Android instrumentation or final soak.
+Os gates 11/13/14 estão registrados em
+[`ci/finalization-gates.json`](ci/finalization-gates.json), com seleções reais,
+não vazias, e mínimos explícitos. O entrypoint comum `tools/test.sh --portable`
+executa `python3 tools/verify_finalization_ci.py`, rejeitando registros pendentes,
+seleções ausentes/vazias, skips, falhas e contagens abaixo do mínimo.
+
+`tools/test.sh --fixture` mantém os gates DDS anteriores e executa também
+`tools/host_campaigns.py`: multiwatch real nos dois RMWs, controles de mutação,
+fases DDS reais e replay pelo modelo/Canvas nativo host. Os adapters com hooks
+ficam em um build host separado; não habilitam capacidade no APK ordinary.
+O replay força a suíte Java completa e arquiva XML próprio, rejeitando o caso
+opt-in vazio/skipped. `POCKET_TOOLCHAINS` é explícito e não exige caminhos do
+host pessoal no CI. Os dois entrypoints já são chamados pelo workflow existente;
+não é necessário ampliar credenciais nem alterar o YAML público.
+
+Registro e implementação do pipeline não provam execução remota. Revisão do
+SHA reconciliado, regressões executadas, CI remoto e qualificação física são
+gates separados; nenhum registro substitui Android instrumentation, soak físico
+ou aceite final do operador.
 
 Upstream native LICENSE/NOTICE are included in APK assets. Generated binaries,
 signing keys, local environment files and test evidence remain ignored.

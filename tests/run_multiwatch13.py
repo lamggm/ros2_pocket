@@ -8,11 +8,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-PREFIX = Path('/home/lamggm/Documents/ros2_pocket-xeon/toolchains/host')
+PREFIX = Path(os.environ.get('POCKET_TOOLCHAINS', str(Path.home()/'.cache/ros2-pocket/toolchains'))) / 'host'
 
 
 def docker(*args, timeout=20, check=True):
@@ -49,7 +50,7 @@ def run(image, binary, output, rmw):
             '-v',f'{ROOT / "tests"}:{ROOT / "tests"}:ro',
             '-v',f'{binary.parent}:{binary.parent}:ro','-v',f'{PREFIX}:{PREFIX}:ro',
             '--entrypoint','/bin/bash',image_id,'-lc',
-            'source /opt/ros/jazzy/setup.bash && exec timeout 170s python3 "$1" "$2"',
+            'source /opt/ros/jazzy/setup.bash && export LD_LIBRARY_PATH='+shlex.quote(str(PREFIX/'lib'))+':${LD_LIBRARY_PATH:-} && exec timeout 170s python3 "$1" "$2"',
             'multiwatch13',str(script),str(binary)]
     cid = docker(*args).stdout.strip()
     record = dict(owner=owner, id=cid, name=name, imageId=image_id, rmw=rmw,

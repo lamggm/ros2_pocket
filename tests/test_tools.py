@@ -59,6 +59,10 @@ class ToolTests(unittest.TestCase):
             (root / 'tools').mkdir()
             shutil.copy(ROOT / 'tools/test.sh', root / 'tools/test.sh')
             (root / 'tests').mkdir()
+            # This test controls the generic wrapper's Docker transport only.
+            # Integrated real campaigns are tested/executed separately.
+            (root / 'tools/host_campaigns.py').write_text(
+                'import sys\nassert sys.argv[1] == "--image"\nprint("SYNTHETIC_HOST_GATE_CALLED")\n')
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
             (root / 'tests/fixture.py').write_text('test publisher')
             (root / 'tests/fixture-loopback.xml').write_text('test discovery')
@@ -79,6 +83,7 @@ class ToolTests(unittest.TestCase):
                                              DOCKER_CALLS=str(calls), PATH=str(root / 'bin') + ':' + os.environ['PATH']),
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('SYNTHETIC_HOST_GATE_CALLED', result.stdout)
             runs = [line for line in calls.read_text().splitlines() if line.startswith('run ')]
             self.assertEqual(len(runs), 2)
             import hashlib

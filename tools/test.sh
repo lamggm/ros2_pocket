@@ -14,6 +14,7 @@ cmake -S app/src/main/cpp -B build/native-host -G Ninja -DCMAKE_PREFIX_PATH="$TO
 cmake --build build/native-host --parallel 4
 if [[ "$MODE" == --portable ]]; then
  python3 -m unittest discover -s tests -p 'test_*.py' -v
+ python3 tools/verify_finalization_ci.py
  javac -encoding UTF-8 -d build/tests tests/InputRulesTest.java app/src/main/java/com/lamggm/rospocket/InputRules.java
  java -cp build/tests InputRulesTest
  javac -encoding UTF-8 -d build/tests tests/ConnectionPolicyTest.java app/src/main/java/com/lamggm/rospocket/ConnectionPolicy.java
@@ -47,4 +48,5 @@ else
   cleanup
   name=""
  done
+ python3 tools/host_campaigns.py --image "$image"
 fi
