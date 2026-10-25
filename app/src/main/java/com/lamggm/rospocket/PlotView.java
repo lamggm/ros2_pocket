@@ -51,7 +51,14 @@ final class PlotView extends LinearLayout {
    // Slot retirement removes only that frozen trace. Healthy paused traces never
    // get replaced by advancing intake just because another reader changed.
    List<PlotHistory.Series> retained=new ArrayList<>();
-   for(PlotHistory.Series s:visible)if(controller.selected(s.id))retained.add(s);
+   Map<String,PlotHistory.Source> current=new HashMap<>();
+   for(PlotHistory.Series s:controller.history.snapshot())current.put(s.id,s.provenance);
+   for(PlotHistory.Series s:visible){
+    PlotHistory.Source identity=current.get(s.id);
+    // An ID can be reselected before refresh after its reader was retired.
+    // Keep only the original immutable identity, never its same-name replacement.
+    if(identity!=null&&s.provenance.same(identity))retained.add(s);
+   }
    visible=Collections.unmodifiableList(retained);
   }
   revision=observedRevision;
