@@ -157,20 +157,94 @@ Sem CPU/PSS/intake/bateria numéricos finitos, identidade, carga ou duração/ca
 Medição completa que excede orçamento retorna `failed`. Nenhuma média/contagem é
 inventada ou extraída de labels sem observação real.
 
-### Captura manual somente leitura — não executada por esta preparação
+### Coletor oficial somente leitura — execução física ainda pendente
 
-Não há coletor ADB automático neste incremento. O analisador puro foi escolhido
-para não presumir acesso a contadores que a UI/Android podem não fornecer. Um
-operador autorizado deve preparar captura **limitada** a 1800 s, no máximo 122
-pontos, período 15 s e timeout de 5 s por leitura. Use relógio monotônico do mesmo
-host e deadline absoluto, não somas de `sleep` que escondem custo das consultas.
-Se a coleta estourar a cadência, interromper ou perder qualquer métrica, preserve
-a tentativa como incomplete; não interpole. Não execute ADB sem autorização.
+`tools/collect_soak.py` consome o contrato real de `Activity.dump` através de
+`tools/device_snapshot.py`, sem UIAutomator, captura de acessibilidade, novo
+reader ou publicação DDS. **Não executá-lo em dispositivo sem nova autorização.**
+O desenvolvimento/teste host desta ferramenta não é um soak físico.
 
-Exemplos de leituras pontuais (não formam um coletor; definir SERIAL explicitamente
-no terminal privado; timeout é do host). Recuse serial vazio, mais de um PID e
-qualquer cmdline que não seja **exatamente** `com.lamggm.rospocket.dev` antes de
-capturar; revalide PID/cmdline em cada ponto e encerre se o processo mudar:
+Antes da campanha, o operador prepara os quatro produtores **2 Hz**, deixa o
+mesmo APK candidato em processo ordinário, todos os watches saudáveis e o gráfico
+finito totalmente visível/despausado. O arquivo `load-plan.json` é o objeto exato
+`soak_plan` da CLI `qualification.py matrix`, revisado antes da coleta. Ele não é
+uma configuração de orçamento nem comprova sozinho a frequência do produtor;
+retenha também a evidência da configuração da fixture. Não existe contrato de
+introspecção da taxa configurada do publicador no QA e o coletor não o inventa.
+
+Somente após autorização física explícita, em terminal privado:
+
+```bash
+python3 tools/collect_soak.py preflight \
+  --repo . --metadata build/artifacts/app-debug.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk \
+  --serial "$SERIAL" --authorize-read-only \
+  --load-plan build/qualification/load-plan.json \
+  --output-dir build/qualification/preflight-NOVO
+# Para candidato ON, adicionar a ambos os comandos:
+# --os-transport-validation build/qualification/os-transport-validation.json
+python3 tools/collect_soak.py collect \
+  --repo . --metadata build/artifacts/app-debug.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk \
+  --serial "$SERIAL" --authorize-read-only \
+  --load-plan build/qualification/load-plan.json \
+  --output-dir build/qualification/soak-NOVO
+```
+
+- `preflight` consulta identidade, clocks, OS e QA, mas **sempre** sai `1`/incomplete:
+  não mede CPU/intake por 30 minutos nem concede aceite. Revise seu evento
+  `preflight-observation`; ausência deste evento indica preflight bloqueado.
+- `collect` não aceita duração, cadência, número de watches ou budgets alternativos.
+  Há uma janela prévia real de 15 s para o primeiro delta CPU, seguida de 121 pontos
+  em deadlines absolutos; um 122º ponto fecha a duração mínima se o jitter das
+  leituras deixar o 121º abaixo de 1800 s. Todo intervalo continua 13–17 s e o span
+  aceito continua 1800–1815 s. Não há interpolação, catch-up ou resume.
+- Cada comando tem timeout absoluto **≤5 s**, stdout/stderr limitados e cleanup do
+  próprio subprocesso. Todas as consultas de uma amostra compartilham ainda um
+  deadline de 5 s. Transporte lento/SELinux/getconf ausente bloqueiam, sem fallback.
+- PID único, cmdline exato, UID e `/proc/PID/stat`/starttime são reconferidos e
+  cercam OS/QA/métricas. `getconf CLK_TCK` é lido de novo em cada ponto. CPU usa
+  delta exato `utime+stime / CLK_TCK / delta monotônico ×100`, um core, e verifica
+  continuidade de uptime do dispositivo; não compara relógio Java com host.
+- Os bytes/hash/ABI/política do APK local são reinspecionados; `pm path` monolítico
+  e `sha256sum` do APK instalado devem coincidir em cada amostra. A CLI verifica
+  também fonte/proveniência e, para ON, package/assinatura/metadados reais pelos
+  verificadores existentes. Nenhuma assinatura ou instalação é realizada.
+- OFF continua exigindo capability boolean false; ON continua true mesmo disarmed.
+  Ambos recusam lease/runner/fault/ticket/operação ativos ou desconhecidos. O
+  transporte OS conservador exige API36 e o parser AOSP já versionado; builds ou
+  campos não suportados bloqueiam. ON exige previamente o atestado físico de
+  controles OS positivo/negativo para o mesmo hash de build. Nada gera esse
+  atestado automaticamente nem classifica controle sintético como físico.
+- Cada ponto cerca a captura com **OS-before → export fence Java → captura worker
+  estritamente posterior → OS-after**. Requests/readers/session/lifecycle/policy,
+  UUID do processo, contadores, export clocks e sequência não podem regredir ou
+  trocar. Uma captura ainda igual ao fence pode aguardar dentro do deadline;
+  entrada malformada ou identidade divergente nunca é escondida por retry.
+- PSS TOTAL (KiB), bateria `level/scale`, todas as fontes de alimentação conhecidas
+  e status são lidos de verdade; power conectado, bateria com updates parados,
+  campos ausentes/desconhecidos e ambiguidade bloqueiam. Não há zeros substitutos.
+- `events.jsonl` é progressivo, privado (0600 em diretório 0700), fsync por evento,
+  limitado a 20.000 registros/8 MiB. Guarda leituras do alvo em base64 e hashes/
+  intervalos; protobuf OS e fingerprint ficam **somente hash/tamanho**, para não
+  reter argumentos ou processos alheios. `soak-input.json` é substituído
+  atomicamente a cada ponto e `analysis.json` contém o retorno oficial.
+- Diretório de saída deve ser novo e estar sob `build/` desta fonte; arquivo,
+  symlink, tentativa anterior ou execução interrompida não são retomados. SIGINT/
+  SIGTERM preservam pontos completos e deixam incomplete; SIGKILL/falha de disco
+  pode deixar apenas o último snapshot atômico/journal parcial, jamais PASS. O
+  analisador recusa envelope oficial incomplete, curto ou inconsistente e revalida
+  clocks/CPU/identidades/QA/OS dos coletores OFF e ON. O input manual legado mantém
+  seu contrato separado; não se transforma em saída autenticada do coletor.
+
+Saídas do coletor: `0` = coleta completa e análise de métricas passed (não aceite
+físico/ready); `1` = preflight, incomplete ou failed; `2` = entrada/saída inválida.
+Não commitar nem publicar arquivos da campanha. Fixture, controles OS físicos,
+revisão independente, screenshot e aceite final continuam pendentes.
+
+As leituras pontuais abaixo documentam as entradas do coletor; não compõem uma
+campanha e continuam exigindo autorização. Defina SERIAL explicitamente e recuse
+serial vazio, múltiplos PIDs ou cmdline divergente:
 
 ```bash
 : "${SERIAL:?defina explicitamente o dispositivo autorizado}"
