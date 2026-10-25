@@ -178,6 +178,9 @@ def analyze_soak(data, metadata, apk=None):
         return {'status': 'incomplete', 'blockers': ['invalid soak object'], 'metrics': unknown}
     if data.get('snapshot') != metadata:
         incomplete.append('soak snapshot mismatch')
+    if 'collector_schema' in data and (type(data['collector_schema']) is not int
+            or data['collector_schema'] != 1 or data.get('collection_status') != 'complete'):
+        incomplete.append('official collector incomplete/unknown envelope')
     if data.get('plan') != SOAK_PLAN:
         incomplete.append('predeclared plan mismatch')
     pid = data.get('pid')
@@ -190,6 +193,15 @@ def analyze_soak(data, metadata, apk=None):
         incomplete.append('bounded complete 30-minute sample set required (121-122)')
     if incomplete:
         return {'status': 'incomplete', 'blockers': incomplete, 'metrics': unknown}
+    if 'collector_schema' in data:
+        try:
+            try:
+                from collect_soak import validate_collection
+            except ModuleNotFoundError:
+                from tools.collect_soak import validate_collection
+            validate_collection(data, metadata)
+        except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
+            incomplete.append('collector process/clock/QA proof: ' + str(error))
     if metadata['schema_version'] == 2:
         try:
             try:
