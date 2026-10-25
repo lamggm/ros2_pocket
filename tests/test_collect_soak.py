@@ -373,6 +373,41 @@ class CliTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_journal_overflow_rejection_keeps_terminal_incomplete_result(self):
+        import collect_soak as c
+        import qualification as q
+        root=Path(__file__).resolve().parents[1]
+        meta=metadata()
+
+        class FailingCollector:
+            metadata=meta
+            apk=meta['apk']
+            def preflight(self):
+                raise ValueError('synthetic collection failure')
+
+        limit=8*1024*1024
+        filler_overhead=len((json.dumps(dict(kind='filler',padding=''),separators=(',',':'),allow_nan=False)+'\n').encode())
+        filler='x'*(limit-filler_overhead-1)
+
+        with tempfile.TemporaryDirectory(dir=root/'build') as directory:
+            reject=Path(directory)/'reject'
+            journal=c.Journal(reject,root)
+            journal.event('filler',padding=filler)
+            with self.assertRaisesRegex(ValueError,'progress journal budget exceeded'):
+                journal.event('overflow',padding='x')
+            self.assertLessEqual(journal.bytes,8*1024*1024)
+            journal.close()
+
+            terminal=Path(directory)/'terminal'
+            journal=c.Journal(terminal,root)
+            journal.event('filler',padding=filler)
+            result=c.run_campaign(FailingCollector(),journal,preflight_only=True)
+            self.assertEqual(result['collection_status'],'incomplete')
+            saved=q.load_json(terminal/'soak-input.json')
+            self.assertEqual(saved['collection_status'],'incomplete')
+            self.assertIn('progress journal budget exceeded',saved['collection_error'])
+            self.assertEqual(q.load_json(terminal/'analysis.json')['status'],'incomplete')
+
     def test_real_subprocess_timeout_output_bounds_stderr_and_exit(self):
         import collect_soak as c
         import time

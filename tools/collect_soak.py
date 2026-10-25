@@ -372,6 +372,7 @@ def run_campaign(collector, journal, transport_validation=None, preflight_only=F
                 snapshot=collector.metadata,plan=q.SOAK_PLAN,package=PACKAGE,pid=None,watches=4,graph=True,
                 collection_status='incomplete',samples=[])
     failure = None
+    journal_warning = None
     try:
         journal.event('started',plan=q.SOAK_PLAN,preflight_only=preflight_only)
         journal.save('soak-input.json',data)
@@ -420,14 +421,25 @@ def run_campaign(collector, journal, transport_validation=None, preflight_only=F
     try:
         if failure:
             data['collection_status'] = 'incomplete'; data['collection_error'] = failure
-            journal.event('incomplete',reason=failure,completed_points=len(data['samples']))
+            try:
+                journal.event('incomplete',reason=failure,completed_points=len(data['samples']))
+            except (ValueError,OSError) as error:
+                journal_warning = 'incomplete event not retained: '+str(error)
         journal.save('soak-input.json',data)
         analysis = q.analyze_soak(data,collector.metadata,collector.apk)
         if failure and analysis['status'] == 'passed':
             analysis = dict(status='incomplete',blockers=[failure],metrics=analysis['metrics'])
+        if journal_warning is not None:
+            analysis = dict(analysis,journal_warning=journal_warning)
         journal.save('analysis.json',analysis)
-        journal.event('finished',analysis=analysis,completed_points=len(data['samples']))
-        return dict(collection_status=data['collection_status'],analysis=analysis,points=len(data['samples']))
+        try:
+            journal.event('finished',analysis=analysis,completed_points=len(data['samples']))
+        except (ValueError,OSError) as error:
+            journal_warning = 'finished event not retained: '+str(error)
+        result = dict(collection_status=data['collection_status'],analysis=analysis,points=len(data['samples']))
+        if journal_warning is not None:
+            result['journal_warning'] = journal_warning
+        return result
     finally:
         journal.close()
 
