@@ -153,6 +153,35 @@ nem qualificação física/endurance e aceite do operador, que permanecem gates.
 
 Parâmetros, chamadas de serviços/actions, publicação/teleop, gravação rosbag, imagens/mapas/TF/RViz e tipos customizados dinâmicos. Parâmetros usam RPC ROS 2: antes de prometer leitura/edição, fazer spike explícito sobre cliente rcl/RMW versus implementação de serviços em DDS, interoperabilidade e modelo de timeout. Operações de escrita exigem outra decisão de produto e testes de segurança; não entram por acidente porque a UI ganhou um botão.
 
-## Estado desta preparação
+## Estado atual — preparação paralela 11–15
 
-Manter a integração e o PR draft, com as oito branches de trabalho preparadas e worktrees isoladas para desenvolvimento paralelo. Esta preparação altera apenas documentação e estrutura de branches; não implementa funções nem faz merge em main. Cada frente avança por tarefa explícita e respeita os contratos e gates acima.
+O operador autorizou implementar **11/12/13/14/15 em paralelo**, em worktrees
+isoladas, com reconciliação posterior pelo pai e testes físicos quando o tablet
+estiver disponível. Isso substitui a espera para iniciar implementação; não
+remove dependências de integração, revisão, CI do SHA exato ou gates físicos.
+Nenhum Android (tablet ou emulador) é operado nesta rodada.
+
+Os incrementos 01–10 já têm fonte na história disponível. A base local da rodada
+é `796b59aaf50a468344b825f693331e11bdabb06e`, recuperação do conteúdo revisado da
+12 sobre `7b2dc76de3679935fac5adf69839818e8ca5a914`, **não** o commit upstream
+original atribuído `7a5e841811f66bcb660da0f9b2b901f1aa272c68`. Presença de código,
+recuperação ou teste isolado não significa aceite integrado/físico.
+
+- **11:** coletor de soak e consumidores QA/OS, mantendo plano e orçamentos oficiais.
+- **12:** revisão independente da recuperação e regressões reais, sem inventar história.
+- **13:** fixture/harness multiwatch próprios, limite/quinto pedido/QoS/falha/logs novos.
+- **14:** fixture/harness gráficos próprios, gaps/clock/pausa/eviction/Canvas real.
+- **15:** identidade `0.2.0`/code `2`, UI derivada do BuildConfig, regressões e
+  documentos/checklist; CI com registro obrigatório **pendente** de 11/13/14.
+
+A 15 pode preparar versão/CI antes de as outras integrarem, mas não pode congelar
+candidato final nem declarar ready. O [checklist de reconciliação](FINALIZATION-v0.2.md)
+distingue fonte implementada de aceite pendente por incremento e descreve o
+registro fail-closed. A revisão independente e reconciliação combinada continuam
+pendentes. Fonte/documentos devem terminar antes do build do futuro candidato;
+um APK novo recebe hash/metadados próprios e não herda testes físicos antigos.
+
+A integração → main permanece draft e sem auto-merge. Qualificação física,
+Wi-Fi/IP com recuperação autorizada, soak oficial de 30 minutos e aceite separado
+do operador continuam pendentes. Preparar versão não autoriza ADB, instalação,
+push/PR/merge, assinatura release, loja ou publicação.

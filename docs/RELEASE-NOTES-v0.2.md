@@ -1,75 +1,90 @@
-# ROS Pocket v0.2 — notas de versão (DRAFT, não lançado)
+# ROS Pocket v0.2.0 — notas de versão (DRAFT, não lançado)
 
-**Sem candidato qualificado, aceite físico ou autorização de release.** Este
-arquivo é preparação da frente 08, não anúncio de entrega. A integração → main
-permanece draft e sem auto-merge até a campanha final e o aceite do operador.
+**Preparação paralela da frente 15, não candidato final congelado.** Sem aceite
+físico, soak final, ready ou autorização de release. A integração → main permanece
+draft e sem auto-merge. O operador autorizou desenvolver 11–15 em worktrees
+isoladas agora, reconciliar depois e testar no tablet quando estiver disponível.
 
-## Escopo pretendido — confirmar no SHA final
+## Identidade preparada
 
-A v0.2 pretende manter Android Java → JNI/C++ → Cyclone DDS e leitura direta DDS,
-sem bridge/servidor auxiliar ou comandos para o robô:
+- `versionName=0.2.0`, `versionCode=2`; cabeçalho usa a versão gerada pelo build,
+  não um rótulo v0.1 independente. Code 2 não aparece no histórico local disponível
+  antes desta preparação; não foi consultada uma loja ou dispositivo.
+- Package DEV `com.lamggm.rospocket.dev`, signer debug existente, minSdk 28,
+  targetSdk 35 e padrão ARM64 preservados. Não há migração/uninstall/instalação.
+- Ordinary/default/nondebug continuam com hooks OFF. Diagnóstico ON exige opt-in
+  explícito/versionado e inspeção dos ELF reais; nome de versão não muda política.
+- Cada APK novo tem identidade/hash próprios; versão não substitui SHA de fonte,
+  snapshot, certificado e hash de bytes. Resultados de APK antigo não se transferem.
 
-1. Build reproduzível, wrapper fixado, CI e fixtures DDS isoladas.
-2. Diagnóstico de conexão/rede e recuperação limitada com estados verdadeiros.
-3. Explorer de tópicos/nós e QoS anunciado, distinguindo desconhecido de garantido.
-4. Console `/rosout` com filtros, pausa e buffer limitado.
-5. Vector3/Quaternion/Twist/Pose/Odometry estruturados, campos numéricos e limites.
-6. Até quatro watches independentes, sem falha de um contaminar os demais.
-7. Gráficos de campos numéricos, histórico limitado e lacunas honestas.
-8. Matriz explícita de qualificação do candidato e plano de soak mensurável.
+## Funções implementadas na fonte disponível — aceite final pendente
 
-Esta lista é **escopo do roadmap**, não checklist concluído. Uma branch existente,
-merge parcial ou build verde não comprova funcionalidades integradas e aceitas.
-A preparação começou sobre os incrementos 01–03 e incorporou a integração com
-01–04 antes da abertura da PR; 05–07 precisam ser conferidos na integração final.
-Por decisão do operador, a PR da frente 08 só pode ser mergeada **depois** da PR
-[07 — gráficos](https://github.com/lamggm/ros2_pocket/pull/5), com a base atualizada
-e os gates novamente validados; não habilitar auto-merge antes dessa condição.
-Não há evidência nesta frente de que todas as funcionalidades tenham sido
-entregues ou exercitadas juntas.
+Android Java → JNI/C++ → Cyclone DDS 0.10.5, DDS direto, **somente leitura**,
+sem bridge/servidor auxiliar nem comandos de aplicação para o robô:
 
-## Entrega desta preparação
+1. Wrapper fixado, bootstrap/build verificáveis, CI e fixtures DDS isoladas.
+2. Diagnóstico de conexão/rede e recuperação limitada com estados explícitos.
+3. Explorer de tópicos/nós e QoS anunciado; desconhecido não vira compatível.
+4. Console `/rosout` independente, com filtros, pausa, clear e buffer limitado.
+5. Tipos primitivos e Vector3/Quaternion/Twist/Pose/Odometry estruturados;
+   campos numéricos, frames/stamps/covariâncias e limites explícitos.
+6. Até quatro watches independentes, substituição/remoção/QoS por slot.
+7. Gráficos de snapshots numéricos tipados: quatro séries, 30 s/600 pontos,
+   pausa só visual, gaps honestos; não reconstrói todas as mensagens da origem.
+8. Toolkit/matriz oficial de qualificação e orçamentos mensuráveis de soak.
+9. QA debug read-only com contadores/proveniência e estatísticas de desenho.
+10. Harness físico guardado; falhas de criação têm regressões e suporte
+    diagnóstico recuperados na base local da 12, sujeitos à revisão/reconciliação.
 
-- `tools/qualification.py`: matriz de gates pendentes vinculada ao snapshot real
-  de fonte/APK, registro explícito com hashes de evidências, avaliação fail-closed
-  e análise pura de soak. Nenhuma ação padrão de rede/dispositivo.
-- [Plano de qualificação](DEVICE-QUALIFICATION-v0.2.md): procedimentos futuros,
-  identidade instalada, canal alternativo antes de interrupções físicas e
-  orçamentos pré-declarados de 30 minutos/quatro watches/gráfico.
-- Testes unitários do toolkit, incluindo rejeição de falsos positivos e controle
-  sintético positivo de **validação do relatório**, não de aceitação do tablet.
+Fonte dessas funções existe, mas esta lista **não** afirma revisão final, CI
+integrado, funcionamento físico completo ou endurance. A base desta rodada é a
+recuperação local `796b59aaf50a468344b825f693331e11bdabb06e` sobre a história real
+`7b2dc76de3679935fac5adf69839818e8ca5a914`; não é o commit upstream original
+`7a5e841811f66bcb660da0f9b2b901f1aa272c68`. Frentes 11/13/14 ainda não estão
+integradas nesta preparação. [Checklist por incremento](FINALIZATION-v0.2.md).
+
+## CI preparado, deliberadamente não liberado
+
+O workflow mantém runner GitHub hospedado efêmero, permissões mínimas, actions
+fixadas por SHA, sem secrets/release keys e upload somente APK debug+metadados.
+O novo registro obrigatório de testes host 11/13/14 está `pending_integration` e
+bloqueia o CI antes do upload. O pai deve registrar suites reais, não vazias e
+revisadas após reconciliar as frentes. Testes sintéticos do mecanismo de registro
+não são gates funcionais das três frentes. Nenhum CI remoto é alegado nesta rodada.
 
 ## Candidato e aceite — preencher só com evidência real
 
 | Campo | Estado |
 |---|---|
-| SHA final integrado / fonte limpa / hash de conteúdo | Pendente |
-| APK real: package, versionCode/versionName, tamanho/SHA-256 | Pendente |
-| Certificado SHA-256 / ABIs / identidade instalada | Pendente |
-| Testes finais, lint, build, secret scan, revisão de todos os incrementos | Pendente |
-| Fast DDS/Cyclone físicos e domínio errado | Pendente para o candidato v0.2 |
-| Lifecycle, reader failure, QoS/remoção, rosout, tipos, watches e gráficos | Pendente para o candidato v0.2 |
-| Perda/retorno físicos de Wi-Fi e mudança real de endereço | Pendente; exige recuperação alternativa aprovada |
-| Soak medido com todas as métricas e carga integrada disponíveis | Pendente; indisponibilidade bloqueia, não dispensa |
-| Leitura real com APK instalado idêntico e aceite separado do operador | Pendente |
+| Reconciliação 11/12/13/14/15 e revisão independente de todos os incrementos | Pendente |
+| SHA final integrado / fonte limpa / snapshot antes e depois do build | Pendente; não congelado |
+| APK final: package, code/name, tamanho/SHA-256, ABIs/certificado | Pendente; build de preparação não é final |
+| CI remoto do SHA exato, testes/lint/build/secret scan finais | Pendente; registro 11/13/14 bloqueia |
+| Identidade instalada puxada de volta, mesmo APK da campanha | Pendente; nenhuma instalação nesta rodada |
+| Ambos os RMWs físicos, domínio incorreto e regressão integrada | Pendente para o novo candidato |
+| Falhas reais/lifecycle/QoS/remoção/rosout/tipos/multiwatch/gráficos completos | Pendente para o novo candidato |
+| Wi-Fi/IP físicos com recuperação alternativa autorizada | Pendente |
+| Soak oficial com CPU/PSS/intake/bateria, quatro watches e gráfico | Pendente; curto/sintético não substitui |
+| Todos os 21 gates e aceite separado do operador | Pendente |
 
-As 16 verificações antigas do protótipo são histórico, não prova do candidato
-v0.2. Não houve qualificação física, instalação, coleta ADB, medição de CPU/PSS/
-intake/bateria, mudança de rede ou aceite nesta preparação. A automação não
-fabrica métricas e não converte ausência de falha em sucesso.
+As 16 verificações antigas do protótipo são histórico, não prova do novo APK.
+Não houve nesta preparação ADB, operação de tablet/emulador, coleta física,
+medição de bateria, alteração de rede, publicação ou assinatura de produção.
+Evidências host/APK de preparação ficam fora do Git, ligadas ao próprio SHA/hash;
+a revisão do pai não deve aceitar alegações de um binário anterior como novas.
 
 ## Limites preservados
 
-IPv4 na mesma LAN Wi-Fi; multicast, isolamento de AP e políticas de VPN/firewall
-podem impedir descoberta. SROS2, roteamento entre sub-redes, compatibilidade de
-esquemas de grafo antigos e aceitação física em outros tablets/16 KiB continuam
-sem comprovação aqui. Buffers limitados e soak curto não provam endurance ilimitado.
+IPv4 na mesma LAN Wi-Fi; políticas de AP/multicast/VPN/firewall podem bloquear
+descoberta. SROS2, sub-redes roteadas, esquemas antigos de grafo, outros tablets
+e páginas físicas 16 KiB não têm aceite aqui. DDS rejeita CDR acima de 64 KiB;
+limites de amostra/ring não são um limite total de memória do processo. Há dívida
+cosmética de lint conhecida, não reformada nesta frente.
 
-Fora do ciclo: editar parâmetros, serviços/actions, publicação/teleop, rosbag,
-imagens/mapas/TF/RViz e decodificação dinâmica de tipos customizados. Não há
-assinatura de produção, upload, distribuição, migração de dados ou instalação
-implícita. APK debug com certificado diferente não autoriza desinstalar o existente.
+Fora do ciclo: parâmetros/RPC, serviços/actions, publicação/teleop, rosbag,
+imagens/mapas/TF/RViz e tipos dinâmicos customizados. Sem release/loja implícitos.
+Certificado diferente nunca autoriza apagar dados ou desinstalar para atualizar.
 
-Antes de retirar DRAFT, substituir pendências por referências sanitizadas ao
-relatório final revisado e ao candidato exato. Evidência bruta permanece local em
-`build/qualification/`; não publicar serial, endereço, logs privados ou keystore.
+Antes de retirar DRAFT: cumprir [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md) e o
+[plano oficial](DEVICE-QUALIFICATION-v0.2.md), referenciar o relatório revisado e
+os bytes finais. Não publicar logs brutos, serial, endereço, keystore ou dumps.

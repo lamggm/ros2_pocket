@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "gates": [
+    {"id": "11-soak", "state": "pending_integration", "test_files": [], "minimum_tests": 1},
+    {"id": "13-multiwatch", "state": "pending_integration", "test_files": [], "minimum_tests": 1},
+    {"id": "14-plot", "state": "pending_integration", "test_files": [], "minimum_tests": 1}
+  ]
+}
