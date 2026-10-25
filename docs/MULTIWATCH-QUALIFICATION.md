@@ -106,10 +106,15 @@ APK signature. It proves packaging only; installation/OS registration/execution
 remain unverified until the tablet campaign.
 
 For a **separately authorized future bench**, the operator supplies an already
-running, controlled fixture container with label `io.lamggm.multiwatch13=<owner>`,
-`ROS_DOMAIN_ID=67` (or 68), and the exact fixture script mounted read-only at its
-worktree path. It runs `device_multiwatch_fixture.py --publish --owner <owner>
---domain 67 --seconds 240` under the selected Jazzy RMW and retains stdout events.
+running, controlled fixture container with label `io.lamggm.multiwatch13=<owner>`
+and an approved immutable image ID (`sha256:<64 lowercase hex>`). The exact
+fixture source is this worktree's `tests/device_multiwatch_fixture.py`, mounted
+as the read-only bind destination `/fixture/device_multiwatch_fixture.py` with
+`RW=false` and `Mode=ro`; the harness hashes that mounted destination inside the
+container and compares it with the required CLI hash. The container command is
+exactly `python3 /fixture/device_multiwatch_fixture.py --publish --owner <owner>
+--domain <domain> --seconds 240`, with exactly one matching `ROS_DOMAIN_ID` and
+the selected `RMW_IMPLEMENTATION` (`rmw_fastrtps_cpp` or `rmw_cyclonedds_cpp`).
 The operator must arrange its network/interface appropriately; the harness never
 creates a host-network container or alters LAN/VPN/firewall. The host-isolated
 network-none fixtures above cannot reach a tablet and are not a substitute.
@@ -120,6 +125,11 @@ Only after authorizing the tablet and installing/binding a reconciled candidate:
 python3 tests/tablet_multiwatch_acceptance.py
   --serial <explicit-authorized-serial> --owner <32-lowercase-hex>
   --domain 67 --fixture-container <immutable-64-hex-container-id>
+  --fixture-source <exact-worktree>/tests/device_multiwatch_fixture.py
+  --fixture-destination /fixture/device_multiwatch_fixture.py
+  --fixture-script-sha256 <mounted-script-sha256>
+  --fixture-image-id sha256:<approved-image-id>
+  --fixture-rmw <rmw_fastrtps_cpp|rmw_cyclonedds_cpp>
   --apk-sha256 <installed-DEV-APK-hash>
   --test-apk-sha256 <installed-test-APK-hash> --output <private-existing-directory>
   [--peer <canonical-bench-IPv4>]

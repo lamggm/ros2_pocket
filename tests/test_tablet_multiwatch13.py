@@ -12,6 +12,10 @@ class PublicHarnessTests(unittest.TestCase):
     def args(self, directory):
         return ['--serial','HOST_ONLY','--owner','a'*32,'--domain','67','--peer','',
                 '--fixture-container','ab'*32,'--apk-sha256','cd'*32,'--test-apk-sha256','ef'*32,
+                '--fixture-source',str(Path(harness.__file__).with_name('device_multiwatch_fixture.py').resolve()),
+                '--fixture-destination','/fixture/device_multiwatch_fixture.py',
+                '--fixture-script-sha256','01'*32,'--fixture-image-id','sha256:'+'02'*32,
+                '--fixture-rmw','rmw_cyclonedds_cpp',
                 '--output',directory]
 
     def test_no_device_cli_fails_closed_before_adb_or_ros(self):
@@ -31,7 +35,10 @@ class PublicHarnessTests(unittest.TestCase):
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as directory:
             for flag,value in [('--owner','robot'),('--peer','192.0.2.999'),('--domain','0'),
-                               ('--serial','x;id'),('--fixture-container','name'),('--apk-sha256','00')]:
+                               ('--serial','x;id'),('--fixture-container','name'),('--apk-sha256','00'),
+                               ('--fixture-source','/tmp/wrong.py'),('--fixture-destination','/tmp/wrong.py'),
+                               ('--fixture-script-sha256','00'),('--fixture-image-id','latest'),
+                               ('--fixture-rmw','rmw_bad')]:
                 args=self.args(directory);args[args.index(flag)+1]=value
                 factory=Mock()
                 with self.subTest(flag=flag),self.assertRaises((ValueError,SystemExit)):
@@ -125,6 +132,107 @@ class InstrumentationStreamHostControls(unittest.TestCase):
                     self.assertEqual(phases,[dict(phase='negative',writerGid='ab'*16)])
                 else:
                     with self.assertRaisesRegex(RuntimeError,'incomplete'): t.instrument(phases.append)
+
+
+class InstrumentationCleanupHostControls(unittest.TestCase):
+    def test_incomplete_runner_cleans_up_after_exit_and_closes_stream_when_transcript_save_fails(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        class Stream:
+            def __init__(self): self.closed = False
+            def fileno(self): return 99
+            def close(self): self.closed = True
+
+        class Process:
+            def __init__(self): self.stdout = Stream(); self.returncode = 1
+            def poll(self): return self.returncode
+            def wait(self, timeout): return self.returncode
+
+        class Selector:
+            def __enter__(self): return self
+            def __exit__(self, *unused): pass
+            def register(self, *unused): pass
+            def select(self, timeout): return []
+
+        process = Process()
+        calls = []
+        def adb(*args):
+            calls.append(args)
+            if args[1:3] == ('am','force-stop'):
+                raise RuntimeError('synthetic force-stop failure')
+            return ''
+        client = SimpleNamespace(adb=adb)
+        t = object.__new__(harness.DeviceTransport)
+        t.adb = 'synthetic-adb-not-android'
+        t.client = client
+        t.c = SimpleNamespace(serial='HOST_ONLY', owner='a'*32, domain=67, peer='', run_dir=Path(tempfile.mkdtemp()))
+        with patch.object(harness.subprocess, 'Popen', return_value=process), \
+             patch.object(harness.selectors, 'DefaultSelector', return_value=Selector()), \
+             patch.object(Path, 'write_bytes', side_effect=OSError('synthetic transcript failure')):
+            with self.assertRaisesRegex(RuntimeError, 'runner failed/incomplete'):
+                t.instrument(lambda unused: None)
+        self.assertTrue(process.stdout.closed)
+        self.assertIn(('shell','am','force-stop','--user','0',harness.PKG), calls)
+        self.assertIn(('shell','pidof',harness.PKG), calls)
+
+
+class FixtureProvenanceHostControls(unittest.TestCase):
+    def test_events_require_exact_mount_hash_command_image_and_rmw(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        owner = 'a'*32
+        destination = '/fixture/device_multiwatch_fixture.py'
+        image_id = 'sha256:'+'02'*32
+        script_hash = '01'*64
+        source = str(Path(harness.__file__).with_name('device_multiwatch_fixture.py').resolve())
+        event = dict(owner=owner, topic=harness.profiles(owner)[0]['topic'], sequence=1,
+                     monotonicNs=1, writerGid='ab'*16, reliability='best_effort')
+        metadata = dict(Id='ab'*32, Image=image_id,
+            State=dict(Running=True),
+            Config=dict(Labels={'io.lamggm.multiwatch13':owner},
+                         Env=['ROS_DOMAIN_ID=67','RMW_IMPLEMENTATION=rmw_cyclonedds_cpp'],
+                         Entrypoint=[],
+                         Cmd=['python3',destination,'--publish','--owner',owner,
+                              '--domain','67','--seconds','240']),
+            Mounts=[dict(Type='bind',Source=source,Destination=destination,RW=False,Mode='ro')])
+        config = SimpleNamespace(fixture_container=metadata['Id'], owner=owner, domain=67,
+                                 fixture_source=source, fixture_destination=destination,
+                                 fixture_script_sha256=script_hash, fixture_image_id=image_id,
+                                 fixture_rmw='rmw_cyclonedds_cpp')
+        t = object.__new__(harness.DeviceTransport)
+        t.c = config
+
+        def run(args, **kwargs):
+            if args[1:3] == ['inspect', metadata['Id']]:
+                return SimpleNamespace(stdout=json.dumps([metadata]))
+            if args[1:3] == ['exec', metadata['Id']]:
+                return SimpleNamespace(stdout=script_hash+'  '+destination+'\n')
+            if args[1:3] == ['logs', '--tail']:
+                return SimpleNamespace(stdout='MULTIWATCH13_EVENT '+json.dumps(event)+'\n')
+            raise AssertionError(args)
+
+        with patch.object(harness.subprocess, 'run', side_effect=run):
+            self.assertEqual(t._events(), [event])
+            t.c.fixture_script_sha256 = '03'*32
+            with self.assertRaisesRegex(RuntimeError, 'hash'):
+                t._events()
+            t.c.fixture_script_sha256 = script_hash
+            for mutation in (
+                lambda m: m['Mounts'][0].update(Destination='/tmp/wrong.py'),
+                lambda m: m['Mounts'][0].update(RW=True),
+                lambda m: m.update(Image='sha256:'+'03'*32),
+                lambda m: m['Config'].update(Cmd=m['Config']['Cmd'][:-1]+['239']),
+                lambda m: m['Config']['Env'].__setitem__(1, 'RMW_IMPLEMENTATION=rmw_fastrtps_cpp'),
+            ):
+                bad = json.loads(json.dumps(metadata)); mutation(bad)
+                with self.subTest(mutation=mutation), patch.object(harness.subprocess, 'run', side_effect=lambda args, **kwargs: (
+                    SimpleNamespace(stdout=json.dumps([bad])) if args[1:3] == ['inspect', metadata['Id']] else
+                    SimpleNamespace(stdout=script_hash+'  '+destination+'\n') if args[1:3] == ['exec', metadata['Id']] else
+                    SimpleNamespace(stdout='MULTIWATCH13_EVENT '+json.dumps(event)+'\n'))):
+                    with self.assertRaisesRegex(RuntimeError, 'provenance'):
+                        t._events()
 
 
 if __name__=='__main__': unittest.main()

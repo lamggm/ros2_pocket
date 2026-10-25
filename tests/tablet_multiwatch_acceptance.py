@@ -35,6 +35,12 @@ def validate(config):
     if config.peer and str(ipaddress.IPv4Address(config.peer))!=config.peer: raise ValueError('canonical IPv4 required')
     for field in ('fixture_container','apk_sha256','test_apk_sha256'):
         if not re.fullmatch('[0-9a-f]{64}',getattr(config,field)): raise ValueError('invalid '+field)
+    expected_source=str(Path(__file__).with_name('device_multiwatch_fixture.py').resolve())
+    if config.fixture_source!=expected_source: raise ValueError('exact fixture source required')
+    if config.fixture_destination!='/fixture/device_multiwatch_fixture.py': raise ValueError('exact fixture destination required')
+    if not re.fullmatch('[0-9a-f]{64}',config.fixture_script_sha256): raise ValueError('invalid fixture script hash')
+    if not re.fullmatch('sha256:[0-9a-f]{64}',config.fixture_image_id): raise ValueError('immutable fixture image required')
+    if config.fixture_rmw not in ('rmw_fastrtps_cpp','rmw_cyclonedds_cpp'): raise ValueError('unsupported fixture RMW')
     if not config.output.is_dir(): raise ValueError('existing private output directory required')
 
 
@@ -90,12 +96,24 @@ class DeviceTransport:
         def docker(*args):
             return subprocess.run(['docker',*args],capture_output=True,text=True,check=True,timeout=5).stdout
         metadata=json.loads(docker('inspect',self.c.fixture_container))[0]
-        expected=str(Path(__file__).with_name('device_multiwatch_fixture.py').resolve())
-        if (metadata['Id']!=self.c.fixture_container or metadata['State']['Running'] is not True
-                or metadata['Config']['Labels'].get('io.lamggm.multiwatch13')!=self.c.owner
-                or not any(m['Source']==expected for m in metadata['Mounts'])
-                or 'ROS_DOMAIN_ID='+str(self.c.domain) not in metadata['Config']['Env']):
-            raise RuntimeError('publisher container ownership/mount/domain unavailable')
+        mounts=[m for m in metadata.get('Mounts',[]) if
+                m.get('Type')=='bind' and m.get('Source')==self.c.fixture_source and
+                m.get('Destination')==self.c.fixture_destination]
+        env=metadata.get('Config',{}).get('Env',[])
+        command=list(metadata.get('Config',{}).get('Entrypoint') or [])+list(metadata.get('Config',{}).get('Cmd') or [])
+        expected_command=['python3',self.c.fixture_destination,'--publish','--owner',self.c.owner,
+                          '--domain',str(self.c.domain),'--seconds','240']
+        if (metadata.get('Id')!=self.c.fixture_container or metadata.get('State',{}).get('Running') is not True
+                or metadata.get('Config',{}).get('Labels',{}).get('io.lamggm.multiwatch13')!=self.c.owner
+                or metadata.get('Image')!=self.c.fixture_image_id or len(mounts)!=1
+                or mounts[0].get('RW') is not False or mounts[0].get('Mode')!='ro'
+                or env.count('ROS_DOMAIN_ID='+str(self.c.domain))!=1
+                or env.count('RMW_IMPLEMENTATION='+self.c.fixture_rmw)!=1
+                or command!=expected_command):
+            raise RuntimeError('publisher container provenance unavailable')
+        mounted_hash=docker('exec',self.c.fixture_container,'sha256sum',self.c.fixture_destination).strip()
+        if mounted_hash!=self.c.fixture_script_sha256+'  '+self.c.fixture_destination:
+            raise RuntimeError('mounted fixture script hash mismatch')
         raw=docker('logs','--tail','1024',self.c.fixture_container)
         if len(raw.encode())>1_048_576: raise RuntimeError('publisher history bound')
         events=[json.loads(line.split(' ',1)[1]) for line in raw.splitlines() if line.startswith('MULTIWATCH13_EVENT ')]
@@ -146,6 +164,7 @@ class DeviceTransport:
         args.append(COMPONENT)
         child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0)
         transcript=bytearray();pending=b'';status={};report=None;code=None;failure=None
+        successful=False;primary=None
         deadline=time.monotonic()+240
         try:
             with selectors.DefaultSelector() as selector:
@@ -175,14 +194,37 @@ class DeviceTransport:
             child.wait(timeout=5)
             if failure: raise failure
             if child.returncode!=0 or code!=-1 or report is None: raise RuntimeError('runner failed/incomplete')
+            if report.get('passed') is not True: raise RuntimeError('runner failed/incomplete')
+            successful=True
             return report
+        except BaseException as ex:
+            primary=ex
+            raise
         finally:
-            (self.c.run_dir/'instrumentation.txt').write_bytes(transcript)
-            if child.poll() is None:
-                child.kill();child.wait(timeout=5)
-                self.client.adb('shell','am','force-stop','--user','0',PKG)
-                if self.client.adb('shell','pidof',PKG).strip(): raise RuntimeError('runner abort cleanup unverified')
-            child.stdout.close()
+            cleanup_error=None
+            if not successful:
+                try:
+                    if child.poll() is None:
+                        child.kill();child.wait(timeout=5)
+                except BaseException as ex:
+                    cleanup_error=ex
+                try:
+                    self.client.adb('shell','am','force-stop','--user','0',PKG)
+                except BaseException as ex:
+                    if cleanup_error is None: cleanup_error=ex
+                try:
+                    if self.client.adb('shell','pidof',PKG).strip(): raise RuntimeError('runner abort cleanup unverified')
+                except BaseException as ex:
+                    if cleanup_error is None: cleanup_error=ex
+            try:
+                (self.c.run_dir/'instrumentation.txt').write_bytes(transcript)
+            except BaseException as ex:
+                if cleanup_error is None: cleanup_error=ex
+            try:
+                child.stdout.close()
+            except BaseException as ex:
+                if cleanup_error is None: cleanup_error=ex
+            if primary is None and cleanup_error is not None: raise cleanup_error
 
 
 def main(argv=None,*,transport_factory=None):
@@ -192,6 +234,11 @@ def main(argv=None,*,transport_factory=None):
     parser.add_argument('--domain',type=int,choices=(67,68),required=True)
     parser.add_argument('--peer',default='')
     parser.add_argument('--fixture-container',required=True)
+    parser.add_argument('--fixture-source',required=True)
+    parser.add_argument('--fixture-destination',required=True)
+    parser.add_argument('--fixture-script-sha256',required=True)
+    parser.add_argument('--fixture-image-id',required=True)
+    parser.add_argument('--fixture-rmw',required=True,choices=['rmw_fastrtps_cpp','rmw_cyclonedds_cpp'])
     parser.add_argument('--apk-sha256',required=True)
     parser.add_argument('--test-apk-sha256',required=True)
     parser.add_argument('--output',type=Path,required=True)
