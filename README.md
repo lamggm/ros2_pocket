@@ -13,9 +13,16 @@ start from the latest integration and target it in their PRs, not `main`.
 Read [AGENTS.md](AGENTS.md) before agent-driven work. The final integration PR
 stays draft until qualification and operator acceptance on the physical tablet.
 
+The operator authorized **11–15 in parallel**, in isolated worktrees, with parent
+reconciliation afterward and physical tests only when the tablet is available.
+This tree prepares identity/docs/CI; it does **not** freeze a final candidate.
+See the [integration and qualification checklist](docs/FINALIZATION-v0.2.md).
+
 ## Connect
 
-1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.1.0).
+1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.2.0,
+   versionCode 2 in this preparation). The header uses the actual build version;
+   this version label is not final candidate identity or physical qualification.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. Choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
@@ -176,6 +183,15 @@ are uploaded, for **7 days**; no device dumps, fixture snapshots, private logs,
 keystores or toolchains. CI success must be observed for the published SHA; local
 validation is not evidence that a remote workflow already ran.
 
+The required finalization registration step is deliberately **blocking** in this
+parallel preparation: 11/13/14 are `pending_integration` in
+[`ci/finalization-gates.json`](ci/finalization-gates.json). The parent must register
+and review their actual nonempty host unittest suites after reconciliation.
+`python3 tools/verify_finalization_ci.py` rejects pending/missing/empty selections,
+skips, failures and counts below the reviewed minimum; it never runs a device.
+Existing native/Java/fixture gates remain mandatory. This registry does not cover
+or replace physical acceptance, Android instrumentation or final soak.
+
 Upstream native LICENSE/NOTICE are included in APK assets. Generated binaries,
 signing keys, local environment files and test evidence remain ignored.
 
@@ -227,7 +243,7 @@ Unicode and truncation boundaries, NaN/Inf, numeric paths and reader recovery.
 The fixture image tag hashes its Dockerfile, publisher and loopback configuration
 together so parallel feature worktrees cannot reuse a stale publisher image. No host/LAN/robot
 network or device is accessible. Containers have unique names, resource limits,
-120-second publisher lifetimes and cleanup traps; the existing tablet fixture
+bounded publisher lifetimes and cleanup traps; the existing tablet fixture
 name is never reused or stopped. JUnit XML stays under `build/native-host/`.
 
 The recipe is intentionally Linux x86_64 (host ABI compatible with Ubuntu 24.04).

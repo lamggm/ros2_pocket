@@ -94,7 +94,7 @@ public final class MainActivity extends Activity {
    return insets;
   });
   root.addView(label("ROS Pocket",29,FG));
-  TextView subtitle=label("v0.1 · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(12));root.addView(subtitle);
+  TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(12));root.addView(subtitle);
   LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
   row.addView(label("Domain ID",15,MUTED));
   domain=input("0–101",prefs.getString("domain","0"),R.id.domain,InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);
