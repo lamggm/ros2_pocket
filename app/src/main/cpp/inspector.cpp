@@ -11,6 +11,13 @@
 #include <set>
 #include <array>
 
+#ifdef POCKET_ENABLE_TEST_HOOKS
+extern "C" __attribute__((used)) const char pocket_test_hook_capability[]="POCKET_TEST_HOOKS=ON";
+extern "C" __attribute__((used)) const char pocket_diagnostic_policy[]="POCKET_DIAGNOSTIC_POLICY=ros-pocket-dds-fault-v1";
+#else
+extern "C" __attribute__((used)) const char pocket_test_hook_capability[]="POCKET_TEST_HOOKS=OFF";
+#endif
+
 namespace pocket {
 using Clock=std::chrono::steady_clock;
 static std::string error(const std::string& message) {return "{\"ok\":false,\"error\":"+json_quote(message)+"}";}
@@ -167,6 +174,10 @@ struct Session::Impl : Watch {
  // ros_discovery_info is unkeyed: instance_handle is shared by all writers.
  std::map<dds_instance_handle_t,GraphSource> graph_sources;
  std::map<std::string,std::string> graph_owners;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ struct FailureHook { int slot=-1; std::string stage; uint64_t session=0,generation=0,request=0,lease=0,nonce=0; } failure_hook;
+ std::string failure_receipt;
+#endif
  void drop_graph_writer(const std::string& writer) {
   for(auto it=graph_sources.begin();it!=graph_sources.end();) {
    if(it->second.writer!=writer){++it;continue;}
@@ -303,7 +314,7 @@ struct Session::Impl : Watch {
 Session::Session():impl(new Impl){}
 Session::~Session(){stop();}
 void Session::stop() {
- ++session_generation;++reader_generation;
+ ++diagnostic_revision;++session_generation;++reader_generation;
  auto& s=*impl;for(int i=0;i<4;i++)s.slot(i).stop_reader();
  s.stop_rosout();
  if(s.participant>0)dds_delete(s.participant);
@@ -344,16 +355,69 @@ std::string Session::start(int domain,const std::string& address,const std::stri
  return "{\"ok\":true,\"domain\":"+std::to_string(domain)+"}";
 }
 void Session::clear_rosout(){auto& s=*impl;s.take_rosout(true);s.rosout.clear();}
+#ifdef POCKET_ENABLE_TEST_HOOKS
+Session::ReaderTestIdentity Session::reader_identity_for_test(int slot) const {
+ return {session_generation,slot>=0&&slot<4?impl->slot(slot).generation:0,request_generation+1};
+}
+bool Session::cancel_reader_failure_for_test(const ReaderArmHandle& owned) {
+ auto& h=impl->failure_hook;
+ if(!owned||h.slot!=owned.slot||h.session!=owned.session||h.generation!=owned.generation||
+    h.request!=owned.request||h.lease!=owned.lease||h.nonce!=owned.nonce)return false;
+ ++diagnostic_revision;h={};impl->failure_receipt.clear();return true;
+}
+Session::ReaderArmHandle Session::arm_reader_failure_for_test(int slot,const std::string& stage,
+ uint64_t expected_session,uint64_t expected_generation,uint64_t expected_request,
+ uint64_t lease,uint64_t nonce) {
+ if(slot<0||slot>=4||(stage!="topic"&&stage!="reader")||!lease||!nonce||nonce<=last_arm_nonce)return {};
+ auto& state=*impl;auto& target=state.slot(slot);
+ if(expected_session!=session_generation||expected_generation!=target.generation||expected_request!=request_generation+1)return {};
+ if(state.failure_hook.slot>=0||state.participant<=0||target.reader<=0||target.count==0)return {};
+ last_arm_nonce=nonce;++diagnostic_revision;state.failure_receipt.clear();state.failure_hook={slot,stage,session_generation,target.generation+1,request_generation+1,lease,nonce};
+ return {slot,session_generation,target.generation+1,request_generation+1,lease,nonce};
+}
+std::string Session::reader_failure_receipt_for_test() const { return impl->failure_receipt; }
+#endif
 std::string Session::subscribe(const std::string& topic,const std::string& type,bool reliable,bool transient) {
  return watch(0,topic,type,reliable,transient);
 }
 std::string Session::remove_watch(int slot) {
+ ++diagnostic_revision;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ // Removing the target cancels; removal of another slot is not a watch attempt.
+ if(impl->failure_hook.slot==slot)impl->failure_hook={};
+ impl->failure_receipt.clear();
+#endif
  if(slot<0||slot>=4)return error("Watch slot deve ser de 0 a 3.");
  auto& w=impl->slot(slot);++w.generation;w.stop_reader();
  if(slot==0)++reader_generation;
  return "{\"ok\":true}";
 }
 std::string Session::watch(int slot,const std::string& topic,const std::string& type,bool reliable,bool transient) {
+ ++diagnostic_revision;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ // Detach before validation; no exit may leave an armed future request.
+ auto hook=impl->failure_hook;impl->failure_hook={};
+ impl->failure_receipt.clear();++request_generation;
+ struct Receipt {
+  std::string& output;int slot,target;uint64_t session,generation,request;
+  uint64_t lease,nonce;std::string stage,topicName;dds_entity_t topic=0,reader=0,parent=0;
+  bool topicCalled=false,readerCalled=false,topicOverride=false,readerOverride=false;
+  ~Receipt() {
+   if(target<0)return;
+   output="{\"session\":"+std::to_string(session)+",\"slot\":"+std::to_string(slot)+
+    ",\"targetSlot\":"+std::to_string(target)+",\"attemptedGeneration\":"+std::to_string(generation)+
+    ",\"lease\":"+std::to_string(lease)+",\"nonce\":"+std::to_string(nonce)+",\"request\":"+std::to_string(request)+",\"stage\":"+json_quote(stage)+
+    ",\"topicApi\":"+(topicCalled?json_quote("dds_create_topic"):"null")+
+    ",\"topicName\":"+json_quote(topicName)+",\"topicArgumentOverridden\":"+(topicOverride?"true":"false")+
+    ",\"topicReturn\":"+(topicCalled?std::to_string(topic):"null")+
+    ",\"readerApi\":"+(readerCalled?json_quote("dds_create_reader"):"null")+
+    ",\"readerParent\":"+(readerCalled?std::to_string(parent):"null")+
+    ",\"readerArgumentOverridden\":"+(readerOverride?"true":"false")+
+    ",\"readerReturn\":"+(readerCalled?std::to_string(reader):"null")+"}";
+  }
+ } receipt{impl->failure_receipt,slot,hook.slot,session_generation,
+           slot>=0&&slot<4?impl->slot(slot).generation+1:0,request_generation,hook.lease,hook.nonce,hook.stage,""};
+#endif
  if(slot<0||slot>=4)return error("Limite de quatro watches (slots 0 a 3).");
  auto& s=impl->slot(slot);
  auto rejected=[&s](const std::string& message){s.last_error=message;return error(message);};
@@ -362,19 +426,53 @@ std::string Session::watch(int slot,const std::string& topic,const std::string& 
  if(!desc)return rejected("Tipo descoberto, mas sem decodificador nesta v0.1: "+ros_type(type));
  if(topic.rfind("rt/",0)!=0||topic.size()>1024)return rejected("Topico ROS invalido.");
  ++s.generation;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ if(hook.slot>=0&&!(hook.slot==slot&&hook.session==session_generation&&hook.generation==s.generation))hook={};
+#endif
  if(slot==0)++reader_generation;
  s.stop_reader();s.selected=topic.substr(2);s.type=type;
  s.requested_reliable=reliable;s.requested_transient=transient;
  s.mode=std::string(reliable?"reliable":"best_effort")+" / "+(transient?"transient_local":"volatile");
- s.topic=dds_create_topic(impl->participant,desc,topic.c_str(),nullptr,nullptr);
+ const char* topic_name=topic.c_str();
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ const bool inject=hook.slot==slot&&hook.session==session_generation&&hook.generation==s.generation&&hook.request==request_generation;
+ if(inject&&hook.stage=="topic")topic_name="rt/pocket_test/invalid topic";
+ receipt.topicCalled=true;receipt.topicName=topic_name;receipt.topicOverride=inject&&hook.stage=="topic";
+#endif
+ s.topic=dds_create_topic(impl->participant,desc,topic_name,nullptr,nullptr);
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ receipt.topic=s.topic;
+#endif
  if(s.topic<0){auto msg="Falha ao criar topico: "+std::string(dds_strretcode(s.topic));s.stop_reader();s.last_error=msg;return error(msg);}
  auto* q=dds_create_qos();dds_qset_reliability(q,reliable?DDS_RELIABILITY_RELIABLE:DDS_RELIABILITY_BEST_EFFORT,DDS_MSECS(100));
  dds_qset_durability(q,transient?DDS_DURABILITY_TRANSIENT_LOCAL:DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,64);
  dds_qset_resource_limits(q,64,1,64);
- s.reader=dds_create_reader(impl->participant,s.topic,q,nullptr);dds_delete_qos(q);
+ dds_entity_t parent=impl->participant;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ if(inject&&hook.stage=="reader")parent=0;
+ receipt.readerCalled=true;receipt.parent=parent;receipt.readerOverride=inject&&hook.stage=="reader";
+#endif
+ s.reader=dds_create_reader(parent,s.topic,q,nullptr);
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ receipt.reader=s.reader;
+#endif
+ dds_delete_qos(q);
  if(s.reader<0){auto msg="Falha ao assinar: "+std::string(dds_strretcode(s.reader));s.stop_reader();s.last_error=msg;return error(msg);}
  s.rate_time=Clock::now();
  return "{\"ok\":true}";
+}
+std::string Session::diagnostic_state() const {
+ std::ostringstream out;
+ out<<"{\"revision\":"<<diagnostic_revision<<",\"session\":"<<session_generation;
+#ifdef POCKET_ENABLE_TEST_HOOKS
+ const auto& h=impl->failure_hook;
+ out<<",\"capability\":true,\"contract\":\"ros-pocket-dds-fault-v1\",\"armed\":"<<(h.slot>=0?"true":"false")
+    <<",\"slot\":"<<h.slot<<",\"generation\":"<<h.generation<<",\"request\":"<<h.request
+    <<",\"lease\":"<<h.lease<<",\"nonce\":"<<h.nonce;
+#else
+ out<<",\"capability\":false,\"contract\":null,\"armed\":false";
+#endif
+ return out.str()+"}";
 }
 std::string Session::poll() {
  auto& s=*impl;

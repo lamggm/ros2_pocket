@@ -15,7 +15,21 @@ versões do APK, tamanho/hash, ABIs, certificado e classe de assinatura. Não ed
 metadados para fazê-los coincidir. O APK deve ser o mesmo verificado por
 `aapt2`/`apksigner`; a qualificação confere seus bytes, não reimplementa Android signing.
 
+O contrato v1 exige `test_hooks` explicitamente **boolean false**, tanto no candidato
+normal não instrumentado quanto na evidência `installed-apk`. True, ausente, null,
+zero numérico e strings são inválidos. Metadados legados têm capacidade desconhecida;
+a migração exige inspeção fresca dos binários exatos e novo relatório vinculado,
+nunca inserir false em evidência antiga. Binário sem marcador reconhecido exige
+rebuild, não edição do JSON. Veja o [contrato e migração](READER-FAILURE-TESTS.md).
+Nenhum orçamento/plano de soak ou gate físico é dispensado por este campo.
+
 - `init` e `evaluate` conferem fonte atual e tamanho/SHA-256 do APK local.
+  **Ambos os esquemas** reinspecionam todos os ELF/ABIs: v1 exige exatamente OFF;
+  apagar campos de diagnóstico não autoriza um binário ON/desconhecido. `analyze-soak`,
+  `record` do soak e a API de avaliação também exigem os bytes do candidato.
+  Use `--apk` explicitamente com analyze/record; por compatibilidade, se omitido,
+  `metadata.apk` é resolvido ao lado do JSON (caminho absoluto também é inspecionado).
+  Arquivo ausente, hash divergente ou política desconhecida bloqueiam; não há waiver JSON.
 - Todo resultado registrado vincula-se ao snapshot completo e a arquivos locais
   não vazios com SHA-256. Ausência, alteração, escape do diretório e duplicação de
   evidência são recusados. JSON duplicado, não finito ou maior que 4 MiB é recusado.
@@ -196,12 +210,14 @@ Formato do JSON bruto (valores abaixo descrevem tipos, não medições de exempl
 
 ```bash
 python3 tools/qualification.py analyze-soak \
-  --metadata build/artifacts/app-debug.json --input build/qualification/soak-input.json
+  --metadata build/artifacts/app-debug.json --input build/qualification/soak-input.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk
 # Se passed, registrar o INPUT bruto como evidência, não o resumo acima.
 python3 tools/qualification.py record \
   --repo . --metadata build/artifacts/app-debug.json \
   --report build/qualification/report.json --evidence-root build/qualification \
-  --gate soak --status passed --evidence soak-input.json
+  --gate soak --status passed --evidence soak-input.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## Segurança e execução futura
@@ -219,3 +235,41 @@ Incluem controle positivo inteiramente **sintético de validação do relatório
 seu ready comprova apenas o algoritmo, nunca aceite físico. Build Android,
 interoperabilidade, campanhas de rede, soak e aceite permanecem execuções futuras
 separadas para o SHA/APK final integrado.
+
+## Fail-closed diagnostic consumer details
+
+The pinned Android16 parser validates every accepted field recursively, including
+foreign process/instrumentation records, wire types, duplicate scalars, booleans,
+PID conflicts and duplicate active records. Unknown **or unsupported** root/nested
+sections reject the observation; no opaque protobuf payload proves absence.
+The supported schema is an explicit subset of `android-16.0.0_r1` AOSP
+`activitymanagerservice.proto`, `package_item_info.proto`, `component_name.proto`,
+`bundle.proto` and `util/common.proto`. Complex root sections not yet supported
+remain blocked, even if legitimate. A real vendor positive/negative transport
+control is still mandatory and may require extending the strict typed subset;
+synthetic parser tests do not establish device support.
+
+Every sample requires a positive Java export fence strictly newer than the prior
+same-process fence, capture and export. Its worker capture must be strictly newer
+than this fence, with advancing sequence/time and exact PID/starttime/instance.
+Host ordering/deadlines remain separate; host clocks are never compared with Java.
+
+Graph acceptance consumes actual completed `drawnSeries` statistics, not prepared
+list length: ordered series indices, current live slot/reader association, bounded
+exact integer counts with finite points, coherent receive-time range and recent
+newest data. It checks `observedMonotonicNs == exportedMonotonicNs` (the actual
+Activity passes the same timestamp), positive draw time and exact observed−draw
+age. The exported series identifies a slot, not a separate reader-generation
+field; association uses that sample's coherent watch plus stable campaign reader
+identity, without inventing a stronger producer field.
+
+Metadata outputs use exclusive unpredictable staging files and atomic per-file
+replacement without following destination symlinks. Both files are staged first;
+the sidecar is published before the candidate commit point. This is not a
+multi-file filesystem transaction: after an interrupted partial publish, require
+its `target_sha256` and `target_source_snapshot` to equal the candidate before
+using a sidecar. Never infer coherence from filenames or successful parsing.
+
+## Explicit diagnostic DEV migration
+
+See [ANDROID-DIAGNOSTIC-POLICY.md](ANDROID-DIAGNOSTIC-POLICY.md) for metadata/report/soak schema 2, binary-derived capability, coherent cache-only runtime evidence and mandatory independent per-sample OS instrumentation proofs. Ordinary v1 remains explicit boolean false. Diagnostic compiled capability remains true while disarmed. Same candidate APK throughout; no transferred passes. Android/vendor OS positive control and physical/soak acceptance remain **UNVERIFIED**.

@@ -47,6 +47,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   per-watch field trees, numeric paths, source stamps, UTF-8 frames and fixed
   covariance arrays. NaN/Inf are explicit, never invented zeros. Other/custom
   types remain listed but unsupported.
+- [Reader-creation failure tests and hook isolation](docs/READER-FAILURE-TESTS.md):
+  native actual-argument regression scope and explicit instrumentation/device blockers.
 - [Up to four independent watches](docs/MULTIWATCH.md): value/tree, count,
   received Hz, matches, QoS, persistent errors and monotonic age per slot.
   Replace/remove one without restarting the other readers or discovery.
@@ -198,11 +200,14 @@ restart, retained connection settings and resumed topic reading. Both Jazzy
 Fast DDS and Cyclone DDS were exercised. The isolated fixture also validates
 real Jazzy `/rosout` messages in separate ROS publisher and Cyclone reader processes.
 
-Additional native regression: after a real live sample, an invalid DDS topic name
-forces actual topic-creation failure; repeated polls must show inactive telemetry
-and a persistent error. Successful resubscription and session reset clear it.
-Reader-creation failure was not separately induced. C++ domain/endpoint/name/JSON
-and Java input/network-selection tests accompany the source.
+Additional native regression: actual topic- and reader-creation argument failures
+have isolated host tests with structurally verified inactive telemetry, repeated
+polls, identity-bound raw DDS receipts, and new advancing fixture data after both
+recoveries. See [native failure scope](docs/READER-FAILURE-TESTS.md): Android
+instrumentation is built and Linux JNI extra-watch-plus-rosout coexistence is
+exercised, but Android execution/physical acceptance remain UNVERIFIED. See the
+[explicit diagnostic policy](docs/ANDROID-DIAGNOSTIC-POLICY.md). C++
+domain/endpoint/name/JSON and Java input/network-selection tests accompany the source.
 
 ### Automated isolated host fixtures (no tablet)
 

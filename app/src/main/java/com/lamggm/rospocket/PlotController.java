@@ -15,14 +15,18 @@ final class PlotController {
  // One immutable frame per actual received message or latest-sample snapshot.
  // Typed paths/watch identity come from native structured values, never display text.
  static final class Frame {
-  final String watch;final long epoch,sequence,received;final Long source;final List<Field> fields;
+  final String watch;final long epoch,sequence,received;final Long source;final List<Field> fields;final PlotHistory.Source provenance;
   Frame(String w,long e,long s,long r,Long source,List<Field> fields){
-   watch=w;epoch=e;sequence=s;received=r;this.source=source;
+   this(w,e,s,r,source,fields,PlotHistory.Source.UNKNOWN);
+  }
+  Frame(String w,long e,long s,long r,Long source,List<Field> fields,PlotHistory.Source identity){
+   watch=w;epoch=e;sequence=s;received=r;this.source=source;provenance=identity;
    this.fields=Collections.unmodifiableList(new ArrayList<>(fields.subList(0,Math.min(MAX_FIELDS,fields.size()))));
   }
  }
  private final LinkedHashMap<String,Field> available=new LinkedHashMap<>();
  private final LinkedHashMap<String,Long> sequences=new LinkedHashMap<>();
+ private final Map<String,PlotHistory.Source> sources=new HashMap<>();
  private long nativeSession=-1,nativeReader=-1;
  private final long[] readers={-1,-1,-1,-1},minimumReaders={-1,-1,-1,-1};
  private final String[] slotWatches={"","","",""};
@@ -40,10 +44,11 @@ final class PlotController {
  synchronized JSONArray qaSeries(List<PlotHistory.Series> series) throws JSONException {
   JSONArray result=new JSONArray();
   for(PlotHistory.Series s:series){
-   int slot=-1;for(int i=0;i<4;i++)if(!slotWatches[i].isEmpty()&&s.id.startsWith(slotWatches[i]+"\n"))slot=i;
+   // Source is owned by the immutable history copy, never current slotWatches/readers.
    int finite=0,gaps=0,breaks=0;
    for(PlotHistory.Point p:s.points){if(p.value==null)gaps++;else finite++;if(p.breakBefore)breaks++;}
-   result.put(new JSONObject().put("seriesIndex",result.length()).put("slot",slot)
+   result.put(new JSONObject().put("seriesIndex",result.length()).put("slot",s.provenance.slot)
+    .put("seriesId",s.id).put("fieldPath",s.path).put("sessionGeneration",s.provenance.session).put("readerGeneration",s.provenance.reader)
     .put("pointCount",s.points.size()).put("finitePoints",finite).put("gapPoints",gaps).put("breakBeforePoints",breaks)
     .put("oldestReceiveNs",s.points.isEmpty()?JSONObject.NULL:s.points.get(0).time)
     .put("newestReceiveNs",s.points.isEmpty()?JSONObject.NULL:s.points.get(s.points.size()-1).time));
@@ -51,15 +56,15 @@ final class PlotController {
   return result;
  }
  synchronized void reset(long epoch) {
-  if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(slotWatches,"");sequences.clear();available.clear();history.clear();resetRevision=++revision;
+  if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(slotWatches,"");sequences.clear();sources.clear();available.clear();history.clear();resetRevision=++revision;
  }
  synchronized List<Field> fields(){return new ArrayList<>(available.values());}
  synchronized void retire(String watch) {
-  sequences.remove(watch);available.entrySet().removeIf(e->e.getValue().watch.equals(watch));
+  sequences.remove(watch);sources.remove(watch);available.entrySet().removeIf(e->e.getValue().watch.equals(watch));
   for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(watch+"\n"))history.remove(s.id);
   revision++;
  }
- synchronized boolean select(String watch,String path){Field f=available.get(watch+"\n"+path);return f!=null&&history.select(f.id(),f.path,f.unit);}
+ synchronized boolean select(String watch,String path){Field f=available.get(watch+"\n"+path);return f!=null&&history.select(f.id(),f.path,f.unit,sources.getOrDefault(watch,PlotHistory.Source.UNKNOWN));}
  synchronized boolean selected(String id){for(PlotHistory.Series s:history.snapshot())if(s.id.equals(id))return true;return false;}
  synchronized void accept(Frame frame){
   if(frame.watch==null||frame.watch.length()>512||frame.epoch<nativeEpoch||frame.received<0||frame.sequence<1)return;
@@ -67,15 +72,15 @@ final class PlotController {
   String key=frame.watch;Long previous=sequences.get(key);
   if(previous!=null&&frame.sequence<=previous)return;
   if(previous==null&&sequences.size()==4)return;
-  sequences.put(key,frame.sequence);
+  sequences.put(key,frame.sequence);sources.put(key,frame.provenance);
   available.entrySet().removeIf(e->e.getValue().watch.equals(key));
   Set<String> present=new HashSet<>();
   for(Field field:frame.fields){
    if(!field.watch.equals(key)||field.path.length()>256||key.length()>512||(field.unit!=null&&field.unit.length()>64))continue;
    if(available.size()<MAX_FIELDS*4)available.put(field.id(),field);
-   present.add(field.id());history.append(field.id(),frame.received,field.value,frame.source);
+   present.add(field.id());history.append(field.id(),frame.received,field.value,frame.source,frame.provenance);
   }
-  for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(key+"\n")&&!present.contains(s.id))history.append(s.id,frame.received,null,frame.source);
+  for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(key+"\n")&&!present.contains(s.id))history.append(s.id,frame.received,null,frame.source,frame.provenance);
  }
  synchronized void acceptNative(JSONObject snapshot,long epoch,boolean pending){
   if(snapshot.optJSONArray("watches")!=null){acceptWatches(snapshot,epoch,pending,null,null);return;}
@@ -99,7 +104,7 @@ final class PlotController {
    typed.add(new Field(watch,f.optString("path"),unit instanceof String?(String)unit:null,
     value instanceof Number&&"finite".equals(f.optString("state"))?((Number)value).doubleValue():null));
   }
-  accept(new Frame(watch,epoch,snapshot.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed));
+  accept(new Frame(watch,epoch,snapshot.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(0,session,reader)));
  }
  static boolean matches(WatchSlots.Request request,JSONObject row){
   String topic=request.wire.startsWith("rt/")?request.wire.substring(2):request.wire;
@@ -155,7 +160,7 @@ final class PlotController {
     typed.add(new Field(watch,f.optString("path"),unit instanceof String?(String)unit:null,
      value instanceof Number&&"finite".equals(f.optString("state"))?((Number)value).doubleValue():null));
    }
-   accept(new Frame(watch,epoch,row.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed));
+   accept(new Frame(watch,epoch,row.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(slot,session,reader)));
   }
  }
 

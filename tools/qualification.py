@@ -42,13 +42,15 @@ def validate_metadata(data):
     try:
         source = data['source']
         signing = data['signing']
-        valid = (type(data['schema_version']) is int and data['schema_version'] == 1
+        diagnostic = data.get('schema_version') == 2
+        valid = (type(data['schema_version']) is int and data['schema_version'] in (1, 2)
                  and data['package'] == 'com.lamggm.rospocket.dev'
                  and type(data['version_code']) is int and data['version_code'] > 0
                  and isinstance(data['version_name'], str) and bool(data['version_name'])
                  and isinstance(data['apk'], str) and bool(data['apk'])
                  and type(data['size_bytes']) is int and data['size_bytes'] > 0
                  and data['debuggable'] is True
+                 and (data['test_hooks'] is True if diagnostic else data['test_hooks'] is False)
                  and isinstance(data['abis'], list) and 'arm64-v8a' in data['abis']
                  and signing['class'] == 'debug'
                  and isinstance(signing['certificate_dn'], str)
@@ -59,8 +61,74 @@ def validate_metadata(data):
                          [source['snapshot_sha256'], data['sha256'], signing['certificate_sha256']]))
     except (KeyError, TypeError, AttributeError):
         valid = False
+    if valid and not diagnostic and any(key in data for key in ('diagnostic_policy', 'native_libraries')):
+        valid = False
+    if valid and diagnostic:
+        try:
+            libraries=data['native_libraries']
+            valid=(data['diagnostic_policy']=='ros-pocket-dds-fault-v1'
+                   and isinstance(libraries,list) and len(libraries)==len(data['abis'])
+                   and len(set(data['abis']))==len(data['abis'])
+                   and sorted(lib['abi'] for lib in libraries)==sorted(data['abis'])
+                   and all(lib['path']==f"lib/{lib['abi']}/librospocket.so"
+                           and lib['policy']=='ros-pocket-dds-fault-v1' and lib['test_hooks'] is True
+                           and re.fullmatch(r'[0-9a-f]{64}',lib['sha256']) for lib in libraries))
+        except (KeyError,TypeError,AttributeError):valid=False
     if not valid:
-        raise ValueError('invalid artifact_metadata v1 snapshot')
+        raise ValueError('invalid artifact_metadata v1/v2 snapshot')
+
+
+def verify_candidate_binary(apk, metadata):
+    """Both schemas require exact candidate bytes and every packaged ABI policy.
+
+    APIs may resolve metadata['apk'] locally for compatibility; it is a path to
+    inspect, never an attestation or a waiver. Callers should pass apk explicitly.
+    """
+    import zipfile
+    try:
+        from artifact_metadata import validate_hook_capability
+    except ModuleNotFoundError:
+        from tools.artifact_metadata import validate_hook_capability
+    path=Path(apk if apk is not None else metadata['apk'])
+    try:
+        raw=path.read_bytes()
+        if len(raw)!=metadata['size_bytes'] or hashlib.sha256(raw).hexdigest()!=metadata['sha256']:
+            raise ValueError('candidate capability APK bytes/hash/size mismatch')
+        libraries=[]
+        import io
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            names=archive.namelist()
+            if len(names)!=len(set(names)):raise ValueError('duplicate candidate capability ZIP entries')
+            abis=sorted({n.split('/')[1] for n in names if re.fullmatch(r'lib/[^/]+/[^/]+\.so',n)})
+            paths=sorted(n for n in names if re.fullmatch(r'lib/[^/]+/librospocket\.so',n))
+            if not abis or abis!=sorted(metadata['abis']) or [n.split('/')[1] for n in paths]!=abis:
+                raise ValueError('candidate capability missing/ambiguous ABI')
+            for name in paths:
+                binary=archive.read(name)
+                if not binary.startswith(b'\x7fELF'):raise ValueError('candidate capability is not an ELF')
+                enabled=validate_hook_capability(binary,diagnostic=metadata['schema_version']==2)
+                libraries.append(dict(abi=name.split('/')[1],path=name,sha256=hashlib.sha256(binary).hexdigest(),test_hooks=enabled,policy=metadata.get('diagnostic_policy') if enabled else None))
+        if metadata['schema_version']==2 and libraries!=metadata['native_libraries']:
+            raise ValueError('candidate capability native-library binding mismatch')
+    except (OSError,zipfile.BadZipFile) as error:
+        raise ValueError('candidate capability requires an available actual APK') from error
+    return path
+
+
+def verify_diagnostic_apk(apk, metadata, repo):
+    """Reinspect binary for BOTH schemas; additionally verify schema2 signer/package."""
+    verify_candidate_binary(apk,metadata)
+    if metadata['schema_version'] != 2:
+        return
+    import os
+    try:
+        from artifact_metadata import collect_metadata
+    except ModuleNotFoundError:
+        from tools.artifact_metadata import collect_metadata
+    sdk=Path(os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',str(Path.home()/'Android/Sdk'))))
+    actual=collect_metadata(apk,repo,sdk/'build-tools/35.0.0/aapt2',sdk/'build-tools/35.0.0/apksigner',diagnostic=True)
+    if {k:v for k,v in actual.items() if k!='apk'}!={k:v for k,v in metadata.items() if k!='apk'}:
+        raise ValueError('actual diagnostic APK/native/package/signature/source binding mismatch')
 
 
 def validate_report(report):
@@ -68,7 +136,7 @@ def validate_report(report):
         validate_metadata(report['snapshot'])
         gates = report['gates']
         ids = [gate['id'] for gate in gates]
-        valid = (type(report['schema_version']) is int and report['schema_version'] == 1
+        valid = (type(report['schema_version']) is int and report['schema_version'] == report['snapshot']['schema_version']
                  and report['soak_plan'] == SOAK_PLAN
                  and isinstance(gates, list) and len(ids) == len(GATES)
                  and len(set(ids)) == len(ids) and set(ids) == set(GATES)
@@ -82,7 +150,7 @@ def validate_report(report):
 
 def new_report(metadata):
     validate_metadata(metadata)
-    return {'schema_version': 1, 'snapshot': copy.deepcopy(metadata),
+    return {'schema_version': metadata['schema_version'], 'snapshot': copy.deepcopy(metadata),
             'soak_plan': copy.deepcopy(SOAK_PLAN),
             'gates': [{'id': gate, 'status': 'pending', 'evidence': []} for gate in GATES]}
 
@@ -96,12 +164,16 @@ SOAK_PLAN = {
 }
 
 
-def analyze_soak(data, metadata):
+def analyze_soak(data, metadata, apk=None):
     """Analyze measured input only; absent or invalid metrics remain explicitly unknown."""
     validate_metadata(metadata)
     unknown = dict.fromkeys(('duration_s', 'pss_peak_kib', 'pss_growth_kib', 'cpu_mean_percent',
                              'cpu_peak_percent', 'ingestion_min_ratio', 'battery_loss_percentage_points'))
     incomplete = []
+    try:
+        verify_candidate_binary(apk,metadata)
+    except (ValueError,OSError,TypeError,KeyError) as error:
+        return {'status':'incomplete','blockers':['candidate capability: '+str(error)],'metrics':unknown}
     if not isinstance(data, dict):
         return {'status': 'incomplete', 'blockers': ['invalid soak object'], 'metrics': unknown}
     if data.get('snapshot') != metadata:
@@ -118,6 +190,15 @@ def analyze_soak(data, metadata):
         incomplete.append('bounded complete 30-minute sample set required (121-122)')
     if incomplete:
         return {'status': 'incomplete', 'blockers': incomplete, 'metrics': unknown}
+    if metadata['schema_version'] == 2:
+        try:
+            try:
+                from android_instrumentation import validate_campaign
+            except ModuleNotFoundError:
+                from tools.android_instrumentation import validate_campaign
+            validate_campaign(data, metadata)
+        except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
+            incomplete.append('diagnostic OS/runtime proof: ' + str(error))
     for sample in samples:
         if not isinstance(sample, dict):
             incomplete.append('invalid sample')
@@ -189,7 +270,7 @@ def evidence_file(root, name):
     return path
 
 
-def record_result(report, metadata, gate_id, status, evidence, evidence_root, operator='', note=''):
+def record_result(report, metadata, gate_id, status, evidence, evidence_root, operator='', note='', apk=None):
     validate_report(report)
     validate_metadata(metadata)
     if report['snapshot'] != metadata:
@@ -203,8 +284,11 @@ def record_result(report, metadata, gate_id, status, evidence, evidence_root, op
     if status == 'passed' and gate_id in MANUAL_GATES and not (
             isinstance(operator, str) and operator.strip() and isinstance(note, str) and note.strip()):
         raise ValueError('manual gate requires explicit operator and attestation note')
+    if status == 'passed':
+        # Every successful gate admits candidate-bound evidence, not just soak.
+        verify_candidate_binary(apk, metadata)
     if gate_id in {'soak', 'installed-apk'} and status == 'passed':
-        validate_structured_evidence(gate_id, evidence, evidence_root, metadata)
+        validate_structured_evidence(gate_id, evidence, evidence_root, metadata, apk)
     resolved_paths = [evidence_file(evidence_root, name) for name in evidence]
     if len(set(resolved_paths)) != len(resolved_paths):
         raise ValueError('duplicate evidence')
@@ -218,10 +302,14 @@ def record_result(report, metadata, gate_id, status, evidence, evidence_root, op
     return result
 
 
-def evaluate_report(report, metadata, current_source, evidence_root):
+def evaluate_report(report, metadata, current_source, evidence_root, apk=None):
     validate_report(report)
     validate_metadata(metadata)
     blockers = []
+    try:
+        verify_candidate_binary(apk,metadata)
+    except (ValueError,OSError,TypeError,KeyError) as error:
+        blockers.append('candidate capability: '+str(error))
     if report['snapshot'] != metadata:
         blockers.append('snapshot mismatch')
     if metadata['source'] != current_source:
@@ -252,7 +340,7 @@ def evaluate_report(report, metadata, current_source, evidence_root):
                 if actual != item['sha256']:
                     raise ValueError('evidence hash mismatch')
             if gate_id in {'soak', 'installed-apk'}:
-                validate_structured_evidence(gate_id, paths, evidence_root, metadata)
+                validate_structured_evidence(gate_id, paths, evidence_root, metadata, apk)
         except (ValueError, KeyError, TypeError, OSError) as error:
             blockers.append(f'{gate_id}: invalid evidence ({error})')
     return {'ready': not blockers, 'blockers': blockers}
@@ -303,12 +391,14 @@ def validate_json_depth(data):
             stack.append(iter(value.values() if isinstance(value, dict) else value))
 
 
-def validate_structured_evidence(gate_id, paths, root, metadata):
+def validate_structured_evidence(gate_id, paths, root, metadata, apk=None):
+    validate_metadata(metadata)
+    verify_candidate_binary(apk, metadata)
     if len(paths) != 1:
         raise ValueError(f'{gate_id}: exactly one input JSON required')
     data = load_json(evidence_file(root, paths[0]))
     if gate_id == 'soak':
-        analysis = analyze_soak(data, metadata)
+        analysis = analyze_soak(data, metadata, apk)
         if analysis['status'] != 'passed':
             raise ValueError('measured soak not passed: ' + '; '.join(analysis['blockers']))
     else:
@@ -353,12 +443,12 @@ def main():
     for command in ('init', 'record', 'evaluate', 'analyze-soak'):
         sub = commands.add_parser(command)
         sub.add_argument('--metadata', type=Path, required=True)
+        sub.add_argument('--apk', type=Path, required=command in {'init','evaluate'},
+                         help='Actual candidate APK; otherwise resolve metadata apk beside metadata JSON')
         if command == 'analyze-soak':
             sub.add_argument('--input', type=Path, required=True)
             continue
         sub.add_argument('--repo', type=Path, default=Path(__file__).resolve().parents[1])
-        if command in {'init', 'evaluate'}:
-            sub.add_argument('--apk', type=Path, required=True)
         if command == 'init':
             sub.add_argument('--output', type=Path, required=True)
         else:
@@ -377,8 +467,9 @@ def main():
         else:
             metadata = load_json(args.metadata)
             validate_metadata(metadata)
+            apk=args.apk if args.apk is not None else args.metadata.parent/metadata['apk']
             if args.command == 'analyze-soak':
-                result = analyze_soak(load_json(args.input), metadata)
+                result = analyze_soak(load_json(args.input), metadata, apk)
                 print(json.dumps(result, indent=2, allow_nan=False))
                 return 0 if result['status'] == 'passed' else 1
             current_source = source_provenance(args.repo)
@@ -388,6 +479,7 @@ def main():
                 if (not args.apk.is_file() or args.apk.stat().st_size != metadata['size_bytes']
                         or hashlib.sha256(args.apk.read_bytes()).hexdigest() != metadata['sha256']):
                     raise ValueError('APK bytes/hash/size mismatch or absent APK')
+                verify_diagnostic_apk(args.apk, metadata, args.repo)
             if args.command == 'init':
                 result = new_report(metadata)
                 write_report(args.output, result, args.repo)
@@ -397,10 +489,10 @@ def main():
                 report = load_json(args.report)
                 if args.command == 'record':
                     result = record_result(report, metadata, args.gate, args.status, args.evidence,
-                                           args.evidence_root, args.operator, args.note)
+                                           args.evidence_root, args.operator, args.note, apk)
                     write_report(args.report, result, args.repo)
                 else:
-                    result = evaluate_report(report, metadata, current_source, args.evidence_root)
+                    result = evaluate_report(report, metadata, current_source, args.evidence_root, apk)
                     print(json.dumps(result, indent=2, allow_nan=False))
                     return 0 if result['ready'] else 1
         print(json.dumps(result, indent=2, allow_nan=False))

@@ -152,6 +152,7 @@ public final class MainActivity extends Activity {
   ticker=worker.scheduleWithFixedDelay(()->tick(token),0,500,TimeUnit.MILLISECONDS);
  }
  private void requestConnection(boolean resetSelection){
+  DeviceTestHooks.invalidate();
   try{
    int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();
    if(!NetworkRules.validPeer(p))throw new IllegalArgumentException("Peer opcional: IPv4 sem porta.");
@@ -195,6 +196,7 @@ public final class MainActivity extends Activity {
  }
  // All acquisition/teardown uses the same process-wide queue, including across Activity instances.
  private void stopSession(){
+  DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
@@ -270,7 +272,9 @@ public final class MainActivity extends Activity {
    final WatchSlots.Frame[] frames=watchSlots.capture(beforeIdentity);
    final boolean pendingReader=appliedReaderEpoch!=epoch;
    final String failure=subscriptionFailure;
+   final long diagnosticRevision=DeviceTestHooks.revision();
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
+   JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
    policy.recovered();
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · "+binding+" · domínio "+config.domain;
@@ -280,7 +284,9 @@ public final class MainActivity extends Activity {
     if(policy.accepts(epoch)&&resumed&&generation==token&&connectWanted&&requested==config){
      synchronized(watchSlots){
       plots.acceptNative(snapshot,epoch,watchSlots,frames);
-      if(BuildConfig.DEBUG)qa.publish(snapshot,watchSlots,frames,plots,token,epoch,capturedNanos);
+      if(BuildConfig.DEBUG){qa.publish(snapshot,watchSlots,frames,plots,token,epoch,capturedNanos);
+       DeviceTestHooks.publish(diagnosticRevision,nativeDiagnostic,snapshot,capturedNanos,token,epoch,frames,this,config);}
+
      }
     }
    }
@@ -300,8 +306,13 @@ public final class MainActivity extends Activity {
    if(!BuildConfig.DEBUG){writer.println("ROS Pocket QA unavailable");return;}
    try{
     long now=System.nanoTime();
-    JSONObject out=qa.export(now).put("plotDisplay",plotView.qaState(now)).put("foreground",resumed&&foregroundActivity.get()==this)
-     .put("testHooks",new JSONObject().put("capability","unavailable").put("armed",JSONObject.NULL))
+    JSONObject normal=qa.export(now),diagnostic=DeviceTestHooks.export(now);
+    if(diagnostic.opt("valid")==Boolean.TRUE){
+     for(String[] keys:new String[][]{{"capturedMonotonicNs","capturedMonotonicNs"},{"sessionGeneration","sessionGeneration"},{"lifecycleGeneration","lifecycle"},{"policyGeneration","policy"}})
+      if(!(normal.opt(keys[0]) instanceof Number)||normal.optLong(keys[0],-1)!=diagnostic.optLong(keys[1],-2))diagnostic.put("valid",false);
+    }
+    JSONObject out=normal.put("plotDisplay",plotView.qaState(now)).put("foreground",resumed&&foregroundActivity.get()==this)
+     .put("testHooks",diagnostic)
      .put("debuggable",(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0).put("applicationId",BuildConfig.APPLICATION_ID)
      .put("versionName",BuildConfig.VERSION_NAME).put("versionCode",BuildConfig.VERSION_CODE)
      .put("pid",android.os.Process.myPid());
@@ -323,12 +334,16 @@ public final class MainActivity extends Activity {
    workerRosoutEpoch=clearEpoch;
   });
  }
- private void subscribeSelected(WatchSlots.Request request,long epoch){
+ private void subscribeSelected(WatchSlots.Request request,long epoch){subscribeSelected(request,epoch,null);}
+ private void subscribeSelected(WatchSlots.Request request,long epoch,DeviceTestHooks.Ticket ticket){
   String failure;
+  DeviceTestHooks.Acquisition acquired=null;
   try{
+   synchronized(policy){synchronized(watchSlots){if(ticket!=null&&(!watchSlots.current(request)||!resumed||foregroundActivity.get()!=this||nativeOwner.get()!=this))throw new IllegalStateException("stale native owner");acquired=DeviceTestHooks.before(ticket,this,request,generation,requested,policy.generation());}}
    JSONObject result=NativeBridge.Api.json(bridge.subscribe(request.wire,request.type,request.reliable,request.transientLocal));
    failure=result.optBoolean("ok")?"":result.optString("error","Falha na assinatura");
   }catch(Throwable ex){failure="Falha na assinatura: "+ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());}
+  finally{DeviceTestHooks.after(acquired);}
   synchronized(watchSlots){
    watchSlots.complete(request,failure);
    if(watchSlots.current(request)){subscriptionFailure=failure;appliedReaderEpoch=epoch;}
@@ -383,21 +398,26 @@ public final class MainActivity extends Activity {
   if(activeWatch>0){requestExtra(activeWatch,topic.optString("wireName"),topic.optString("wireType"),reliable.isChecked(),transientLocal.isChecked());return;}
   selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");resubscribe();
  }
- private void resubscribe(){
-  if(worker==null||!connectWanted||selectedWire.isEmpty())return;
+ private void resubscribe(){resubscribe(null,null);}
+ private DeviceTestHooks.Ticket resubscribe(String stage,Object lease){
+  DeviceTestHooks.invalidate();
+  if(worker==null||!connectWanted||selectedWire.isEmpty())return null;
   final WatchSlots.Request primary;
   synchronized(watchSlots){primary=watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);plots.requestSlot(0);}
   qa.invalidate();
   policy.invalidate();long epoch=policy.generation();inactive("RECONECTANDO · aguardando nova assinatura");
   final Config expected=requested;final int token=generation;
+  final DeviceTestHooks.Ticket ticket=DeviceTestHooks.ticket(lease,this,primary,token,expected,epoch,stage);
   worker.execute(()->{
-   if(foregroundActivity.get()!=this||!resumed||generation!=token||!policy.accepts(epoch)||!connectWanted||requested!=expected||!nativeRunning||workerConfig!=expected)return;
-   try{subscribeSelected(primary,epoch);
+   if(foregroundActivity.get()!=this||!resumed||generation!=token||!policy.accepts(epoch)||!connectWanted||requested!=expected||!nativeRunning||workerConfig!=expected){DeviceTestHooks.reject(ticket);return;}
+   try{subscribeSelected(primary,epoch,ticket);
     if(!subscriptionFailure.isEmpty()){String error=subscriptionFailure;ui(token,epoch,()->{inactive("ERRO DE ASSINATURA · aguardando recuperação");status.setText(error);status.setTextColor(WARNING);});}
    }catch(Throwable ex){subscriptionFailure="Falha na assinatura: "+ex.getClass().getSimpleName();String error=subscriptionFailure;ui(token,epoch,()->{inactive("ERRO DE ASSINATURA");status.setText(error);status.setTextColor(WARNING);});}
   });
+  return ticket;
  }
  private void disconnect(){
+  DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
   extrasInactive("Desconectado · sem assinatura ativa");
   for(int i=0;i<4;i++)watchSlots.request(i,"","",false,false);
@@ -412,6 +432,7 @@ public final class MainActivity extends Activity {
   rosoutEpoch++;rosoutConsole.clearNow();
  }
  @Override protected void onStop(){
+  DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
   resumed=false;generation++;policy.invalidate();plots.reset(policy.generation());
   qa.invalidate();
@@ -429,7 +450,9 @@ public final class MainActivity extends Activity {
   switchingWatch=false;watchEditorTitle.setText("Editando Watch "+(slot+1)+" · QoS e seleção abaixo/no Explorer");
  }
  private void updateExtraQos(){WatchSlots.Request r=watchSlots.get(activeWatch);requestExtra(activeWatch,r.wire,r.type,reliable.isChecked(),transientLocal.isChecked());}
- private void requestExtra(int slot,String wire,String type,boolean r,boolean t){
+ private void requestExtra(int slot,String wire,String type,boolean r,boolean t){requestExtra(slot,wire,type,r,t,null,null);}
+ private DeviceTestHooks.Ticket requestExtra(int slot,String wire,String type,boolean r,boolean t,String stage,Object lease){
+  DeviceTestHooks.invalidate();
   WatchSlots.Request next;
   synchronized(watchSlots){next=watchSlots.request(slot,wire,type,r,t);plots.requestSlot(slot);}
   qa.invalidate();
@@ -437,17 +460,33 @@ public final class MainActivity extends Activity {
   watchStructured[slot].update(null,false);
   watchText[slot].setText("Watch "+(slot+1)+" · assinatura pendente");watchText[slot].setTextColor(WARNING);
   final Config expected=requested;final int token=generation;
+  final long epoch=policy.generation();
+  final DeviceTestHooks.Ticket ticket=DeviceTestHooks.ticket(lease,this,next,token,expected,epoch,stage);
   if(worker!=null)worker.execute(()->{
-   if(foregroundActivity.get()==this&&resumed&&generation==token&&connectWanted&&requested==expected&&nativeRunning&&workerConfig==expected&&watchSlots.current(next))applyExtra(next);
+   if(foregroundActivity.get()==this&&resumed&&generation==token&&connectWanted&&requested==expected&&nativeRunning&&workerConfig==expected&&watchSlots.current(next)&&(ticket==null||policy.accepts(epoch)))applyExtra(next,ticket,epoch);else DeviceTestHooks.reject(ticket);
   });
+  return ticket;
  }
- private void applyExtra(WatchSlots.Request r){
+ private void applyExtra(WatchSlots.Request r){applyExtra(r,null,policy.generation());}
+ private void applyExtra(WatchSlots.Request r,DeviceTestHooks.Ticket ticket,long epoch){
   String failure="";
-  try{JSONObject result=NativeBridge.Api.json(r.wire.isEmpty()?bridge.removeWatch(r.slot):bridge.watch(r.slot,r.wire,r.type,r.reliable,r.transientLocal));if(!result.optBoolean("ok"))failure=result.optString("error","Falha na assinatura");}
+  DeviceTestHooks.Acquisition acquired=null;
+  try{
+   synchronized(policy){synchronized(watchSlots){if(ticket!=null&&(!watchSlots.current(r)||!resumed||foregroundActivity.get()!=this||nativeOwner.get()!=this))throw new IllegalStateException("stale native owner");acquired=DeviceTestHooks.before(ticket,this,r,generation,requested,policy.generation());}}
+   JSONObject result=NativeBridge.Api.json(r.wire.isEmpty()?bridge.removeWatch(r.slot):bridge.watch(r.slot,r.wire,r.type,r.reliable,r.transientLocal));if(!result.optBoolean("ok"))failure=result.optString("error","Falha na assinatura");}
   catch(Throwable ex){failure="Falha na assinatura: "+ex.getClass().getSimpleName();}
+  finally{DeviceTestHooks.after(acquired);}
   watchSlots.complete(r,failure);lastUi=0;
  }
+ static ScheduledExecutorService diagnosticWorker(){return DDS_WORKER;}
+ DeviceTestHooks.Ticket diagnosticRetry(int slot,String stage,Object lease){
+  if(!BuildConfig.DEBUG||!(bridge instanceof NativeBridge.JniApi)||android.os.Looper.myLooper()!=android.os.Looper.getMainLooper()||slot<0||slot>3)throw new IllegalStateException("diagnostic retry unavailable");
+  if(slot==0)return resubscribe(stage,lease);
+  WatchSlots.Request r=watchSlots.get(slot);if(r.wire.isEmpty())throw new IllegalStateException("no live selection");
+  return requestExtra(slot,r.wire,r.type,r.reliable,r.transientLocal,stage,lease);
+ }
  private void removeSelectedWatch(){
+  DeviceTestHooks.invalidate();
   if(activeWatch>0){requestExtra(activeWatch,"","",false,false);return;}
   selectedWire="";selectedType="";
   final WatchSlots.Request removal;

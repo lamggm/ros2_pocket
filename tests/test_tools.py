@@ -284,6 +284,9 @@ if args[0] == 'exec':
                     if path.exists() else []
             return result, calls(root / 'docker-calls'), calls(root / 'ctest-calls')
 
+    def test_explicit_diagnostic_build_assembles_test_apk(self):
+        self.check_build_mode(['--offline', '--diagnostic'], True)
+
     def check_build_mode(self, args, offline):
         import shutil
         with tempfile.TemporaryDirectory() as directory:
@@ -326,6 +329,11 @@ if args[0] == 'exec':
             self.assertIn(':app:lintDebug', flags)
             self.assertIn(':app:testDebugUnitTest', flags)
             self.assertIn(':app:assembleDebug', flags)
+            if '--diagnostic' in args:
+                self.assertIn('-PpocketDiagnostic=true', flags)
+                self.assertIn(':app:assembleDebugAndroidTest', flags)
+            else:
+                self.assertNotIn('-PpocketDiagnostic=true', flags)
 
 if __name__ == '__main__':
     unittest.main()

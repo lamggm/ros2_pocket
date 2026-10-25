@@ -1,3 +1,6 @@
+import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.BuiltArtifactsLoader
+
 plugins { id 'com.android.application' }
 android {
  namespace 'com.lamggm.rospocket'
@@ -10,6 +13,7 @@ android {
   targetSdk 35
   versionCode 1
   versionName '0.1.0'
+  testInstrumentationRunner 'com.lamggm.rospocket.ReaderFailureInstrumentation'
  }
  buildTypes { debug { debuggable true } }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -18,6 +22,7 @@ android {
  testOptions {
   unitTests.includeAndroidResources = true
   unitTests.all {
+   if (System.getenv('POCKET_REAL_JNI_LIBDIR')) jvmArgs "-Djava.library.path=${System.getenv('POCKET_REAL_JNI_LIBDIR')}"
    if (System.getenv('POCKET_ROBOLECTRIC_JARS')) {
     systemProperty 'robolectric.offline', 'true'
     systemProperty 'robolectric.dependency.dir', System.getenv('POCKET_ROBOLECTRIC_JARS')
@@ -30,4 +35,70 @@ tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 dependencies {
  testImplementation 'junit:junit:4.13.2'
  testImplementation 'org.robolectric:robolectric:4.14.1'
+}
+
+// Bind to the actual APK artifact directory, never a task-name prefix. This
+// task has no outputs: even an UP-TO-DATE package must re-inspect its APK bytes.
+abstract class VerifyNativeHookApks extends DefaultTask {
+ @Input abstract Property<Boolean> getDiagnosticPolicy()
+ @InputDirectory @PathSensitive(PathSensitivity.RELATIVE)
+ abstract DirectoryProperty getApkDirectory()
+ @Internal abstract Property<BuiltArtifactsLoader> getBuiltArtifactsLoader()
+
+ @TaskAction void verifyApks() {
+  def directory = apkDirectory.get()
+  def artifacts = builtArtifactsLoader.get().load(directory)
+  if (artifacts == null || artifacts.elements.isEmpty())
+   throw new GradleException("No APK artifacts to validate in ${directory.asFile}")
+  artifacts.elements.each { artifact ->
+   def apk = new File(artifact.outputFile)
+   if (!apk.isFile() || !apk.canonicalPath.startsWith(directory.asFile.canonicalPath + File.separator))
+    throw new GradleException("Missing or out-of-directory APK artifact: ${apk}")
+   def libs = []
+   def nativeAbis = [] as Set
+   def inspectorAbis = [] as Set
+   def names = [] as Set
+   new java.util.zip.ZipFile(apk).withCloseable { zip ->
+    zip.entries().each { entry ->
+     if (!names.add(entry.name)) throw new GradleException("Native test-hook capability enabled or unknown: duplicate ZIP entry")
+     if (entry.name ==~ /lib\/[^\/]+\/[^\/]+\.so/) nativeAbis.add(entry.name.split('/')[1])
+     if (entry.name ==~ /lib\/[^\/]+\/librospocket\.so/) {
+      inspectorAbis.add(entry.name.split('/')[1])
+      libs << zip.getInputStream(entry).withCloseable { it.bytes }
+     }
+    }
+   }
+   if (nativeAbis != inspectorAbis) throw new GradleException("Native test-hook capability enabled or unknown: missing inspector ABI")
+   if (libs.isEmpty() || libs.any { bytes ->
+     def data = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+     if (diagnosticPolicy.get()) {
+      return !data.startsWith('\u007fELF') || data.count('POCKET_TEST_HOOKS=') != 1 || data.count('POCKET_TEST_HOOKS=ON\u0000') != 1 ||
+       data.count('POCKET_DIAGNOSTIC_POLICY=') != 1 || data.count('POCKET_DIAGNOSTIC_POLICY=ros-pocket-dds-fault-v1\u0000') != 1
+     }
+     data.count('POCKET_TEST_HOOKS=') != 1 || data.count('POCKET_TEST_HOOKS=OFF\u0000') != 1 || data.contains('POCKET_DIAGNOSTIC_POLICY=')
+   }) throw new GradleException("Native test-hook capability enabled or unknown in ${apk}")
+   logger.lifecycle("${diagnosticPolicy.get() ? 'Verified native diagnostic policy:' : 'Verified native hooks OFF:'} ${apk.canonicalPath}")
+  }
+ }
+}
+
+def diagnosticOptIn = providers.gradleProperty('pocketDiagnostic').getOrElse('false')
+if (!(diagnosticOptIn in ['false', 'true'])) throw new GradleException('pocketDiagnostic must be true or false')
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+ {
+  tasks.register("verify${variant.name.capitalize()}NativeHookApks", VerifyNativeHookApks) {
+   diagnosticPolicy.set(android.buildTypes.getByName(variant.buildType).debuggable && diagnosticOptIn == 'true')
+   apkDirectory.set(variant.artifacts.get(SingleArtifact.APK.INSTANCE))
+   builtArtifactsLoader.set(variant.artifacts.getBuiltArtifactsLoader())
+  }
+ }
+}
+// AGP 8.5.2's actual variant package provider, including direct packageRelease
+// invocations. Resource and bundle tasks are deliberately not APK delivery tasks.
+android.applicationVariants.all { variant ->
+ {
+  def guard = "verify${variant.name.capitalize()}NativeHookApks"
+  variant.packageApplicationProvider.configure { finalizedBy(guard) }
+  variant.assembleProvider.configure { dependsOn(guard) }
+ }
 }

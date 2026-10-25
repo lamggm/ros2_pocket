@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 MODE="${1:---online}"
-if [[ $# -gt 1 || ( "$MODE" != --online && "$MODE" != --offline ) ]]; then
- printf 'Usage: bash tools/build.sh [--online|--offline]\n' >&2; exit 2
+if [[ $# -gt 2 || ( "$MODE" != --online && "$MODE" != --offline ) || ( $# -eq 2 && "$2" != --diagnostic ) ]]; then
+ printf 'Usage: bash tools/build.sh [--online|--offline] [--diagnostic]\n' >&2; exit 2
 fi
+NATIVE_HOOKS=OFF
+METADATA_ARGS=()
+if [[ "${2:-}" == --diagnostic ]]; then NATIVE_HOOKS=ON; METADATA_ARGS+=(--diagnostic --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk); fi
 cd "$(dirname "$0")/.."
 # Gradle's official wrapper does not apply --offline to distribution downloads.
 # This directory key is base36(MD5(distributionUrl)), not a security checksum.
@@ -25,11 +28,13 @@ TOOLCHAINS="${POCKET_TOOLCHAINS:-$HOME/.cache/ros2-pocket/toolchains}"
 NDK="$TOOLCHAINS/android-ndk-r28c"
 GRADLE=./gradlew
 bash tools/test.sh --portable
-cmake -S app/src/main/cpp -B build/native-android -G Ninja -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static -DCycloneDDS_DIR="$TOOLCHAINS/android/lib/cmake/CycloneDDS" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S app/src/main/cpp -B build/native-android -G Ninja -DPOCKET_ENABLE_TEST_HOOKS="$NATIVE_HOOKS" -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static -DCycloneDDS_DIR="$TOOLCHAINS/android/lib/cmake/CycloneDDS" -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build/native-android --parallel 4
 cp build/native-android/librospocket.so app/src/main/jniLibs/arm64-v8a/
 cp "$TOOLCHAINS/android/lib/libddsc.so" app/src/main/jniLibs/arm64-v8a/
 GRADLE_ARGS=(--no-daemon)
 if [[ "$MODE" == --offline ]]; then GRADLE_ARGS+=(--offline); fi
-"$GRADLE" "${GRADLE_ARGS[@]}" :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-python3 tools/artifact_metadata.py --expected-source build/source-before.json
+TASKS=(:app:testDebugUnitTest :app:lintDebug :app:assembleDebug)
+if [[ "$NATIVE_HOOKS" == ON ]]; then GRADLE_ARGS+=(-PpocketDiagnostic=true); TASKS+=(:app:assembleDebugAndroidTest); fi
+"$GRADLE" "${GRADLE_ARGS[@]}" "${TASKS[@]}"
+python3 tools/artifact_metadata.py --expected-source build/source-before.json "${METADATA_ARGS[@]}"
