@@ -57,8 +57,76 @@ class IntegratedHostTests(unittest.TestCase):
                     m.verify_replay(root/'replay.xml')
             with self.assertRaises((ValueError,OSError)):
                 m.verify_replay(root/'missing.xml')
-            (root/'replay.xml').write_text('<testsuite tests="2" failures="0" errors="0" skipped="0"><testcase name="emptySelectedControlsAreNotHealthyCanvasEvidence"/><testcase name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/></testsuite>')
+            (root/'replay.xml').write_text('<testsuite tests="2" failures="0" errors="0" skipped="0"><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="emptySelectedControlsAreNotHealthyCanvasEvidence"/><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/></testsuite>')
             m.verify_replay(root/'replay.xml')
+
+    def test_full_java_reports_fail_closed_but_allows_only_the_documented_jni_skip(self):
+        m = module()
+
+        def write_report(root, name, body):
+            path = root / name
+            path.write_text(body, encoding='utf-8')
+            return path
+
+        replay = '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="2" failures="0" errors="0" skipped="0">' \
+                 '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>' \
+                 '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>' \
+                 '</testsuite>'
+        jni = '<testsuite name="com.lamggm.rospocket.RealJniSessionTest" tests="1" failures="0" errors="0" skipped="1">' \
+              '<testcase classname="com.lamggm.rospocket.RealJniSessionTest" name="realJniLeaseFailureReceiptPollRecoveryAndSurvivors">' \
+              '<skipped message="Explicit isolated host JNI gate only"/></testcase></testsuite>'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaises(ValueError):
+                m.verify_java_reports(root)
+            write_report(root, 'TEST-empty.xml', '<testsuite tests="0" failures="0" errors="0" skipped="0"/>')
+            with self.assertRaises(ValueError):
+                m.verify_java_reports(root)
+            (root/'TEST-empty.xml').unlink()
+            write_report(root, 'TEST-plot.xml', replay)
+            write_report(root, 'TEST-jni.xml', jni)
+            m.verify_java_reports(root)
+            m.verify_replay(root/'TEST-plot.xml')
+
+            controls = {
+                'arbitrary_skip': jni.replace('com.lamggm.rospocket.RealJniSessionTest', 'other.Test').replace(
+                    'realJniLeaseFailureReceiptPollRecoveryAndSurvivors', 'otherTest'),
+                'wrong_message': jni.replace('Explicit isolated host JNI gate only', 'not the approved exception'),
+                'duplicate_jni_skip': jni,
+                'counter_lie': replay.replace(
+                    'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>',
+                    'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"><skipped message="replay unavailable"/></testcase>'),
+                'inconsistent_cases': replay.replace('tests="2"', 'tests="3"', 1),
+                'failure': replay.replace('failures="0"', 'failures="1"', 1).replace(
+                    'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>',
+                    'name="emptySelectedControlsAreNotHealthyCanvasEvidence"><failure/></testcase>'),
+            }
+            for label, content in controls.items():
+                with self.subTest(control=label):
+                    write_report(root, 'TEST-control.xml', content)
+                    with self.assertRaises(ValueError):
+                        m.verify_java_reports(root)
+                    (root/'TEST-control.xml').unlink()
+
+    def test_replay_requires_one_real_case_and_never_accepts_a_skipped_replay(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            base = '<testsuite tests="2" failures="0" errors="0" skipped="0">' \
+                   '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="helper"/>' \
+                   '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>' \
+                   '</testsuite>'
+            path.write_text(base, encoding='utf-8')
+            m.verify_replay(path)
+            for bad in (
+                base.replace('name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"', 'name="other"'),
+                base.replace('skipped="0"', 'skipped="1"').replace(
+                    'name="helper"/>', 'name="helper"><skipped message="replay unavailable"/></testcase>'),
+                base.replace('classname="com.lamggm.rospocket.PlotDdsReplayTest"', 'classname="Other"', 1),
+            ):
+                path.write_text(bad, encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    m.verify_replay(path)
 
     def test_multiwatch_result_requires_exact_real_case_set(self):
         m = module()

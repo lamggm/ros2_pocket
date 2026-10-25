@@ -248,7 +248,15 @@ must provide multiple populated, provenance-bound completed frames. It saves pha
 beside the input records.
 This is a real-DDS-record replay plus host Android Canvas, **not** the Android
 worker/JNI or physical rendering. Without the opt-in environment it explicitly
-skips; a filtered/empty/skipped report is not DDS-Canvas acceptance.
+skips; a filtered/empty/skipped report is not DDS-Canvas acceptance. The host
+campaign's full Java XML scan permits exactly one intentional exception:
+`com.lamggm.rospocket.RealJniSessionTest`/
+`realJniLeaseFailureReceiptPollRecoveryAndSurvivors`, skipped with the exact
+message `Explicit isolated host JNI gate only`. That case is exercised by the
+parent Linux JNI gate; this campaign does not claim JNI execution. The
+`PlotDdsReplayTest` report remains fully unskipped and must contain exactly one
+`bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas` case; its helper unit
+case is also retained.
 
 `PlotQualificationTest` additionally proves exact **599 → 600 → 601** retention
 on each of four rings, inclusive 30-second boundary and cross-ring eviction,

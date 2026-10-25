@@ -85,6 +85,78 @@ class ContainerCleanupTests(unittest.TestCase):
             with self.subTest(code=code,err=err), self.assertRaises(RuntimeError):
                 runner.verify_removed(SimpleNamespace(returncode=code,stdout='[]',stderr=err),cid)
 
+    def _run_with_synthetic_docker(self, failure=None, foreign=False):
+        import json
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        import run_multiwatch13 as runner
+
+        cid = 'ab' * 32
+        class SyntheticDocker:
+            def __init__(self):
+                self.calls = []
+                self.owner = None
+
+            def __call__(self, *args, timeout=20, check=True):
+                self.calls.append((args, timeout, check))
+                command = args[0]
+                if args[:2] == ('image', 'inspect'):
+                    return SimpleNamespace(returncode=0, stdout='[{"Id":"sha256:image"}]', stderr='')
+                if command == 'create':
+                    label = args[args.index('--label') + 1]
+                    self.owner = label.split('=', 1)[1]
+                    return SimpleNamespace(returncode=0, stdout=cid + '\n', stderr='')
+                if command == 'inspect' and check is False:
+                    return SimpleNamespace(returncode=1, stdout='', stderr='error: no such object: '+cid+'\n')
+                if command == 'inspect':
+                    label = 'foreign' if foreign else self.owner
+                    item = {'Id': cid, 'Config': {'Labels': {'io.lamggm.multiwatch13': label}},
+                            'HostConfig': {'NetworkMode': 'none'}, 'State': {'Status': 'exited'}}
+                    return SimpleNamespace(returncode=0, stdout=json.dumps([item]), stderr='')
+                if command == 'logs' and failure == 'read':
+                    raise OSError('synthetic log read failure')
+                if command == 'logs':
+                    return SimpleNamespace(returncode=0,
+                                           stdout='MULTIWATCH13_RESULT {"cases": []}\n', stderr='')
+                if command == 'wait':
+                    return SimpleNamespace(returncode=0, stdout='0\n', stderr='')
+                return SimpleNamespace(returncode=0, stdout='', stderr='')
+
+        docker = SyntheticDocker()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / 'binary'
+            binary.write_text('synthetic', encoding='utf-8')
+            output = root / 'output'
+            output.mkdir()
+            original_write_text = Path.write_text
+
+            def write_text(path, data, *args, **kwargs):
+                if failure == 'write' and path.suffix == '.log':
+                    raise OSError('synthetic log write failure')
+                return original_write_text(path, data, *args, **kwargs)
+
+            with mock.patch.object(runner, 'docker', docker), mock.patch.object(Path, 'write_text', write_text):
+                with self.assertRaises(OSError if failure else RuntimeError):
+                    runner.run('local:image', binary, output, 'rmw_cyclonedds_cpp')
+        return docker
+
+    def test_log_read_failure_still_removes_and_reads_back_owned_container(self):
+        docker = self._run_with_synthetic_docker(failure='read')
+        self.assertIn((('rm', '-f', 'ab'*32), 20, True), docker.calls)
+        self.assertIn((('inspect', 'ab'*32), 20, False), docker.calls)
+
+    def test_log_write_failure_still_removes_and_reads_back_owned_container(self):
+        docker = self._run_with_synthetic_docker(failure='write')
+        self.assertIn((('rm', '-f', 'ab'*32), 20, True), docker.calls)
+        self.assertIn((('inspect', 'ab'*32), 20, False), docker.calls)
+
+    def test_foreign_container_is_never_removed(self):
+        docker = self._run_with_synthetic_docker(foreign=True)
+        self.assertNotIn((('rm', '-f', 'ab'*32), 20, True), docker.calls)
+
 
 if __name__ == '__main__':
     unittest.main()

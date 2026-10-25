@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+from typing import Any
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,8 +54,8 @@ def run(image, binary, output, rmw):
             'source /opt/ros/jazzy/setup.bash && export LD_LIBRARY_PATH='+shlex.quote(str(PREFIX/'lib'))+':${LD_LIBRARY_PATH:-} && exec timeout 170s python3 "$1" "$2"',
             'multiwatch13',str(script),str(binary)]
     cid = docker(*args).stdout.strip()
-    record = dict(owner=owner, id=cid, name=name, imageId=image_id, rmw=rmw,
-                  classification='host-isolated-real-dds-not-android')
+    record: dict[str, Any] = dict(owner=owner, id=cid, name=name, imageId=image_id, rmw=rmw,
+                                  classification='host-isolated-real-dds-not-android')
     log = output/(rmw+'-'+owner+'.log')
     metadata = output/(rmw+'-'+owner+'.json')
     def owned():
@@ -63,6 +64,8 @@ def run(image, binary, output, rmw):
                 or item['HostConfig']['NetworkMode'] != 'none'):
             raise RuntimeError('owned container identity/isolation changed')
         return item
+    primary_error = None
+    cleanup_errors = []
     try:
         record['created'] = owned()
         docker('start',cid)
@@ -76,19 +79,45 @@ def run(image, binary, output, rmw):
                         if line.startswith('MULTIWATCH13_RESULT ')]
         if len(result_lines) != 1: raise RuntimeError('missing/nonunique campaign result')
         record['result'] = json.loads(result_lines[0])
-        return record
+    except BaseException as exc:
+        primary_error = exc
     finally:
-        # Preserve diagnostics on every failure and cleanup ONLY immutable owned ID.
+        # Verify ownership immediately before deletion; diagnostics never gate rm/readback.
         try:
             owned()
-            combined = docker('logs',cid)
-            log.write_text(combined.stdout+'\nSTDERR:\n'+combined.stderr, encoding='utf-8')
-            docker('rm','-f',cid)
-            absent = docker('inspect',cid,check=False)
-            verify_removed(absent, cid)
-            record['cleanupVerified'] = True
-        finally:
+        except BaseException as exc:
+            cleanup_errors.append(exc)
+        else:
+            try:
+                combined = docker('logs',cid)
+                log.write_text(combined.stdout+'\nSTDERR:\n'+combined.stderr, encoding='utf-8')
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+            try:
+                docker('rm','-f',cid)
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+            try:
+                absent = docker('inspect',cid,check=False)
+                verify_removed(absent, cid)
+                record['cleanupVerified'] = True
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+        try:
             metadata.write_text(json.dumps(record,indent=2)+'\n', encoding='utf-8')
+        except BaseException as exc:
+            cleanup_errors.append(exc)
+
+    if primary_error is not None:
+        for error in cleanup_errors:
+            primary_error.add_note(f'cleanup error: {type(error).__name__}: {error}')
+        raise primary_error
+    if cleanup_errors:
+        first, *rest = cleanup_errors
+        for error in rest:
+            first.add_note(f'cleanup error: {type(error).__name__}: {error}')
+        raise first
+    return record
 
 
 def main(argv=None):

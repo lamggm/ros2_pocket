@@ -44,14 +44,76 @@ def commands(root, toolchains, image, out):
     ]
 
 
-def verify_replay(path):
-    suite = ET.parse(path).getroot()
+_REPLAY_CLASS = 'com.lamggm.rospocket.PlotDdsReplayTest'
+_REAL_REPLAY = 'bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas'
+_JNI_CLASS = 'com.lamggm.rospocket.RealJniSessionTest'
+_JNI_CASE = 'realJniLeaseFailureReceiptPollRecoveryAndSurvivors'
+_JNI_SKIP_MESSAGE = 'Explicit isolated host JNI gate only'
+
+
+def _read_java_report(path, allow_jni_skip):
+    try:
+        suite = ET.parse(path).getroot()
+    except (OSError, ET.ParseError) as exc:
+        raise ValueError(f'Invalid or unreadable Java XML report: {path}') from exc
+    if suite.tag != 'testsuite':
+        raise ValueError(f'Java XML report is not a testsuite: {path}')
     cases = suite.findall('testcase')
-    expected = 'bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas'
-    if (suite.tag != 'testsuite' or int(suite.get('tests', '-1')) != len(cases) or not cases
-            or any(suite.get(k) != '0' for k in ('failures', 'errors', 'skipped'))
-            or sum(case.get('name') == expected for case in cases) != 1
-            or any(case.find(k) is not None for case in cases for k in ('failure','error','skipped'))):
+    if not cases:
+        raise ValueError(f'Java XML report has no testcases: {path}')
+    counts = {}
+    for key in ('tests', 'failures', 'errors', 'skipped'):
+        raw = suite.get(key)
+        try:
+            counts[key] = int(raw) if raw is not None else -1
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'Java XML report has an invalid {key} count: {path}') from exc
+        if counts[key] < 0:
+            raise ValueError(f'Java XML report has a missing/negative {key} count: {path}')
+    if counts['failures'] or counts['errors']:
+        raise ValueError(f'Java XML report contains failures/errors: {path}')
+    actual = {'tests': len(cases), 'failures': 0, 'errors': 0, 'skipped': 0}
+    allowed_skips = 0
+    for case in cases:
+        if not case.get('classname') or not case.get('name'):
+            raise ValueError(f'Java XML testcase lacks classname/name: {path}')
+        outcomes = [key for key in ('failure', 'error', 'skipped') if case.find(key) is not None]
+        if len(outcomes) > 1:
+            raise ValueError(f'Java XML testcase has inconsistent outcomes: {path}')
+        if outcomes:
+            outcome = outcomes[0]
+            actual[{'failure': 'failures', 'error': 'errors', 'skipped': 'skipped'}[outcome]] += 1
+            if outcome == 'skipped':
+                skipped = case.find('skipped')
+                approved = (allow_jni_skip
+                            and case.get('classname') == _JNI_CLASS
+                            and case.get('name') == _JNI_CASE
+                            and skipped is not None
+                            and skipped.get('message') == _JNI_SKIP_MESSAGE)
+                if not approved:
+                    raise ValueError(f'Unexpected skipped Java testcase: {path}')
+                allowed_skips += 1
+    if counts != actual:
+        raise ValueError(f'Inconsistent Java XML case counts: {path}')
+    return suite, cases, allowed_skips
+
+
+def verify_java_reports(directory):
+    reports = sorted(directory.glob('TEST-*.xml'))
+    if not reports:
+        raise ValueError('Missing Java XML reports')
+    allowed_skips = 0
+    for path in reports:
+        _, _, report_skips = _read_java_report(path, allow_jni_skip=True)
+        allowed_skips += report_skips
+    if allowed_skips > 1:
+        raise ValueError('More than one intentional host JNI skip')
+
+
+def verify_replay(path):
+    _, cases, _ = _read_java_report(path, allow_jni_skip=False)
+    if (any(case.get('classname') != _REPLAY_CLASS for case in cases)
+            or sum(case.get('name') == _REAL_REPLAY for case in cases) != 1):
         raise ValueError('Actual two-RMW DDS/native Canvas replay did not pass unskipped')
 
 
@@ -102,10 +164,7 @@ def main():
             raise ValueError('Incomplete real plot DDS result')
     xml = ROOT/'app/build/test-results/testDebugUnitTest'
     verify_replay(xml/'TEST-com.lamggm.rospocket.PlotDdsReplayTest.xml')
-    reports = list(xml.glob('TEST-*.xml'))
-    if not reports or any(int(ET.parse(p).getroot().get(k, '-1')) != 0
-                          for p in reports for k in ('failures','errors')):
-        raise ValueError('Missing/failing integrated Java suite')
+    verify_java_reports(xml)
     shutil.copytree(xml, out/'java-xml')
     after = source()
     (out/'source-after.json').write_text(after)
