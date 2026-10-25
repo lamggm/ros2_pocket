@@ -14,6 +14,42 @@ import static org.junit.Assert.*;
  * The model, View and native host Canvas are production implementations. */
 @RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class PlotDdsReplayTest {
+ private static boolean controlOnlyFrame(JSONObject record, JSONObject nativeRow)throws JSONException {
+  String phase=record.optString("phase");
+  return ("pending".equals(phase)&&record.optBoolean("pending",false))
+   || ("stop".equals(phase)&&!nativeRow.optBoolean("running"));
+ }
+ private static boolean emptyControlAllowed(JSONObject record,JSONObject nativeRow,int slot)throws JSONException {
+  if("stop".equals(record.optString("phase"))&&!nativeRow.optBoolean("running"))return true;
+  return "pending".equals(record.optString("phase"))&&record.optBoolean("pending",false)&&slot==0;
+ }
+ private static int completedDataDraws(JSONArray drawn,JSONObject nativeRow,JSONObject record)throws JSONException {
+  boolean controlOnly=controlOnlyFrame(record,nativeRow);
+  boolean populated=false;
+  for(int i=0;i<drawn.length();i++){
+   JSONObject s=drawn.getJSONObject(i);
+   if(s.getInt("pointCount")==0){
+    assertTrue("Empty selected controls are allowed only in their pending/stop slot",emptyControlAllowed(record,nativeRow,s.getInt("slot")));
+    continue;
+   }
+   assertEquals(nativeRow.getLong("sessionGeneration"),s.getLong("sessionGeneration"));
+   assertEquals(nativeRow.getJSONArray("watches").getJSONObject(s.getInt("slot")).getLong("generation"),s.getLong("readerGeneration"));
+   populated=true;
+  }
+  if(!controlOnly)assertTrue("Completed running draw must contain populated provenance-bound data",populated);
+  return controlOnly?0:1;
+ }
+ @Test public void emptySelectedControlsAreNotHealthyCanvasEvidence()throws Exception {
+  JSONObject row=new JSONObject().put("running",true).put("sessionGeneration",7).put("watches",new JSONArray());
+  JSONArray empty=new JSONArray().put(new JSONObject().put("slot",0).put("pointCount",0));
+  try{completedDataDraws(empty,new JSONObject(row.toString()),new JSONObject().put("phase","finite"));fail("empty running draw must be rejected");}
+  catch(AssertionError expected){}
+  assertEquals(0,completedDataDraws(empty,new JSONObject(row.toString()),new JSONObject().put("phase","pending").put("pending",true)));
+  assertEquals(0,completedDataDraws(empty,new JSONObject(row.toString()).put("running",false),new JSONObject().put("phase","stop")));
+  JSONArray wrongPendingSlot=new JSONArray().put(new JSONObject().put("slot",1).put("pointCount",0));
+  try{completedDataDraws(wrongPendingSlot,new JSONObject(row.toString()),new JSONObject().put("phase","pending").put("pending",true));fail("pending primary exception must not cover another slot");}
+  catch(AssertionError expected){}
+ }
  @Test public void bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas()throws Exception {
   String dir=System.getenv("POCKET_PLOT_DDS_RECORDS");Assume.assumeTrue("Opt-in real DDS records required",dir!=null);
   for(String rmw:new String[]{"rmw_fastrtps_cpp","rmw_cyclonedds_cpp"})replay(Paths.get(dir,rmw),rmw);
@@ -25,11 +61,12 @@ public class PlotDdsReplayTest {
   boolean selected=false,retired=false,returned=false,resetBreak=false,windowEvicted=false;
   long initialOldest=-1,lastReceive=-1,previousSource=-1;String priorPhase="";
   Set<String> phases=new HashSet<>();Map<String,Integer> nonfinite=new HashMap<>();
-  int draws=0,finiteFrames=0;Map<Integer,String> watches=new HashMap<>();
+  int dataDraws=0,finiteFrames=0;Map<Integer,String> watches=new HashMap<>();
   Bitmap frozenPixels=null;List<PlotHistory.Series> frozenSeries=null;
   for(String line:Files.readAllLines(dir.resolve("snapshots.jsonl"))){
    JSONObject record=new JSONObject(line),nativeRow=record.getJSONObject("snapshot");String phase=record.getString("phase");
-   c.acceptNative(nativeRow,1,false);phases.add(phase);
+   boolean pending=record.optBoolean("pending",false);
+   c.acceptNative(nativeRow,1,pending);phases.add(phase);
    if(!selected){
     for(int slot=0;slot<3;slot++){
      String watch=PlotController.watchName(slot,nativeRow.getJSONArray("watches").getJSONObject(slot));watches.put(slot,watch);assertTrue(c.select(watch,"data"));
@@ -91,28 +128,21 @@ public class PlotDdsReplayTest {
     nonfinite.put(phase,nonfinite.getOrDefault(phase,0)+1);
    }
    if(!phase.equals(priorPhase)||phase.equals("window")){
-    v.refresh();Bitmap frame=PlotQualificationTest.draw(v);assertNotNull(frame);draws++;
+    v.refresh();Bitmap frame=PlotQualificationTest.draw(v);assertNotNull(frame);
     try(java.io.OutputStream png=Files.newOutputStream(dir.resolve("canvas-"+phase+".png"))){
      assertTrue(frame.compress(Bitmap.CompressFormat.PNG,100,png));
     }
     JSONObject qa=v.qaState(System.nanoTime());assertFalse(qa.getBoolean("drawPending"));
     assertEquals(qa.getLong("preparedRevision"),qa.getLong("drawnRevision"));
     assertEquals(qa.getJSONArray("series").toString(),qa.getJSONArray("drawnSeries").toString());
-    for(int i=0;i<qa.getJSONArray("drawnSeries").length();i++){
-     JSONObject s=qa.getJSONArray("drawnSeries").getJSONObject(i);
-     // reset() preserves bounded selected controls but empties their histories.
-     // An empty old identity is not rendering/intake evidence and cannot qualify.
-     if(s.getInt("pointCount")==0)continue;
-     assertEquals(nativeRow.getLong("sessionGeneration"),s.getLong("sessionGeneration"));
-     assertEquals(nativeRow.getJSONArray("watches").getJSONObject(s.getInt("slot")).getLong("generation"),s.getLong("readerGeneration"));
-    }
+    dataDraws+=completedDataDraws(qa.getJSONArray("drawnSeries"),nativeRow,record);
    }
    priorPhase=phase;
   }
   for(String phase:new String[]{"nan","positive_infinity","negative_infinity"})assertTrue(nonfinite.getOrDefault(phase,0)>=5);
-  assertTrue(returned&&resetBreak&&windowEvicted);assertTrue(draws>60);
+  assertTrue(returned&&resetBreak&&windowEvicted);assertTrue(dataDraws>60);
   assertTrue(phases.containsAll(Arrays.asList("finite","gap","return_after_gap","source_reset","source_jump","window","removed","reassigned","stop")));
   for(PlotHistory.Series s:c.history.snapshot())assertTrue("Session stop clears every retained point",s.points.isEmpty());
-  System.out.println("REAL_DDS_CANVAS_REPLAY "+rmw+" completedDraws="+draws+" realWindowEviction=true boundary600=separate-model-test");
+  System.out.println("REAL_DDS_CANVAS_REPLAY "+rmw+" completedDataDraws="+dataDraws+" realWindowEviction=true boundary600=separate-model-test");
  }
 }

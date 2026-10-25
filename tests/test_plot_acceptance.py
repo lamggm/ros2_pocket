@@ -135,6 +135,11 @@ class PlotCampaignTests(unittest.TestCase):
         c = load('plot_device_campaign')
         good = [dict(slot=i, finitePoints=4, gapPoints=2) for i in range(3)]
         c.require_phase_graph({'intake': good, 'display': good}, (0, 1, 2), gap_slots=(0, 2))
+        empty_healthy = [dict(s) for s in good]
+        empty_healthy[1].update(finitePoints=0, gapPoints=0)
+        with self.assertRaises(ValueError):
+            c.require_phase_graph({'intake': empty_healthy, 'display': empty_healthy},
+                                  (0, 1, 2), gap_slots=(0, 2))
         for bad in ([], good[1:], good + [good[0]]):
             with self.assertRaises(ValueError):
                 c.require_phase_graph({'intake': bad, 'display': bad}, (0, 1, 2), gap_slots=(0, 2))

@@ -95,7 +95,7 @@ def paused_survivors(before, after, removed_slot):
     return bool(expected) and without_index(after) == without_index(expected)
 
 
-def require_phase_graph(state, slots, *, gap_slots=(), finite_min=0):
+def require_phase_graph(state, slots, *, gap_slots=(), finite_min=1):
     for key in ('intake', 'display'):
         series = state[key]
         if len(series) != len(slots) or {s['slot'] for s in series} != set(slots):

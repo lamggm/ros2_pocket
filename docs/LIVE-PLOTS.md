@@ -238,7 +238,12 @@ export POCKET_PLOT_DDS_RECORDS="$PWD/build/plot-dds-run"
 `PlotController`/`PlotHistory`/`PlotView` and Robolectric **native graphics**,
 checking real receive-window eviction, gaps, retirement/reselection, reader
 identity, pause pixels with continuing intake, selective paused removal and
-completed-draw provenance. It saves phase chart PNGs beside the input records.
+completed-draw provenance. Reset may preserve selected empty controls, and the
+first explicit return reselection may be temporarily empty; the replay permits
+that only in explicitly marked pending/stop frames. Such a frame is never
+counted as data-bearing Canvas evidence, and each subsequent running phase must
+have populated, provenance-bound completed draws. It saves phase chart PNGs
+beside the input records.
 This is a real-DDS-record replay plus host Android Canvas, **not** the Android
 worker/JNI or physical rendering. Without the opt-in environment it explicitly
 skips; a filtered/empty/skipped report is not DDS-Canvas acceptance.
