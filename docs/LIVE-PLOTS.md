@@ -251,8 +251,11 @@ worker/JNI or physical rendering. Without the opt-in environment it explicitly
 skips; a filtered/empty/skipped report is not DDS-Canvas acceptance. The host
 campaign's full Java XML scan permits exactly one intentional exception:
 `com.lamggm.rospocket.RealJniSessionTest`/
-`realJniLeaseFailureReceiptPollRecoveryAndSurvivors`, skipped with the exact
-message `Explicit isolated host JNI gate only`. That case is exercised by the
+`realJniLeaseFailureReceiptPollRecoveryAndSurvivors`. The source uses
+`Assume` with `Explicit isolated host JNI gate only`; actual Gradle XML may
+serialize this as an empty `<skipped/>`, so the exact suite/class/method
+allowlist is authoritative (an explicit different reason is rejected).
+That case is exercised by the
 parent Linux JNI gate; this campaign does not claim JNI execution. The
 `PlotDdsReplayTest` report remains fully unskipped and must contain exactly one
 `bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas` case; its helper unit

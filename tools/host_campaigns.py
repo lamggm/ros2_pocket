@@ -86,10 +86,14 @@ def _read_java_report(path, allow_jni_skip):
             if outcome == 'skipped':
                 skipped = case.find('skipped')
                 approved = (allow_jni_skip
+                            and suite.get('name') == _JNI_CLASS
                             and case.get('classname') == _JNI_CLASS
                             and case.get('name') == _JNI_CASE
                             and skipped is not None
-                            and skipped.get('message') == _JNI_SKIP_MESSAGE)
+                            # Actual Gradle XML emits <skipped/> without the
+                            # Assume message; keep the exact case allowlist.
+                            and (skipped.get('message') == _JNI_SKIP_MESSAGE
+                                 or (skipped.get('message') is None and not (skipped.text or '').strip())))
                 if not approved:
                     raise ValueError(f'Unexpected skipped Java testcase: {path}')
                 allowed_skips += 1

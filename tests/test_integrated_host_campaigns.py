@@ -140,6 +140,19 @@ class IntegratedHostTests(unittest.TestCase):
             with self.subTest(cases=bad), self.assertRaises(ValueError):
                 m.verify_multiwatch(dict(record, result=dict(record['result'], cases=bad)))
 
+    def test_real_gradle_empty_skip_element_is_allowed_only_for_named_jni_opt_in(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            report = directory/'TEST-jni.xml'
+            report.write_text('<testsuite name="com.lamggm.rospocket.RealJniSessionTest" tests="1" failures="0" errors="0" skipped="1"><testcase classname="com.lamggm.rospocket.RealJniSessionTest" name="realJniLeaseFailureReceiptPollRecoveryAndSurvivors"><skipped/></testcase></testsuite>')
+            m.verify_java_reports(directory)
+            baseline = report.read_text()
+            for name in ('SomeOtherTest', 'PlotDdsReplayTest'):
+                report.write_text(baseline.replace('RealJniSessionTest', name))
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    m.verify_java_reports(directory)
+
     def test_registered_integrated_front_tests_are_required_and_common_ci_runs_them(self):
         registry = json.loads((ROOT/'ci/finalization-gates.json').read_text())
         for gate in registry['gates']:
