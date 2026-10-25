@@ -7,6 +7,13 @@ prototype, not a port of desktop rqt plugins or a full rcljava client.
 
 ## Development sequence
 
+**v0.3 planning:** [`integration/v0.3`](https://github.com/lamggm/ros2_pocket/tree/integration/v0.3)
+contains the [v0.3 plan and explicit sequence](docs/ROADMAP-v0.3.md): accepted
+v0.2 base → bench navigation → profile storage → profile application → v0.3
+qualification. This is documentation-only preparation, not implementation or
+v0.2 acceptance. LaserScan, user-facing export and numeric batches remain
+optional decisions. Future v0.3 implementation PRs target `integration/v0.3`.
+
 The v0.2 development base is **`integration/v0.2`**. Follow the ordered
 [roadmap and acceptance gates](docs/ROADMAP-v0.2.md); implementation branches
 start from the latest integration and target it in their PRs, not `main`.

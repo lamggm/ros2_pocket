@@ -2,13 +2,22 @@
 
 ## Fonte de verdade
 
-Antes de planejar ou implementar uma tarefa, leia [`docs/ROADMAP-v0.2.md`](docs/ROADMAP-v0.2.md) e o README. O roadmap contém a sequência recomendada, o escopo de cada incremento e seus gates de aceitação. Não substitua essa sequência por outra baseada em memória de conversa. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
+Antes de planejar ou implementar uma tarefa, leia o README e o roadmap do ciclo: [`docs/ROADMAP-v0.2.md`](docs/ROADMAP-v0.2.md) para v0.2; [`docs/ROADMAP-v0.3.md`](docs/ROADMAP-v0.3.md) para v0.3, mantendo os contratos herdados da v0.2. O roadmap contém a sequência recomendada, o escopo de cada incremento e seus gates de aceitação. Não substitua essa sequência por outra baseada em memória de conversa. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
 
 O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
 
-## Branches e integração
+## Preparação da v0.3
 
-- A base de desenvolvimento deste ciclo é **`integration/v0.2`**, não `main`.
+- `integration/v0.3` é uma branch de planejamento criada sobre a integração pública v0.2; não demonstra conclusão ou aceite da v0.2.
+- Nesta preparação estão autorizados somente branch e documentação. Não implementar funcionalidades, instalar APKs ou operar o tablet sem tarefa posterior.
+- Seguir a sequência do roadmap v0.3: **00 base v0.2 aceita/sincronizada e escopo confirmado → 01 navegação → 02 armazenamento de perfis → 03 aplicação na UI → 04 qualificação**. LaserScan, exportação e lotes numéricos continuam opcionais e exigem decisão explícita.
+- Antes da implementação, incorporar por merge normal a v0.2 final aceita. Não migrar pendências de qualificação nem levar mudanças v0.3 para a integração v0.2.
+- Futuras branches v0.3 partem da `origin/integration/v0.3` atualizada; seus PRs apontam para `integration/v0.3`, não `main` ou v0.2. Validar cada incremento e também o SHA integrado, sem rebase/force-push compartilhado.
+- As regras de branches abaixo continuam específicas da campanha v0.2; não sobrescrevem o fluxo v0.3. Preservar seu PR draft e seus gates próprios.
+
+## Branches e integração da v0.2
+
+- A base de desenvolvimento do ciclo v0.2 é **`integration/v0.2`**, não `main`.
 - Inspecione `git status`, branch atual e histórico antes de editar; preserve alterações existentes.
 - Antes de abrir a próxima branch, busque o remoto e confira a integração atualizada. Crie a branch do incremento a partir de `origin/integration/v0.2` limpa e atualizada.
 - As oito frentes da v0.2 podem trabalhar em paralelo, cada uma em branch e worktree próprias. A numeração do roadmap indica prioridade de integração e dependências, não um bloqueio para iniciar trabalho independente.
