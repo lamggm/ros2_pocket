@@ -21,6 +21,8 @@ except ImportError:
 
 PACKAGE = 'com.lamggm.rospocket.dev'
 COMPONENT = PACKAGE + '/com.lamggm.rospocket.MainActivity'
+JOURNAL_MAX_RECORDS = 20_000
+JOURNAL_MAX_BYTES = 32 * 1024 * 1024
 
 
 def text(raw):
@@ -344,7 +346,8 @@ class Journal:
 
     def event(self, kind, **fields):
         raw = (json.dumps(dict(kind=kind,**fields),separators=(',',':'),allow_nan=False)+'\n').encode()
-        ai.require(self.records < 20000 and self.bytes+len(raw) <= 8*1024*1024, 'progress journal budget exceeded')
+        ai.require(self.records < JOURNAL_MAX_RECORDS
+                   and self.bytes+len(raw) <= JOURNAL_MAX_BYTES, 'progress journal budget exceeded')
         view = memoryview(raw)
         while view:
             written = os.write(self.fd,view)

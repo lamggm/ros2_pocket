@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from test_device_snapshot import snapshot, frame
 from test_qualification import metadata, diagnostic_metadata
@@ -41,9 +42,9 @@ class Clock:
 class SyntheticTransport:
     """Explicit synthetic Linux/Android outputs, no device or real ADB."""
     def __init__(self, clock, meta):
-        self.clock=clock; self.meta=meta; self.calls=[]; self.sequence=0; self.mutate=None
+        self.clock=clock; self.meta=meta; self.calls=[]; self.sequence=0; self.mutate=None; self.journal=None
     def read(self, args, deadline, limit=65536):
-        self.calls.append(list(args)); self.clock.ns += 1_000_000
+        self.calls.append(list(args)); started=self.clock.now(); self.clock.ns += 1_000_000
         command=' '.join(args)
         if command=='get-state': raw=b'device\n'
         elif command.endswith('getprop ro.build.version.sdk'): raw=b'36\n'
@@ -77,10 +78,78 @@ class SyntheticTransport:
             raw=frame(data)
         else: raise AssertionError(command)
         if self.mutate: raw=self.mutate(args,raw)
+        if self.journal is not None:
+            import base64, hashlib
+            self.journal.event('read',command=args,host_start_ns=started,host_end_ns=self.clock.now(),
+                               success=True,error=None,input_size_bytes=len(raw),
+                               input_sha256=hashlib.sha256(raw).hexdigest(),stderr_size_bytes=0,
+                               input_b64=base64.b64encode(raw).decode())
         return raw
 
 
 class CollectorTests(unittest.TestCase):
+    def test_full_campaign_accepts_near_maximum_valid_qa_frame_with_bounded_journal(self):
+        import collect_soak as c
+        import qualification as q
+        import test_qualification as fixtures
+        import device_snapshot as qa
+        root=Path(__file__).resolve().parents[1]
+        clock=Clock(); meta=diagnostic_metadata(); transport=SyntheticTransport(clock,meta)
+        attestation=fixtures.QualificationTests().diagnostic_soak(q)['os_transport_validation']
+        build=__import__('hashlib').sha256(b'SYNTHETIC-ANDROID16-BUILD').hexdigest()
+        for item in (attestation,attestation['negative_control'],attestation['positive_control']['os']):
+            item['android_build_sha256']=build
+        target=qa.FRAME_MAX_BYTES-128
+        frame_bytes=[None]
+
+        def near_maximum_frame(args,raw):
+            if '--pocket-qa-v1' not in args:
+                return raw
+            data=json.loads(raw.decode().splitlines()[2])
+            data['syntheticQaPadding']=''
+            base=len(json.dumps(data).encode())
+            data['syntheticQaPadding']='x'*(target-base)
+            self.assertEqual(len(json.dumps(data).encode()),target)
+            framed=frame(data)
+            frame_bytes[0]=len(framed)
+            self.assertLessEqual(len(framed),qa.MAX_BYTES)
+            return framed
+
+        transport.mutate=near_maximum_frame
+        collector=c.Collector(transport,meta,meta['apk'],clock.now,clock.sleep)
+        with tempfile.TemporaryDirectory(dir=root/'build') as directory:
+            out=Path(directory)/'near-max-qa'
+            journal=c.Journal(out,root)
+            transport.journal=journal
+            result=c.run_campaign(collector,journal,attestation)
+            saved=q.load_json(out/'soak-input.json')
+            events=[json.loads(line) for line in (out/'events.jsonl').read_text().splitlines()]
+            self.assertEqual(result['collection_status'],'complete',json.dumps(dict(
+                result=result, collection_error=saved.get('collection_error'),
+                journal_bytes=journal.bytes, journal_records=journal.records)))
+            self.assertEqual(result['analysis']['status'],'passed')
+            self.assertIn(result['points'],(121,122))
+            self.assertEqual(len(saved['samples']),result['points'])
+            self.assertEqual(sum(e['kind']=='sample' for e in events),result['points'])
+            self.assertEqual(events[-1]['kind'],'finished')
+            self.assertGreater(journal.bytes,8*1024*1024)
+            self.assertLess(journal.bytes,c.JOURNAL_MAX_BYTES)
+            self.assertLess(journal.records,c.JOURNAL_MAX_RECORDS)
+            self.assertLess((out/'soak-input.json').stat().st_size,q.JSON_MAX_BYTES)
+            if os.environ.get('SOAK_FOLLOWUP_EVIDENCE'):
+                import shutil
+                dest=Path(os.environ['SOAK_FOLLOWUP_EVIDENCE'])/'GREEN-near-max-campaign'
+                shutil.copytree(out,dest,dirs_exist_ok=True)
+                (dest/'measurements.json').write_text(json.dumps(dict(
+                    classification='synthetic host campaign; NOT physical acceptance',
+                    frame_payload_bytes=target,frame_bytes=frame_bytes[0],
+                    journal_bytes=journal.bytes,journal_records=journal.records,
+                    journal_budget_bytes=c.JOURNAL_MAX_BYTES,
+                    journal_remaining_bytes=c.JOURNAL_MAX_BYTES-journal.bytes,
+                    journal_record_cap=c.JOURNAL_MAX_RECORDS,
+                    points=result['points'],soak_input_bytes=(out/'soak-input.json').stat().st_size,
+                    report_serialization_limit_bytes=q.JSON_MAX_BYTES)),encoding='utf-8')
+
     def test_sample_collects_real_transformations_and_official_os_java_proof(self):
         import collect_soak as c
         import android_instrumentation as ai
@@ -385,28 +454,29 @@ class TransportTests(unittest.TestCase):
             def preflight(self):
                 raise ValueError('synthetic collection failure')
 
-        limit=8*1024*1024
+        limit=64*1024
         filler_overhead=len((json.dumps(dict(kind='filler',padding=''),separators=(',',':'),allow_nan=False)+'\n').encode())
         filler='x'*(limit-filler_overhead-1)
 
         with tempfile.TemporaryDirectory(dir=root/'build') as directory:
-            reject=Path(directory)/'reject'
-            journal=c.Journal(reject,root)
-            journal.event('filler',padding=filler)
-            with self.assertRaisesRegex(ValueError,'progress journal budget exceeded'):
-                journal.event('overflow',padding='x')
-            self.assertLessEqual(journal.bytes,8*1024*1024)
-            journal.close()
+            with mock.patch.object(c,'JOURNAL_MAX_BYTES',limit):
+                reject=Path(directory)/'reject'
+                journal=c.Journal(reject,root)
+                journal.event('filler',padding=filler)
+                with self.assertRaisesRegex(ValueError,'progress journal budget exceeded'):
+                    journal.event('overflow',padding='x')
+                self.assertLessEqual(journal.bytes,limit)
+                journal.close()
 
-            terminal=Path(directory)/'terminal'
-            journal=c.Journal(terminal,root)
-            journal.event('filler',padding=filler)
-            result=c.run_campaign(FailingCollector(),journal,preflight_only=True)
-            self.assertEqual(result['collection_status'],'incomplete')
-            saved=q.load_json(terminal/'soak-input.json')
-            self.assertEqual(saved['collection_status'],'incomplete')
-            self.assertIn('progress journal budget exceeded',saved['collection_error'])
-            self.assertEqual(q.load_json(terminal/'analysis.json')['status'],'incomplete')
+                terminal=Path(directory)/'terminal'
+                journal=c.Journal(terminal,root)
+                journal.event('filler',padding=filler)
+                result=c.run_campaign(FailingCollector(),journal,preflight_only=True)
+                self.assertEqual(result['collection_status'],'incomplete')
+                saved=q.load_json(terminal/'soak-input.json')
+                self.assertEqual(saved['collection_status'],'incomplete')
+                self.assertIn('progress journal budget exceeded',saved['collection_error'])
+                self.assertEqual(q.load_json(terminal/'analysis.json')['status'],'incomplete')
 
     def test_real_subprocess_timeout_output_bounds_stderr_and_exit(self):
         import collect_soak as c

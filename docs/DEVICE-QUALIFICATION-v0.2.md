@@ -225,13 +225,22 @@ python3 tools/collect_soak.py collect \
   e status são lidos de verdade; power conectado, bateria com updates parados,
   campos ausentes/desconhecidos e ambiguidade bloqueiam. Não há zeros substitutos.
 - `events.jsonl` é progressivo, privado (0600 em diretório 0700), fsync por evento,
-  limitado a 20.000 registros/8 MiB. Guarda leituras do alvo em base64 e hashes/
+  limitado a 20.000 registros/32 MiB. O orçamento de 32 MiB é o menor bound
+  deliberadamente escolhido que suporta a campanha sintética pública com frame QA
+  válido de 24.448 bytes de payload, 121–122 pontos completos e folga observada;
+  ele ainda deixa o cap absoluto independente de 20.000 registros. Guarda leituras do alvo em base64 e hashes/
   intervalos; protobuf OS e fingerprint ficam **somente hash/tamanho**, para não
   reter argumentos ou processos alheios. A rejeição por esgotamento mantém esse
   teto; eventos terminais são best-effort e não podem impedir os snapshots
   `incomplete` de `soak-input.json` e `analysis.json`, que continuam atômicos.
   `soak-input.json` é substituído atomicamente a cada ponto e `analysis.json`
   contém o retorno oficial.
+- Na regressão pública sintética follow-up, o frame QA foi aceito pelos parsers
+  reais e a campanha reteve 12.718.837 bytes em 4.253 registros para 121 pontos;
+  restaram 20.835.595 bytes e 15.747 registros antes dos caps. O `soak-input.json`
+  resultante teve 3.971.216 bytes, abaixo do limite compartilhado de serialização
+  de 4 MiB. Isso é classificação host-only sintética, não soak físico, Android,
+  ADB ou aceite de bateria/CPU/PSS.
 - Diretório de saída deve ser novo e estar sob `build/` desta fonte; arquivo,
   symlink, tentativa anterior ou execução interrompida não são retomados. SIGINT/
   SIGTERM preservam pontos completos e deixam incomplete; SIGKILL/falha de disco
