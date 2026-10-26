@@ -46,6 +46,10 @@ def commands(root, toolchains, image, out):
 
 _REPLAY_CLASS = 'com.lamggm.rospocket.PlotDdsReplayTest'
 _REAL_REPLAY = 'bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas'
+_REPLAY_CASES = frozenset((
+    'emptySelectedControlsAreNotHealthyCanvasEvidence',
+    _REAL_REPLAY,
+))
 _JNI_CLASS = 'com.lamggm.rospocket.RealJniSessionTest'
 _JNI_CASE = 'realJniLeaseFailureReceiptPollRecoveryAndSurvivors'
 _JNI_SKIP_MESSAGE = 'Explicit isolated host JNI gate only'
@@ -115,9 +119,11 @@ def verify_java_reports(directory):
 
 
 def verify_replay(path):
-    _, cases, _ = _read_java_report(path, allow_jni_skip=False)
-    if (any(case.get('classname') != _REPLAY_CLASS for case in cases)
-            or sum(case.get('name') == _REAL_REPLAY for case in cases) != 1):
+    suite, cases, _ = _read_java_report(path, allow_jni_skip=False)
+    if (suite.get('name') != _REPLAY_CLASS
+            or any(case.get('classname') != _REPLAY_CLASS for case in cases)
+            or len(cases) != len(_REPLAY_CASES)
+            or {case.get('name') for case in cases} != _REPLAY_CASES):
         raise ValueError('Actual two-RMW DDS/native Canvas replay did not pass unskipped')
 
 

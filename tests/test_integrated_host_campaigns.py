@@ -57,7 +57,7 @@ class IntegratedHostTests(unittest.TestCase):
                     m.verify_replay(root/'replay.xml')
             with self.assertRaises((ValueError,OSError)):
                 m.verify_replay(root/'missing.xml')
-            (root/'replay.xml').write_text('<testsuite tests="2" failures="0" errors="0" skipped="0"><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="emptySelectedControlsAreNotHealthyCanvasEvidence"/><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/></testsuite>')
+            (root/'replay.xml').write_text('<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="2" failures="0" errors="0" skipped="0"><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="emptySelectedControlsAreNotHealthyCanvasEvidence"/><testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/></testsuite>')
             m.verify_replay(root/'replay.xml')
 
     def test_full_java_reports_fail_closed_but_allows_only_the_documented_jni_skip(self):
@@ -112,8 +112,8 @@ class IntegratedHostTests(unittest.TestCase):
         m = module()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'replay.xml'
-            base = '<testsuite tests="2" failures="0" errors="0" skipped="0">' \
-                   '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="helper"/>' \
+            base = '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="2" failures="0" errors="0" skipped="0">' \
+                   '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>' \
                    '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>' \
                    '</testsuite>'
             path.write_text(base, encoding='utf-8')
@@ -121,12 +121,79 @@ class IntegratedHostTests(unittest.TestCase):
             for bad in (
                 base.replace('name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"', 'name="other"'),
                 base.replace('skipped="0"', 'skipped="1"').replace(
-                    'name="helper"/>', 'name="helper"><skipped message="replay unavailable"/></testcase>'),
+                    'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>',
+                    'name="emptySelectedControlsAreNotHealthyCanvasEvidence"><skipped message="replay unavailable"/></testcase>'),
                 base.replace('classname="com.lamggm.rospocket.PlotDdsReplayTest"', 'classname="Other"', 1),
             ):
                 path.write_text(bad, encoding='utf-8')
                 with self.assertRaises(ValueError):
                     m.verify_replay(path)
+
+    def test_replay_requires_the_exact_suite_name(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            path.write_text(
+                '<testsuite name="WrongSuite" tests="2" failures="0" errors="0" skipped="0">'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>'
+                '</testsuite>',
+                encoding='utf-8',
+            )
+            with self.assertRaises(ValueError):
+                m.verify_replay(path)
+
+    def test_replay_rejects_a_report_missing_the_helper_case(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            path.write_text(
+                '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="1" failures="0" errors="0" skipped="0">'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>'
+                '</testsuite>',
+                encoding='utf-8',
+            )
+            with self.assertRaises(ValueError):
+                m.verify_replay(path)
+
+    def test_replay_rejects_duplicate_cases(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            path.write_text(
+                '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="3" failures="0" errors="0" skipped="0">'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>'
+                '</testsuite>',
+                encoding='utf-8',
+            )
+            with self.assertRaises(ValueError):
+                m.verify_replay(path)
+
+    def test_replay_rejects_unknown_extra_cases(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            path.write_text(
+                '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" tests="3" failures="0" errors="0" skipped="0">'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas"/>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="unexpectedExtraCase"/>'
+                '</testsuite>',
+                encoding='utf-8',
+            )
+            with self.assertRaises(ValueError):
+                m.verify_replay(path)
 
     def test_multiwatch_result_requires_exact_real_case_set(self):
         m = module()
