@@ -82,7 +82,7 @@ class DeviceTransport:
         self.client.verify()
         for package,expected in ((PKG,self.c.apk_sha256),(PKG+'.test',self.c.test_apk_sha256)):
             paths=self.client.adb('shell','pm','path','--user','0',package).splitlines()
-            if len(paths)!=1 or not re.fullmatch(r'package:/data/app/[A-Za-z0-9_./+=\-]+\.apk',paths[0]):
+            if len(paths)!=1 or not re.fullmatch(r'package:/data/app/[A-Za-z0-9_./+=~\-]+\.apk',paths[0]):
                 raise RuntimeError('exact single installed APK required')
             path=paths[0][8:]
             value=self.client.adb('shell','sha256sum',path).strip()

@@ -88,6 +88,28 @@ class SyntheticTransport:
 
 
 class CollectorTests(unittest.TestCase):
+    def test_actual_process_identity_admits_only_exact_name_and_nul_padding(self):
+        import collect_soak as c
+        name=c.PACKAGE.encode()
+        for padding in (1,2,75,1000):
+            clock=Clock();meta=diagnostic_metadata();transport=SyntheticTransport(clock,meta)
+            transport.mutate=lambda args,raw: name+b'\0'*padding if args[-1].endswith('/cmdline') else raw
+            collector=c.Collector(transport,meta,meta['apk'],clock.now,clock.sleep)
+            with self.subTest(padding=padding):
+                identity=collector.process_identity(clock.now()+5_000_000_000)
+                self.assertEqual((identity['pid'],identity['uid'],identity['start_time_ticks']),(123,10123,1234))
+
+    def test_actual_process_identity_rejects_foreign_unterminated_and_non_nul_arguments(self):
+        import collect_soak as c
+        name=c.PACKAGE.encode()
+        for cmdline in (b'',name,b'\0',b'foreign\0',name+b'.other\0',b'\0'+name+b'\0',
+                        name+b'\0foreign\0',name+b'\0 \0',name+b'\0\0x\0',name+b'\n\0'):
+            clock=Clock();meta=diagnostic_metadata();transport=SyntheticTransport(clock,meta)
+            transport.mutate=lambda args,raw: cmdline if args[-1].endswith('/cmdline') else raw
+            collector=c.Collector(transport,meta,meta['apk'],clock.now,clock.sleep)
+            with self.subTest(cmdline=cmdline),self.assertRaisesRegex(ValueError,'cmdline'):
+                collector.process_identity(clock.now()+5_000_000_000)
+
     def test_full_campaign_accepts_near_maximum_valid_qa_frame_with_bounded_journal(self):
         import collect_soak as c
         import qualification as q

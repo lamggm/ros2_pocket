@@ -185,7 +185,7 @@ def campaign(client, args):
         client.verify(); fixture.verify(); cleanup = True
         # Verify installed artifact bytes before changing UI. Never install/replace.
         paths = client.adb('shell', 'pm', 'path', ui.PKG).splitlines()
-        check(len(paths) == 1 and re.fullmatch(r'package:/data/app/[A-Za-z0-9_./=+\-]+/base\.apk', paths[0]) is not None,
+        check(len(paths) == 1 and re.fullmatch(r'package:/data/app/[A-Za-z0-9_./=+~\-]+/base\.apk', paths[0]) is not None,
               'Single exact installed DEV base APK required')
         actual = client.adb('shell', 'sha256sum', paths[0][8:]).split()[0]
         expected = hashlib.sha256(args.candidate_apk.read_bytes()).hexdigest()

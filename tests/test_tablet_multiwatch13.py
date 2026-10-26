@@ -70,6 +70,46 @@ class PublicHarnessTests(unittest.TestCase):
                 harness.main(self.args(directory),transport_factory=lambda c:HostTransport(c,True))
 
 
+class InstalledPathHostControls(unittest.TestCase):
+    """Actual verifier with a synthetic ADB boundary, never device evidence."""
+    def verify(self, paths, *, wrong_hash=False):
+        from types import SimpleNamespace
+        calls=[]
+        expected='ab'*32
+        def adb(*args):
+            calls.append(args)
+            if args[:3]==('shell','pm','path'):
+                return paths
+            if args[:2]==('shell','sha256sum'):
+                return ('cd'*32 if wrong_hash else expected)+'  '+args[2]+'\n'
+            if args==('shell','pm','list','instrumentation'):
+                return 'instrumentation:'+harness.COMPONENT+' (target='+harness.PKG+')\n'
+            raise AssertionError(args)
+        transport=object.__new__(harness.DeviceTransport)
+        transport.c=SimpleNamespace(apk_sha256=expected,test_apk_sha256=expected)
+        transport.client=SimpleNamespace(verify=lambda:None,adb=adb)
+        transport._events=lambda:calls.append(('verified-fixture',))
+        transport.verify()
+        return calls
+
+    def test_real_verifier_admits_tilde_paths_and_still_hashes_both_packages(self):
+        path='/data/app/~~A_b+c==/com.lamggm.rospocket.dev-Def_1==/base.apk'
+        for candidate in ('/data/app/legacy/base.apk',path):
+            with self.subTest(path=candidate):
+                calls=self.verify('package:'+candidate+'\n')
+                self.assertEqual(calls.count(('shell','sha256sum',candidate)),2)
+                self.assertEqual(calls[-1],('verified-fixture',))
+
+    def test_real_verifier_rejects_bad_paths_splits_and_wrong_hashes(self):
+        for raw in ('package:/sdcard/base.apk\n','package:/data/app/x;id/base.apk\n',
+                    'package:/data/app/x y/base.apk\n','package:/data/app/x/base.apk\npackage:/data/app/x/split.apk\n',
+                    '', 'package:/data/app/x/base.apk\ntrailing'):
+            with self.subTest(raw=raw),self.assertRaisesRegex(RuntimeError,'single installed'):
+                self.verify(raw)
+        with self.assertRaisesRegex(RuntimeError,'hash mismatch'):
+            self.verify('package:/data/app/~~A_b==/dev-Z==/base.apk\n',wrong_hash=True)
+
+
 class PhysicalWindowHostControls(unittest.TestCase):
     def test_real_device_transport_window_rejects_intake_during_slow_history_read(self):
         from types import SimpleNamespace

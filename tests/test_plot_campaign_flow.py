@@ -18,6 +18,20 @@ from unittest.mock import patch
 
 class CampaignFlowTests(unittest.TestCase):
     def test_public_campaign_covers_all_phases_and_cleans_up_without_hardware(self):
+        self.campaign_with_path('/data/app/test/base.apk')
+
+    def test_public_campaign_admits_realistic_tilde_apk_path(self):
+        self.campaign_with_path('/data/app/~~A_b+c==/com.lamggm.rospocket.dev-Def_1==/base.apk')
+
+    def test_public_campaign_still_rejects_bad_path_split_and_hash(self):
+        for path in ('/sdcard/base.apk','/data/app/x;id/base.apk','/data/app/x y/base.apk',
+                     '/data/app/x/base.apk\npackage:/data/app/x/split.apk'):
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'Single exact'):
+                self.campaign_with_path(path)
+        with self.assertRaisesRegex(ValueError,'bytes differ'):
+            self.campaign_with_path('/data/app/~~A_b==/dev-Z==/base.apk',wrong_hash=True)
+
+    def campaign_with_path(self, installed_path, *, wrong_hash=False):
         with patch.dict(os.environ, {'POCKET_TABLET': 'HOST_TEST_DOUBLE'}):
             import tablet_ui as ui
         import tablet_plot_acceptance as h
@@ -93,8 +107,8 @@ class CampaignFlowTests(unittest.TestCase):
                 return [{'package':ui.PKG,'resource-id':ui.PKG+':id/connect','text':'DESCONECTAR' if connected[0] else 'CONECTAR'},
                         {'package':ui.PKG,'resource-id':ui.PKG+':id/plot_chart','bounds':'[0,0][800,300]'}]
             def adb(self, *args, **kwargs):
-                if args[:3] == ('shell','pm','path'): return 'package:/data/app/test/base.apk\n'
-                if args[:2] == ('shell','sha256sum'): return self.expected+'  /data/app/test/base.apk\n'
+                if args[:3] == ('shell','pm','path'): return 'package:'+installed_path+'\n'
+                if args[:2] == ('shell','sha256sum'): return ('bad' if wrong_hash else self.expected)+'  '+installed_path+'\n'
                 if args[:3] == ('shell','am','start'): return ''
                 raise AssertionError(args)
             def qa(self):

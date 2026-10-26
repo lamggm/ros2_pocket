@@ -135,7 +135,10 @@ class Collector:
         ai.require(re.fullmatch(r'[1-9][0-9]{0,9}',pid_raw) is not None, 'missing/ambiguous target PID')
         pid = int(pid_raw)
         cmdline = self.shell(['cat',f'/proc/{pid}/cmdline'], deadline, 1024)
-        ai.require(cmdline == PACKAGE.encode()+b'\x00', 'foreign/ambiguous process cmdline')
+        # Android may NUL-pad the argv storage after setting the process name.
+        # Admit only that exact name, a terminator, and exclusively NUL padding.
+        ai.require(cmdline.endswith(b'\x00') and cmdline.rstrip(b'\x00') == PACKAGE.encode(),
+                   'foreign/ambiguous process cmdline')
         stat_start = self.now()
         state = parse_stat(self.shell(['cat',f'/proc/{pid}/stat'], deadline, 8192))
         stat_end = self.now()
