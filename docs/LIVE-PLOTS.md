@@ -289,7 +289,7 @@ its actual Docker `Config.Cmd` including all of:
 
 ```text
 python3 /fixture/device_plot_fixture.py --domain <domain>
---namespace /plot_<uuid> --control /tmp/plot-phase --duration 600
+--namespace /plot_<uuid> --control /tmp/plot-phase --duration 2040
 --stamped-writer /fixture/plot-stamped-writer
 ```
 
@@ -307,6 +307,20 @@ python3 tests/tablet_plot_acceptance.py run --authorize-device \
   --out "$PRIVATE_EVIDENCE"
 # Optional --peer is the existing app peer setting; unset means automatic mode.
 ```
+
+The full physical flow has a bounded **1800-second** campaign allowance. An
+external bench runner must use the shared `RUNNER_TIMEOUT_SECONDS` (**1980 s**)
+and start its owned publisher with `FIXTURE_MAX_SECONDS` (**2040 s**), allowing
+180 s for independent cleanup and 60 s for startup/headroom. These constants live
+in `tests/device_plot_fixture.py`; its existing 420 s CLI default is intended for
+short fixtures, not this complete physical flow. The 2040 s maximum is enforced
+before ROS imports. Measured first-chart setup consumed about 489 s/139 fresh
+XML captures, while the remaining fixed waits alone require 109 s; the former
+540/580/600 s campaign/runner/publisher tuple cannot cover the full flow. The new
+allowance includes remaining guarded UI captures/navigation and scheduling margin;
+it is not a physical completion claim. Do not alter worker/draw freshness,
+2 Hz source rate, six-second phase coverage, ring limits or the separate official
+30-minute soak. Earlier timeouts remain incomplete evidence.
 
 The campaign verifies installed APK SHA-256, navigates source-derived selectors
 from both viewport directions, explicitly configures best-effort/volatile,

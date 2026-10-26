@@ -31,7 +31,25 @@ class CampaignFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'bytes differ'):
             self.campaign_with_path('/data/app/~~A_b==/dev-Z==/base.apk',wrong_hash=True)
 
-    def campaign_with_path(self, installed_path, *, wrong_hash=False):
+    def test_measured_setup_and_remaining_navigation_fit_full_campaign(self):
+        # Same-host prefix profile: ~489 s to first crop. Charge that entire
+        # cost up front AND 8 s per later navigation operation (conservative
+        # synthetic scheduling control, never Android performance evidence).
+        self.campaign_with_path('/data/app/test/base.apk', setup_seconds=489,
+                                navigation_seconds=8)
+
+    def test_old_budget_rejects_measured_cost_and_still_cleans_up(self):
+        import plot_device_campaign as c
+        with patch.object(c, 'CAMPAIGN_SECONDS', 540, create=True):
+            self.campaign_with_path('/data/app/test/base.apk', setup_seconds=489,
+                                    navigation_seconds=8, expected_deadline=True)
+
+    def test_exhausted_new_budget_still_rejects_and_cleans_up(self):
+        self.campaign_with_path('/data/app/test/base.apk', setup_seconds=1801,
+                                expected_deadline=True)
+
+    def campaign_with_path(self, installed_path, *, wrong_hash=False,
+                           setup_seconds=0, navigation_seconds=0, expected_deadline=False):
         with patch.dict(os.environ, {'POCKET_TABLET': 'HOST_TEST_DOUBLE'}):
             import tablet_ui as ui
         import tablet_plot_acceptance as h
@@ -62,16 +80,19 @@ class CampaignFlowTests(unittest.TestCase):
         class FakeNavigator:
             def __init__(self, client, namespace): pass
             def watch(self, slot, suffix):
+                now[0] += navigation_seconds
                 generation[slot] += 1
                 selected.discard(slot)
             def series(self, slot, suffix, on=True):
+                now[0] += navigation_seconds
                 if on and slot not in selected:
                     selected.add(slot);started[slot]=now[0]
                 elif not on:
                     selected.discard(slot)
                     frozen[:] = [s for s in frozen if s['slot'] != slot]
-            def chart(self): pass
+            def chart(self): now[0] += navigation_seconds
             def tap(self, selector, direction):
+                now[0] += navigation_seconds
                 if selector == 'plot_pause':
                     paused[0] = not paused[0]
                     if paused[0]: frozen[:] = copy.deepcopy(series())
@@ -96,7 +117,7 @@ class CampaignFlowTests(unittest.TestCase):
             # acquires this class; no actual transport is called here.
             kind = 'adb_observation'
             def __init__(self, out, expected): self.out,self.expected,self.serial=out,expected,serial
-            def verify(self): pass
+            def verify(self): now[0] += setup_seconds
             def focus(self): pass
             def hide_ime(self): pass
             def scroll(self, direction): pass
@@ -144,6 +165,14 @@ class CampaignFlowTests(unittest.TestCase):
             with patch.object(h,'Navigator',FakeNavigator), patch.object(c,'Fixture',FakeFixture), \
                  patch.object(c.subprocess,'run',side_effect=command), patch.object(c.time,'monotonic',side_effect=clock), \
                  patch.object(c.time,'sleep',side_effect=sleep):
+                if expected_deadline:
+                    with self.assertRaisesRegex(ValueError, "Campaign deadline exhausted"):
+                        c.campaign(client,args)
+                    report=json.loads((out/"plot-result.json").read_text())
+                    self.assertFalse(report["passed"])
+                    self.assertEqual(fixture_stopped,[True])
+                    self.assertFalse(connected[0])
+                    return
                 report=c.campaign(client,args)
             self.assertTrue(report['passed'],report)
             self.assertFalse(report['physicalAccepted'])

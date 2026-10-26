@@ -12,7 +12,24 @@ from pathlib import Path
 import subprocess
 import time
 
+# Physical UI profiling measured ~489 s before the first chart crop (139 fresh
+# XML captures). Reserve the rest of the full flow, including 109 s fixed waits,
+# further guarded navigation/QA/crops and scheduling margin. These are wall-clock
+# execution caps, NOT draw/worker freshness, rate, phase or soak budgets.
+CAMPAIGN_SECONDS = 1800
+RUNNER_TIMEOUT_SECONDS = 1980  # campaign + 180 s independent cleanup allowance
+FIXTURE_MAX_SECONDS = 2040  # runner + 60 s startup/headroom, then forced expiry
 MIN_PHASE_SECONDS = 6
+
+
+def bounded_duration(value):
+    try:
+        duration = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'duration must be 30..{FIXTURE_MAX_SECONDS} seconds') from None
+    if not 30 <= duration <= FIXTURE_MAX_SECONDS:
+        raise argparse.ArgumentTypeError(f'duration must be 30..{FIXTURE_MAX_SECONDS} seconds')
+    return duration
 PHASES = ('finite', 'nan', 'positive_infinity', 'negative_infinity', 'gap',
           'return', 'source_reset', 'source_jump', 'window')
 
@@ -39,11 +56,11 @@ def main():
     parser.add_argument('--domain', type=int, required=True)
     parser.add_argument('--namespace', required=True, help='run-owned /plot_<uuid>')
     parser.add_argument('--control', type=Path, required=True)
-    parser.add_argument('--duration', type=int, default=420)
+    parser.add_argument('--duration', type=bounded_duration, default=420)
     parser.add_argument('--stamped-writer', type=Path)
     args = parser.parse_args()
     import re
-    if not 0 <= args.domain <= 101 or not re.fullmatch(r'/plot_[a-f0-9]{32}', args.namespace) or not 30 <= args.duration <= 600:
+    if not 0 <= args.domain <= 101 or not re.fullmatch(r'/plot_[a-f0-9]{32}', args.namespace) :
         parser.error('bounded domain, run-owned namespace and duration required')
     import os
     os.environ['ROS_DOMAIN_ID'] = str(args.domain)

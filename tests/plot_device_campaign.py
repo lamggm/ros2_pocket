@@ -12,6 +12,8 @@ import subprocess
 import time
 import uuid
 
+from device_plot_fixture import CAMPAIGN_SECONDS
+
 
 def validate_fixture(state, cid, namespace, domain):
     config = state.get('Config', {})
@@ -115,7 +117,7 @@ def campaign(client, args):
     cleanup = False
     previous = None
     nav = Navigator(client, args.namespace)
-    deadline = time.monotonic() + 540
+    deadline = time.monotonic() + CAMPAIGN_SECONDS
     def check(condition, message):
         if not condition:
             raise ValueError(message)
