@@ -94,6 +94,45 @@ class MetadataTests(unittest.TestCase):
                 with mock.patch.object(m,'output',side_effect=[wrong,signer]),self.assertRaises(ValueError):m.collect_test_metadata(apk,candidate,'aapt','signer')
             with mock.patch.object(m,'output',side_effect=[tree,signer.replace('c'*64,'d'*64)]),self.assertRaises(ValueError):m.collect_test_metadata(apk,candidate,'aapt','signer')
 
+    def test_diagnostic_metadata_accepts_both_reviewed_runner_registrations(self):
+        import tempfile, zipfile
+        from unittest import mock
+        module = self.module()
+        primary = 'com.lamggm.rospocket.ReaderFailureInstrumentation'
+        extra = 'com.lamggm.rospocket.MultiwatchInstrumentation'
+        candidate = dict(schema_version=2, sha256='a'*64, package='com.lamggm.rospocket.dev',
+                         source=dict(snapshot_sha256='b'*64), signing=dict(certificate_sha256='c'*64))
+        signer = 'Signer #1 certificate DN: CN=Android Debug\nSigner #1 certificate SHA-256 digest: '+'c'*64+'\n'
+        def manifest(names):
+            return ('E: manifest\n  A: package="com.lamggm.rospocket.dev.test"\n'+''.join(
+                '  E: instrumentation\n    A: android:name(0x01010003)="'+name+'"\n'
+                '    A: android:targetPackage(0x01010021)="com.lamggm.rospocket.dev"\n'
+                for name in names)+'  E: application\n')
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory)/'test.apk'
+            with zipfile.ZipFile(apk, 'w') as archive:
+                archive.writestr('classes.dex', b'SYNTHETIC METADATA CONTRACT ONLY')
+            for names in ((primary, extra), (extra, primary)):
+                with self.subTest(names=names), mock.patch.object(module, 'output', side_effect=[manifest(names), signer]):
+                    try:
+                        result = module.collect_test_metadata(apk, candidate, 'aapt', 'signer')
+                    except ValueError as error:
+                        self.fail('Integrated reviewed runner pair was rejected: '+str(error))
+                    self.assertEqual(primary, result['runner'])
+                    self.assertEqual(candidate['package'], result['target_package'])
+                    self.assertEqual(candidate['sha256'], result['target_sha256'])
+                    self.assertEqual('b'*64, result['target_source_snapshot'])
+            malformed = [manifest((extra,)), manifest((primary, primary)), manifest((primary, extra, extra)),
+                         manifest((primary, 'unknown.Runner')),
+                         manifest((primary, extra)).replace('android:targetPackage(0x01010021)="com.lamggm.rospocket.dev"',
+                                                           'android:targetPackage(0x01010021)="other.package"', 1),
+                         manifest((extra, primary)).replace('android:targetPackage(0x01010021)="com.lamggm.rospocket.dev"',
+                                                           'android:targetPackage(0x01010021)="other.package"', 1)]
+            for tree in malformed:
+                with self.subTest(malformed=tree), mock.patch.object(module, 'output', side_effect=[tree, signer]):
+                    with self.assertRaises(ValueError):
+                        module.collect_test_metadata(apk, candidate, 'aapt', 'signer')
+
     def test_atomic_metadata_cli_replaces_symlinks_without_touching_sentinels(self):
         import tempfile, zipfile, subprocess, sys, json
         with tempfile.TemporaryDirectory() as directory:

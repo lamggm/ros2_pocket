@@ -104,16 +104,24 @@ def collect_test_metadata(apk, candidate, aapt2, apksigner):
     package=re.findall(r'^\s*A: package="([^"]+)"',tree,re.M)
     elements=list(re.finditer(r'^( *)E: ([^\s]+)',tree,re.M))
     instrumentation=[(i,e) for i,e in enumerate(elements) if e[2]=='instrumentation']
-    if candidate.get('schema_version')!=2 or package!=[candidate['package']+'.test'] or len(instrumentation)!=1:
+    if candidate.get('schema_version')!=2 or package!=[candidate['package']+'.test'] or not 1<=len(instrumentation)<=2:
         raise ValueError('distinct diagnostic test APK manifest required')
-    i,element=instrumentation[0];end=len(tree)
-    for following in elements[i+1:]:
-        if len(following[1])<=len(element[1]):end=following.start();break
-    block=tree[element.end():end]
-    targets=re.findall(r'android:targetPackage\(0x[0-9a-f]+\)="([^"]+)"',block)
-    runners=re.findall(r'android:name\(0x[0-9a-f]+\)="([^"]+)"',block)
-    if targets!=[candidate['package']] or runners!=['com.lamggm.rospocket.ReaderFailureInstrumentation']:
-        raise ValueError('test instrumentation runner/target mismatch')
+    primary='com.lamggm.rospocket.ReaderFailureInstrumentation'
+    allowed={primary,'com.lamggm.rospocket.MultiwatchInstrumentation'}
+    registrations={}
+    for i,element in instrumentation:
+        end=len(tree)
+        for following in elements[i+1:]:
+            if len(following[1])<=len(element[1]):end=following.start();break
+        block=tree[element.end():end]
+        targets=re.findall(r'android:targetPackage\(0x[0-9a-f]+\)="([^"]+)"',block)
+        runners=re.findall(r'android:name\(0x[0-9a-f]+\)="([^"]+)"',block)
+        if (targets!=[candidate['package']] or len(runners)!=1
+                or runners[0] not in allowed or runners[0] in registrations):
+            raise ValueError('test instrumentation runner/target mismatch')
+        registrations[runners[0]]=targets[0]
+    if primary not in registrations:
+        raise ValueError('required diagnostic runner missing')
     verified=output([apksigner,'verify','--verbose','--print-certs',apk])
     certs=re.findall(r'^Signer #1 certificate SHA-256 digest: ([a-fA-F0-9]{64})$',verified,re.M)
     if len(certs)!=1 or certs[0].lower()!=candidate['signing']['certificate_sha256'] or 'CN=Android Debug' not in verified:
@@ -123,7 +131,7 @@ def collect_test_metadata(apk, candidate, aapt2, apksigner):
         if any(re.match(r'^lib/[^/]+/[^/]+\.so$',name) for name in z.namelist()):
             raise ValueError('test APK must not replace candidate native libraries')
     if digest==candidate['sha256']:raise ValueError('test APK must be separate bytes')
-    return dict(schema_version=1,apk=apk.name,package=package[0],runner=runners[0],target_package=targets[0],
+    return dict(schema_version=1,apk=apk.name,package=package[0],runner=primary,target_package=registrations[primary],
                 sha256=digest,size_bytes=len(data),certificate_sha256=certs[0].lower(),
                 target_sha256=candidate['sha256'],target_source_snapshot=candidate['source']['snapshot_sha256'])
 
