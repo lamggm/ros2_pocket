@@ -6,6 +6,14 @@
 
 **Stack atual:** Java Android, JNI/C++, Cyclone DDS 0.10.5, Jazzy como alvo de interoperabilidade, JDK 17, Gradle 8.7/AGP 8.5.2, Android SDK 35 e NDK r28c.
 
+## Estado atual e condução
+
+Este roadmap preserva o plano e o baseline históricos. O estado reconciliado,
+a validação host e as pendências estão em [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md).
+A orientação atual em `AGENTS.md` é uma tarefa delimitada por vez, com validação
+proporcional. Autorizações históricas de paralelismo não são permanentes.
+O fechamento sem tablet não aprova testes físicos nem autoriza merge/release.
+
 ## Baseline observado
 
 - `main`: `295753e8ee5de83da458a304fb139a5c35228557`.
@@ -29,7 +37,7 @@ main (baseline estável)
         └── test/v0.2-08-device-qualification
 ```
 
-- As oito branches são frentes paralelas, por decisão do operador. A sequência indica prioridade de merge e dependências; não exige esperar o incremento anterior para iniciar trabalho independente.
+- Oito branches foram usadas como frentes paralelas na implementação histórica. O padrão atual é sequencial, conforme `AGENTS.md`; novo paralelismo requer autorização explícita para a tarefa.
 - Cada frente usa worktree própria. Ao avançar a integração, incorporar `origin/integration/v0.2` nas branches ativas por merge e revalidar; não reescrever história compartilhada com rebase/force-push.
 - Criar cada branch de trabalho a partir da **integração já atualizada**; PR com base em `integration/v0.2`, nunca em `main`.
 - TDD para comportamento novo: demonstrar RED, implementar mínimo, obter GREEN e fazer revisão antes do merge.

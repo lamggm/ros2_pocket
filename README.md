@@ -15,7 +15,9 @@ stays draft until qualification and operator acceptance on the physical tablet.
 
 The operator authorized **11–15 in parallel**, in isolated worktrees, with parent
 reconciliation afterward and physical tests only when the tablet is available.
-This tree prepares identity/docs/CI; it does **not** freeze a final candidate.
+The workstreams are reconciled in the qualification branch; host validation is
+recorded, while final physical acceptance remains pending. Current work is
+sequential and bounded as specified in `AGENTS.md`.
 See the [integration and qualification checklist](docs/FINALIZATION-v0.2.md).
 
 ## Connect
