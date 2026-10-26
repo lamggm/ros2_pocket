@@ -150,8 +150,11 @@ class Navigator:
     def series(self, slot, suffix, selected=True):
         import tablet_ui as ui
         caption = f'Watch {slot + 1} · {self.namespace}/{suffix} · data [unidade desconhecida]'
-        self.client.find('diagnostics', direction='up')
-        nodes = self.client.find(caption, direction='down')
+        # Campaign callers are at the chart or above it after watch selection.
+        # Anchor locally: returning to diagnostics for every series traverses
+        # the whole multiwatch/rosout body twice and exhausts the UI deadline.
+        self.client.find('plot_chart', direction='down')
+        nodes = self.client.find(caption, direction='up')
         if ui.node_by(nodes, caption).get('checked') != str(selected).lower():
             self.client.tap(caption)
         nodes = self.client.find(caption, direction='up')
