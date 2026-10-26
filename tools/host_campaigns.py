@@ -62,7 +62,19 @@ def _read_java_report(path, allow_jni_skip):
         raise ValueError(f'Invalid or unreadable Java XML report: {path}') from exc
     if suite.tag != 'testsuite':
         raise ValueError(f'Java XML report is not a testsuite: {path}')
-    cases = suite.findall('testcase')
+    cases = []
+    for child in suite:
+        if child.tag == 'testcase':
+            cases.append(child)
+        elif child.tag == 'properties':
+            for prop in child:
+                if prop.tag != 'property' or list(prop):
+                    raise ValueError(f'Java XML report has an invalid properties entry: {path}')
+        elif child.tag in ('system-out', 'system-err'):
+            if list(child):
+                raise ValueError(f'Java XML report has a non-leaf output element: {path}')
+        else:
+            raise ValueError(f'Java XML report has an unknown root element: {path}')
     if not cases:
         raise ValueError(f'Java XML report has no testcases: {path}')
     counts = {}
@@ -81,14 +93,21 @@ def _read_java_report(path, allow_jni_skip):
     for case in cases:
         if not case.get('classname') or not case.get('name'):
             raise ValueError(f'Java XML testcase lacks classname/name: {path}')
-        outcomes = [key for key in ('failure', 'error', 'skipped') if case.find(key) is not None]
+        outcome_elements = []
+        for child in case:
+            if child.tag not in ('failure', 'error', 'skipped'):
+                raise ValueError(f'Java XML testcase has an unknown child element: {path}')
+            if list(child):
+                raise ValueError(f'Java XML testcase outcome is not a leaf: {path}')
+            outcome_elements.append(child)
+        outcomes = [child.tag for child in outcome_elements]
         if len(outcomes) > 1:
             raise ValueError(f'Java XML testcase has inconsistent outcomes: {path}')
         if outcomes:
             outcome = outcomes[0]
             actual[{'failure': 'failures', 'error': 'errors', 'skipped': 'skipped'}[outcome]] += 1
             if outcome == 'skipped':
-                skipped = case.find('skipped')
+                skipped = outcome_elements[0]
                 approved = (allow_jni_skip
                             and suite.get('name') == _JNI_CLASS
                             and case.get('classname') == _JNI_CLASS

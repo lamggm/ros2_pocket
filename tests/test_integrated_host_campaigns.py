@@ -220,6 +220,73 @@ class IntegratedHostTests(unittest.TestCase):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     m.verify_java_reports(directory)
 
+    def test_java_report_rejects_nested_outcomes(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'replay.xml'
+            for outcome in ('skipped', 'failure', 'error'):
+                report = (
+                    '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" '
+                    'tests="2" failures="0" errors="0" skipped="0">'
+                    '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                    'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                    '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                    'name="bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas">'
+                    '<details><' + outcome + '/></details></testcase></testsuite>'
+                )
+                path.write_text(report, encoding='utf-8')
+                with self.subTest(outcome=outcome), self.assertRaises(ValueError):
+                    m.verify_replay(path)
+
+    def test_java_report_rejects_misplaced_or_duplicate_structure(self):
+        m = module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = root / 'TEST-control.xml'
+            replay = (
+                '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'tests="1" failures="0" errors="0" skipped="0">'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                '</testsuite>'
+            )
+            controls = {
+                'unknown_root_wrapper': replay.replace(
+                    '</testsuite>', '<details/></testsuite>'),
+                'root_outcome': replay.replace(
+                    '</testsuite>', '<failure/></testsuite>'),
+                'non_leaf_property': replay.replace(
+                    '<testcase', '<properties><property><value/></property></properties><testcase'),
+                'nested_output': replay.replace(
+                    '</testsuite>', '<system-out><failure/></system-out></testsuite>'),
+                'duplicate_jni_skip': (
+                    '<testsuite name="com.lamggm.rospocket.RealJniSessionTest" '
+                    'tests="1" failures="0" errors="0" skipped="1">'
+                    '<testcase classname="com.lamggm.rospocket.RealJniSessionTest" '
+                    'name="realJniLeaseFailureReceiptPollRecoveryAndSurvivors">'
+                    '<skipped/><skipped/></testcase></testsuite>'
+                ),
+            }
+            for label, content in controls.items():
+                report.write_text(content, encoding='utf-8')
+                with self.subTest(control=label), self.assertRaises(ValueError):
+                    m.verify_java_reports(root)
+
+            valid = (
+                '<testsuite name="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'tests="1" failures="0" errors="0" skipped="0">'
+                '<properties><property name="escaped" value="&lt;failure/&gt;"/></properties>'
+                '<testcase classname="com.lamggm.rospocket.PlotDdsReplayTest" '
+                'name="emptySelectedControlsAreNotHealthyCanvasEvidence"/>'
+                '<system-out><![CDATA[<failure/>]]></system-out>'
+                '<system-err>&lt;error/&gt;</system-err></testsuite>'
+            )
+            report.write_text(valid, encoding='utf-8')
+            suite, _, _ = m._read_java_report(report, allow_jni_skip=False)
+            self.assertEqual(suite.find('properties/property').get('value'), '<failure/>')
+            self.assertEqual(suite.find('system-out').text, '<failure/>')
+            self.assertEqual(suite.find('system-err').text, '<error/>')
+
     def test_registered_integrated_front_tests_are_required_and_common_ci_runs_them(self):
         registry = json.loads((ROOT/'ci/finalization-gates.json').read_text())
         for gate in registry['gates']:
