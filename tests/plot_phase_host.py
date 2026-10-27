@@ -14,11 +14,19 @@ import time
 import uuid
 
 
+def write_phase(control, phase):
+    # The independent publisher must see the old or new complete token, never
+    # the empty file exposed by write_text's truncate/write interval.
+    staged = control.with_name(control.name + '.tmp')
+    staged.write_text(phase)
+    staged.replace(control)
+
+
 def run(reader, writer, out):
     out.mkdir(parents=True, exist_ok=True)
     namespace = '/plot_' + uuid.uuid4().hex
     control = out / 'phase'
-    control.write_text('finite')
+    write_phase(control, 'finite')
     records = out / 'snapshots.jsonl'
     publisher_log = (out / 'publisher.jsonl').open('w')
     publisher = subprocess.Popen(['python3', '-u', str(Path(__file__).with_name('device_plot_fixture.py')),
@@ -80,7 +88,7 @@ def run(reader, writer, out):
             for phase in ('finite', 'nan', 'positive_infinity', 'negative_infinity', 'return', 'gap',
                           'return_after_gap', 'source_reset', 'source_jump', 'window'):
                 actual = 'return' if phase == 'return_after_gap' else phase
-                control.write_text(actual)
+                write_phase(control, actual)
                 # Let a prior in-flight DDS write drain, without counting it toward the phase oracle.
                 time.sleep(.65)
                 rows, until = [], time.monotonic() + (34 if phase == 'window' else 6.5)
@@ -122,7 +130,7 @@ def run(reader, writer, out):
                 child.wait(timeout=4)
             except subprocess.TimeoutExpired:
                 child.kill(); child.wait(timeout=4)
-        control.write_text('stop')
+        write_phase(control, 'stop')
         try:
             publisher.wait(timeout=5)
         except subprocess.TimeoutExpired:
