@@ -86,6 +86,14 @@ public final class MainActivity extends Activity {
  private EditText input(String hint,String value,int id,int type){
   EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setId(id);e.setSingleLine(true);e.setTextColor(FG);e.setHintTextColor(MUTED);e.setTextSize(16);e.setInputType(type);e.setSelectAllOnFocus(true);return e;
  }
+ private final LinearLayout[] sections=new LinearLayout[4];
+ private final Button[] sectionButtons=new Button[4];
+ private void showSection(int selected){
+  for(int i=0;i<sections.length;i++){
+   sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
+   sectionButtons[i].setSelected(i==selected);
+  }
+ }
  private void makeUi(){
   LinearLayout root=column();root.setBackgroundColor(BG);root.setPadding(dp(18),dp(18),dp(18),dp(12));
   root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -94,23 +102,32 @@ public final class MainActivity extends Activity {
    return insets;
   });
   root.addView(label("ROS Pocket",29,FG));
-  TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(12));root.addView(subtitle);
-  LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-  row.addView(label("Domain ID",15,MUTED));
+  TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(8));root.addView(subtitle);
+  String[] sectionNames={"connection","topics","monitor","logs"};String[] sectionLabels={"Conexão","Tópicos","Monitor","Logs"};
+  LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
+  for(int i=0;i<sectionNames.length;i++){
+   final int selected=i;Button button=new Button(this);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs}[i]);button.setText(sectionLabels[i]);button.setAllCaps(false);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;nav.addView(button,new LinearLayout.LayoutParams(0,dp(48),1));
+  }
+  root.addView(nav);
+  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+  LinearLayout body=column();scroll.addView(body);
+  for(int i=0;i<sectionNames.length;i++){
+   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs}[i]);body.addView(sections[i]);
+  }
+  LinearLayout connection=sections[0];
+  LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.addView(label("Domain ID",15,MUTED));
   domain=input("0–101",prefs.getString("domain","0"),R.id.domain,InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);
   LinearLayout.LayoutParams domainParams=new LinearLayout.LayoutParams(dp(100),dp(54));domainParams.setMargins(dp(12),0,dp(12),0);row.addView(domain,domainParams);
   connect=new Button(this);connect.setId(R.id.connect);connect.setText("Conectar");connect.setTextColor(BG);connect.setBackgroundTintList(ColorStateList.valueOf(ACCENT));row.addView(connect,new LinearLayout.LayoutParams(dp(154),dp(52)));
-  connect.setOnClickListener(v->{if(connectWanted)disconnect();else requestConnection(true);});root.addView(row);
-  peer=input("Peer IPv4 opcional — deixe vazio para descoberta automática",prefs.getString("peer",""),R.id.peer,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);peer.setTextSize(14);root.addView(peer,new LinearLayout.LayoutParams(-1,dp(48)));
-  status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));root.addView(status);
-  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout body=column();scroll.addView(body);
+  connect.setOnClickListener(v->{if(connectWanted)disconnect();else requestConnection(true);});connection.addView(row);
+  peer=input("Peer IPv4 opcional — deixe vazio para descoberta automática",prefs.getString("peer",""),R.id.peer,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);peer.setTextSize(14);connection.addView(peer,new LinearLayout.LayoutParams(-1,dp(48)));
+  status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));connection.addView(status);
   LinearLayout diagnosticCard=card();diagnosticCard.addView(label("CONEXÃO",14,ACCENT));
-  diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);body.addView(diagnosticCard);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
+  diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);connection.addView(diagnosticCard);
+  LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);connection.addView(nodeCard);
+  TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));connection.addView(footer);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
-  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
-  TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
+  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);sections[1].addView(graphCard);
   LinearLayout echo=card();selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
@@ -135,13 +152,10 @@ public final class MainActivity extends Activity {
    watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setId(new int[]{R.id.watch_state_1,R.id.watch_state_2,R.id.watch_state_3}[i-1]);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
-  body.addView(echo);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
-  LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);body.addView(logCard);
-  plotView=new PlotView(this,plots);body.addView(plotView);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
-  LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);body.addView(nodeCard);
-  TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));body.addView(footer);
+  sections[2].addView(echo);
+  plotView=new PlotView(this,plots);sections[2].addView(plotView);
+  LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);sections[3].addView(logCard);
+  showSection(0);
   setContentView(root);
  }
  @Override protected void onStart(){
