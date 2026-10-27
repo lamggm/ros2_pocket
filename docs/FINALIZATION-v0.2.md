@@ -1,78 +1,97 @@
-# ROS Pocket v0.2 — fechamento e pendências
+# ROS Pocket v0.2 — entrega de protótipo de bancada
 
-## Escopo atual
+## Decisão de escopo
 
-Fechar o software disponível **sem usar o tablet**: documentação coerente,
-testes/build locais, publicação na PR draft, CI e APK debug identificado.
-Isso não é aceite físico nem autorização de merge, release ou loja.
+O operador autorizou o merge da [PR #12](https://github.com/lamggm/ros2_pocket/pull/12)
+e a redução explícita do escopo da v0.2 para **protótipo de bancada**.
+Esta decisão substitui o uso da qualificação física extensa como bloqueio da
+entrega limitada; não converte testes pendentes em aprovados.
 
-O projeto é um protótipo útil em evolução. Uma tarefa delimitada por vez,
-validação proporcional e melhorias adiáveis no backlog, conforme `AGENTS.md`.
-O plano de implementação histórico está em [ROADMAP-v0.2.md](ROADMAP-v0.2.md);
-este documento registra o fechamento atual, não uma nova campanha de certificação.
+O produto continua somente leitura, DDS direto, IPv4 na mesma LAN, com buffers
+limitados, dados obsoletos identificados e hooks OFF no APK de uso normal.
+Não há alteração de código, guardas, orçamento de recursos ou política de segurança
+para implementar esta decisão. Uma tarefa pequena por vez, conforme `AGENTS.md`.
 
-## Implementado e verificado no host
+## Critérios de entrega limitada
 
-A reconciliação 11–15 e suas correções estão na branch de qualificação da
-[PR #12](https://github.com/lamggm/ros2_pocket/pull/12), com base em `integration/v0.2`.
-O registro `ci/finalization-gates.json` tem os três gates host **registered**;
-`registered` significa testes host reais selecionados, não aceite físico.
+- Revisão do código e testes/lint/build/scan aplicáveis aprovados; CI do head da PR.
+- APK DEV normal identificado por fonte, hash, ABI e assinatura; atualização
+  in-place sem uninstall/clear data e sem contornar certificado incompatível.
+- Teste curto real de duas séries finitas no gráfico, pausa visual enquanto a
+  recepção continua e retomada com desenho novo; cleanup e preferências conferidos.
+- Limitações documentadas e backlog explícito, sem alegar endurance ou recuperação
+  física de rede não exercitados.
 
-A rodada local do código `496b9bb9053f915f9e249de675dec3f44d25fc23` concluiu:
+O merge da #12 integra esse trabalho em `integration/v0.2`. A promoção para `main`
+na PR #1 exige autorização própria; ela continua draft e sem auto-merge.
+Tag, GitHub Release, assinatura de produção e loja não fazem parte desta decisão.
 
-- Matriz completa: nove gates aprovados, incluindo build offline, lint,
-  empacotamento ordinary/diagnóstico/nondebug e inspeção dos dois runners.
-- Python: 293 testes, sem skips.
-- Java/Robolectric: 277 casos, com um skip intencional do JNI opt-in;
-  o gate Linux JNI real foi executado e aprovado separadamente.
+## Evidência host existente — sem reatribuir SHA
+
+Código `496b9bb9053f915f9e249de675dec3f44d25fc23`:
+
+- Nove gates locais aprovados: build offline, lint, empacotamento
+  ordinary/diagnóstico/nondebug e inspeção dos dois runners.
+- 293 Python sem skips; 277 Java/Robolectric com um skip intencional JNI opt-in.
+  O gate Linux JNI real passou separadamente.
 - DDS real em fixtures isoladas Fast DDS e Cyclone DDS, com replay Canvas host.
-- Revisão independente aprovada da correção de orçamento funcional;
-  launcher externo também revisado, inclusive falhas de cleanup.
+- Correção do orçamento e cleanup do launcher revisados independentemente.
 - Fonte e histórico examinados pelo scanner de segredos, sem findings.
 
-Alterações posteriores somente de documentação não alteram o código exercitado;
-seu CI e os metadados do APK devem identificar o próprio commit, sem reatribuir
-os logs anteriores a outro SHA. Consulte os checks do head vigente da PR para o
-resultado remoto; CI anterior não vale como CI do novo head.
+Head documental `30008c95675b121ca6c56e717dbf08074dab9c28`:
 
-## Entrega sem tablet
+- Build local final aprovado: 293 Python sem skips, Java/lint/build ordinary OFF.
+- [CI Verify 40407163597](https://github.com/lamggm/ros2_pocket/actions/runs/40407163597)
+  aprovado; artefato reinspecionado. No CI, 287 Python e seis GraphProvenance
+  skipped por cache `org.json` ausente; os seis passaram localmente.
+- A árvore do merge de teste desse CI foi conferida contra o head da PR.
 
-- Versionamento: `0.2.0`, code `2`, package DEV `com.lamggm.rospocket.dev`.
-- APK ordinary debug com hooks OFF para uso normal; variante diagnóstica é
-  separada e opt-in. Não confundir capacidade compilada ON com lease inativo.
-- Identidade do artefato: APK e JSON extraídos/verificados pelo build,
-  fonte limpa, hash, ABI e certificado. O signer local pode diferir do CI.
-- PR permanece draft, sem auto-merge. Artefatos e evidências brutas ficam fora
-  do Git; não publicar endereços, dumps, credenciais nem material de assinatura.
+O registro `ci/finalization-gates.json` mantém os três gates host registered.
+Os testes e validadores de qualificação extensa continuam fail-closed e inalterados.
+O CI de cada novo head deve ser consultado separadamente; evidência anterior não
+se torna teste do novo commit por mera troca do nome do arquivo.
 
-## Próxima tarefa com tablet — pequena e separada
+## Teste curto no tablet — concluído
 
-Verificar seleção de séries, gráfico visível, pausa e retomada. Registrar o que
-funcionou e qualquer bug encontrado; terminar esse recorte sem abrir outras
-campanhas automaticamente. Preservar dados e comparar assinatura antes de
-qualquer atualização; certificado divergente não autoriza uninstall/clear data.
+No APK DEV ordinary `0.2.0`, code `2`, ARM64, hooks OFF, fonte `30008c9`:
 
-## Pendências físicas e aceite
+- SHA-256: `d1577e6a484bda95d33d6f9c49d254fd700b95760468ff39d1378ccbd2c339c8`.
+- Atualização in-place preservou UID e preferências.
+- Fixture própria Fast DDS: duas séries selecionadas com pontos finitos e
+  desenho concluído; recortes reais inspecionados.
+- Pausa: pixels idênticos com intake avançando. Retomada: pixels novos.
+- Readback final confirmou fixture ausente, app parado, preferências restauradas
+  byte a byte e configuração de tela restaurada.
 
-Continuam **não concluídos para o candidato final**:
+Isso comprova somente esse fluxo curto. Não prova descoberta multicast automática,
+qualificação gráfica completa nos dois RMWs, instrumentação, rede ou soak.
+As evidências brutas ficam privadas, fora do Git. Alterações documentais posteriores
+não reidentificam esse APK como build do novo head. Se mudar código, gere nova
+identidade e reexecute os comportamentos afetados, sem importar passes históricos.
 
-- Regressão física integrada e gráficos completos nos dois RMWs; resultados
-  históricos e prefixos parciais mantêm seu próprio SHA e escopo.
-- Wi-Fi/IP físicos: dependem de recuperação alternativa testada e autorização
-  de interrupção; não mexer em rede/VPN/firewall para tentar antecipá-los.
-- Soak oficial: depende de tablet real, sem alimentação, quatro watches e gráfico.
-- Readback do APK instalado, consolidação de evidências e aceite separado.
+## Qualificação estendida — adiada, não bloqueia este protótipo
 
-O [plano oficial](DEVICE-QUALIFICATION-v0.2.md) e seus critérios permanecem
-inalterados. O pedido de simplificação não aprova testes não executados nem
-remove gates silenciosamente. Se o operador optar por entregar um protótipo com
-escopo menor, registrar explicitamente os critérios e limitações antes do aceite.
-Até lá, `ready`, `full12` e `physicalAccepted` permanecem falsos.
+O [plano extenso](DEVICE-QUALIFICATION-v0.2.md) permanece disponível para tarefas
+futuras. Seus gates e thresholds não foram relaxados. Continuam não comprovados
+para um candidato integrado final nesse plano:
 
-## Backlog, não trabalho automático desta entrega
+- Regressão física completa e gráficos completos nos dois RMWs.
+- Perda/retorno real de Wi-Fi e mudança real de IP. Exigem autorização de
+  interrupção e recuperação alternativa previamente testada.
+- Soak oficial de 30 minutos, quatro watches e gráfico, sem alimentação externa.
+- Aceite completo e relatório ready da qualificação estendida.
 
-- Otimização adicional do harness somente se bloquear um teste concreto.
-- Robustez/endurance e compatibilidade com outros dispositivos em tarefas próprias.
-- Cosmética/localização e avisos de lint conhecidos, sem impacto funcional demonstrado.
-- Novas funções (parâmetros, serviços/actions, teleop, rosbag, RViz/TF ou tipos
-  customizados dinâmicos) continuam fora da v0.2.
+`ready`, `full12` e `physicalAccepted` dos relatórios extensos permanecem falsos
+quando os respectivos requisitos não foram cumpridos. A entrega limitada usa os
+critérios acima, não um relatório extenso falsamente aprovado. Não alterar JSON,
+reduzir thresholds, simular bateria nem executar campanhas automaticamente para
+produzir uma aparência de encerramento.
+
+## Backlog e exclusões
+
+- Robustez/endurance, recuperação física de rede e compatibilidade com outros
+  dispositivos: tarefas futuras explícitas, sem migração fictícia de evidências.
+- Harness: otimizar somente quando bloquear um teste concreto.
+- Cosmética/localização e avisos conhecidos de lint sem impacto funcional demonstrado.
+- Parâmetros/RPC, serviços/actions, teleop/publicação, rosbag, RViz/TF e tipos
+  customizados dinâmicos continuam fora da v0.2.

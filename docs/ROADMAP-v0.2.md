@@ -12,7 +12,12 @@ Este roadmap preserva o plano e o baseline históricos. O estado reconciliado,
 a validação host e as pendências estão em [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md).
 A orientação atual em `AGENTS.md` é uma tarefa delimitada por vez, com validação
 proporcional. Autorizações históricas de paralelismo não são permanentes.
-O fechamento sem tablet não aprova testes físicos nem autoriza merge/release.
+O operador autorizou o merge da PR #12 e o escopo de **protótipo de bancada**.
+Os critérios atuais de entrega estão em [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md):
+validação host/CI, APK identificado e teste curto real de gráfico/pausa/retomada.
+Wi-Fi/IP, qualificação física extensa e soak ficam no backlog, não bloqueiam o
+protótipo e não recebem PASS. A promoção para `main` e release exigem autorização
+separada. Os contratos de leitura, dados obsoletos, buffers e segurança não mudam.
 
 ## Baseline observado
 
@@ -43,7 +48,7 @@ main (baseline estável)
 - TDD para comportamento novo: demonstrar RED, implementar mínimo, obter GREEN e fazer revisão antes do merge.
 - Squash dos incrementos na integração. Depois de cada merge: testar o conjunto na integração e gerar candidato identificado pelo SHA.
 - Evitar trabalho simultâneo no mesmo checkout/dispositivo; trabalho paralelo independente usa worktree própria.
-- Manter PR de integração → main em draft. Não habilitar auto-merge. Remover draft somente após os gates finais e aceite do operador no tablet.
+- Manter PR de integração → main em draft e sem auto-merge até autorização própria do operador. O escopo atual é o protótipo definido em `FINALIZATION-v0.2.md`; qualificação extensa não é bloqueio automático dessa entrega limitada.
 - Merge final por merge commit, preservando os incrementos auditáveis. Não reescrever a história pública.
 - Este plano não modifica proteção de branch, acesso, VPN, firewall ou configurações do robô.
 
@@ -139,7 +144,9 @@ ligados aos snapshots tipados de cada um dos quatro readers, incluindo todos os
 87 campos numéricos de Odometry, com identidade por slot/reader/sessão.
 Limites, contratos e regressões reais isoladas estão em [LIVE-PLOTS.md](LIVE-PLOTS.md).
 Fixtures DDS e Robolectric não substituem revisão independente, CI do SHA final
-nem qualificação física/endurance e aceite do operador, que permanecem gates.
+nem teste físico. O smoke curto no tablet passou no escopo documentado em
+`FINALIZATION-v0.2.md`; qualificação física extensa/endurance seguem pendentes,
+sem bloquear o protótipo autorizado.
 
 ### 08 — Qualificação física e candidato v0.2
 
@@ -147,7 +154,12 @@ nem qualificação física/endurance e aceite do operador, que permanecem gates.
 
 **Entregas:** matriz de aceitação da integração, correções pequenas encontradas, notas de versão e APK candidato rastreável. Nenhuma função extra de última hora.
 
-**Gates obrigatórios:**
+**Plano original de qualificação estendida (preservado):**
+
+A lista abaixo continua obrigatória para alegar qualificação completa, não para
+o escopo reduzido autorizado. Os critérios vigentes do protótipo e a evidência
+curta já executada estão em `FINALIZATION-v0.2.md`. Nenhum resultado antigo foi
+convertido em PASS; os validadores extensos permanecem inalterados.
 
 - Testes/lint/build/secret scan do SHA final; todos os incrementos revisados.
 - Interoperabilidade Jazzy Fast DDS e Cyclone DDS e domínio incorreto isolado.
@@ -161,7 +173,10 @@ nem qualificação física/endurance e aceite do operador, que permanecem gates.
 
 Parâmetros, chamadas de serviços/actions, publicação/teleop, gravação rosbag, imagens/mapas/TF/RViz e tipos customizados dinâmicos. Parâmetros usam RPC ROS 2: antes de prometer leitura/edição, fazer spike explícito sobre cliente rcl/RMW versus implementação de serviços em DDS, interoperabilidade e modelo de timeout. Operações de escrita exigem outra decisão de produto e testes de segurança; não entram por acidente porque a UI ganhou um botão.
 
-## Estado atual — preparação paralela 11–15
+## Histórico — preparação paralela 11–15
+
+Esta seção registra o plano daquela rodada, não trabalho atual nem autorização
+permanente. A reconciliação e revisão já concluídas estão em `FINALIZATION-v0.2.md`.
 
 O operador autorizou implementar **11/12/13/14/15 em paralelo**, em worktrees
 isoladas, com reconciliação posterior pelo pai e testes físicos quando o tablet
@@ -189,7 +204,8 @@ registro fail-closed. A revisão independente e reconciliação combinada contin
 pendentes. Fonte/documentos devem terminar antes do build do futuro candidato;
 um APK novo recebe hash/metadados próprios e não herda testes físicos antigos.
 
-A integração → main permanece draft e sem auto-merge. Qualificação física,
-Wi-Fi/IP com recuperação autorizada, soak oficial de 30 minutos e aceite separado
-do operador continuam pendentes. Preparar versão não autoriza ADB, instalação,
-push/PR/merge, assinatura release, loja ou publicação.
+Estado vigente: integração → main draft e sem auto-merge até autorização própria.
+A PR #12 tem merge autorizado. Wi-Fi/IP com recuperação autorizada, soak oficial
+de 30 minutos e qualificação extensa continuam pendentes, fora dos bloqueios do
+protótipo. Sem assinatura release, tag, loja ou publicação implícitas. Não repetir
+o smoke físico nem abrir campanhas automaticamente.

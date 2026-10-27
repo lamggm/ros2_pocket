@@ -1,11 +1,17 @@
-# Qualificação v0.2 — preparação, não aceite físico
+# Qualificação estendida v0.2 — preparação, não aceite físico completo
 
-**Estado: pendente.** Esta frente entrega um validador de relatórios e um plano
-pré-declarado, não um candidato aprovado. Nenhum comando deste toolkit instala,
-lança, modifica ou consulta automaticamente um dispositivo, publica DDS, altera
-Wi-Fi/VPN/firewall ou faz merge. A integração continua draft até os gates reais.
-Os 16 checks históricos do protótipo **não** qualificam a integração v0.2.
-Existência de branch, código compilável ou CI verde não prova entrega de uma frente.
+**Estado da qualificação estendida: pendente.** O operador aprovou uma entrega
+menor de **protótipo de bancada**, com critérios e evidências em
+[FINALIZATION-v0.2.md](FINALIZATION-v0.2.md). A matriz extensa abaixo não é bloqueio
+dessa entrega limitada; continua obrigatória para alegar qualificação completa.
+Nenhum gate, orçamento, validador ou resultado histórico foi alterado ou aprovado
+por essa redução de escopo. O smoke curto no tablet não satisfaz a matriz inteira.
+
+Este toolkit entrega um validador e plano pré-declarado, não um candidato aprovado.
+Nenhum comando instala, lança, modifica ou consulta automaticamente um dispositivo,
+publica DDS, altera Wi-Fi/VPN/firewall ou faz merge. Promoção para `main` exige
+autorização própria. Os 16 checks históricos do protótipo não qualificam a
+integração v0.2. Branch, código compilável ou CI verde não provam aceite completo.
 
 ## Snapshot e limites de confiança
 

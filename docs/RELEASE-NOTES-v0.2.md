@@ -1,8 +1,10 @@
 # ROS Pocket v0.2.0 — notas de versão (DRAFT, não lançado)
 
-Software de bancada em evolução, **somente leitura**, com DDS direto.
-Fechamento sem tablet em andamento; nenhum aceite físico completo, merge ou
-release é declarado. Estado e pendências: [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md).
+Escopo autorizado: **protótipo de bancada**, somente leitura, com DDS direto.
+Host validado e teste curto de gráfico no tablet concluído. Qualificação física
+extensa, Wi-Fi/IP e endurance ficam explicitamente não validados no backlog;
+não bloqueiam esta entrega limitada. Promoção para `main`, tag, release e loja
+continuam decisões separadas. Estado: [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md).
 
 ## Identidade e arquitetura
 
@@ -35,10 +37,19 @@ comum e foi exercitado em seu gate próprio. O CI do head vigente é consultáve
 na [PR #12](https://github.com/lamggm/ros2_pocket/pull/12); essas verificações
 não são aceitação do app no Android físico.
 
-Pendentes para o candidato final: uso integrado/gráficos no tablet, recuperação
-física de Wi-Fi/IP, soak e aceite do operador. Evidências históricas não são
-promovidas para o novo candidato. O próximo recorte é um teste curto de seleção,
-pausa e retomada do gráfico, não uma campanha completa automática.
+O DEV ordinary do head documental `30008c9` passou build local final e o CI
+Verify 40407163597. Nesse CI houve 287 Python e seis GraphProvenance skipped por
+cache ausente; os seis passaram localmente. O APK ARM64 hooks OFF, SHA-256
+`d1577e6a484bda95d33d6f9c49d254fd700b95760468ff39d1378ccbd2c339c8`,
+foi atualizado in-place no tablet preservando UID e preferências. Passaram duas
+séries finitas, pausa com pixels idênticos/intake avançando e retomada com pixels
+novos; recortes inspecionados e cleanup/configuração restaurados por readback.
+A fixture usou Fast DDS com peer explícito: não comprova descoberta multicast
+automática. Evidência permanece vinculada a esse APK/SHA, não a commits futuros.
+
+Qualificação física completa nos dois RMWs, Wi-Fi/IP, soak e aceite extenso
+continuam pendentes, mas não são bloqueios do protótipo por decisão explícita.
+Não há outra campanha automática nem promoção de resultado histórico para PASS.
 
 IPv4 na mesma LAN Wi-Fi; AP/multicast/VPN/firewall podem bloquear descoberta.
 SROS2, sub-redes roteadas, versões antigas do grafo, outros tablets e páginas
@@ -48,5 +59,6 @@ Há avisos cosméticos/localização de lint conhecidos.
 
 Sem parâmetros/RPC, serviços/actions, publicação/teleop, rosbag, imagens,
 mapas/TF/RViz ou tipos dinâmicos customizados. Sem release/loja implícitos.
-Os critérios do plano oficial não foram dispensados: qualquer entrega com
-escopo reduzido exige decisão e limitações explícitas, nunca um PASS inventado.
+O plano estendido e seus critérios continuam inalterados para quem reivindicar
+qualificação completa. A entrega limitada foi autorizada com as restrições acima;
+relatórios extensos não ready continuam não ready, sem PASS inventado.

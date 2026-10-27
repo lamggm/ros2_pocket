@@ -26,7 +26,7 @@ O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve D
 - Quando outra frente ainda não entregou um contrato necessário, implemente componentes isolados e testes unitários explicitamente identificados como tais. Não invente respostas ROS/Android para declarar a integração pronta.
 - PRs de incrementos devem apontar para **`integration/v0.2`**. Teste e revise antes de mergear; use squash para cada incremento.
 - Depois de integrar um incremento, valide novamente o conjunto e identifique o APK candidato pelo SHA exercitado.
-- O PR de **`integration/v0.2` → `main`** permanece em draft e sem auto-merge até a qualificação final e aceite do operador no tablet. Não faça push/merge direto em `main` como atalho.
+- A v0.2 tem escopo autorizado de **protótipo de bancada**, com critérios e evidências em `docs/FINALIZATION-v0.2.md`. Qualificação física extensa, Wi-Fi/IP e soak são backlog explícito, não bloqueios dessa entrega limitada; não converter suas pendências em PASS nem alterar os validadores. O PR de **`integration/v0.2` → `main`** permanece draft e sem auto-merge até autorização própria do operador. Não faça push/merge direto em `main` como atalho.
 - O merge final deve preservar os incrementos auditáveis; não reescreva a história pública.
 - Não faça duas implementações simultâneas no mesmo checkout ou duas automações concorrentes no tablet. Use worktrees isoladas para trabalho paralelo independente.
 

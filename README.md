@@ -10,15 +10,14 @@ prototype, not a port of desktop rqt plugins or a full rcljava client.
 The v0.2 development base is **`integration/v0.2`**. Follow the ordered
 [roadmap and acceptance gates](docs/ROADMAP-v0.2.md); implementation branches
 start from the latest integration and target it in their PRs, not `main`.
-Read [AGENTS.md](AGENTS.md) before agent-driven work. The final integration PR
-stays draft until qualification and operator acceptance on the physical tablet.
-
-The operator authorized **11–15 in parallel**, in isolated worktrees, with parent
-reconciliation afterward and physical tests only when the tablet is available.
-The workstreams are reconciled in the qualification branch; host validation is
-recorded, while final physical acceptance remains pending. Current work is
-sequential and bounded as specified in `AGENTS.md`.
-See the [integration and qualification checklist](docs/FINALIZATION-v0.2.md).
+Read [AGENTS.md](AGENTS.md) before agent-driven work. The operator approved
+v0.2 as a **bench prototype**, not full physical/endurance qualification.
+Host validation and a short real-tablet plot/pause/resume smoke are recorded in
+the [delivery scope and evidence](docs/FINALIZATION-v0.2.md). Full Wi-Fi/IP,
+endurance and extended qualification remain explicitly unvalidated backlog,
+not blockers for this limited prototype. Work is sequential and bounded.
+The integration PR into `main` stays draft until separately authorized;
+integrating PR #12 does not authorize a tag, release or store publication.
 
 ## Connect
 
@@ -79,7 +78,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   checkboxes are separate from the structured inspector's field selection.
   Pause freezes the display only; per-reader replacement/removal/error retires
   only that reader's traces. No display-text parsing or source-rate reconstruction.
-  Real isolated DDS integration is tested; physical plot acceptance is **pending**.
+  Real isolated DDS integration and a short physical two-series/pause/resume smoke
+  passed; full physical plot qualification remains **pending**.
 - No parameter editing, services/actions, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
@@ -210,11 +210,13 @@ signing keys, local environment files and test evidence remain ignored.
 
 ## Verification
 
-The [v0.2 device qualification plan](docs/DEVICE-QUALIFICATION-v0.2.md) defines
-21 required evidence gates, exact source/APK binding, and a predeclared measured
-soak. The offline report toolkit never touches a device and cannot replace
-physical acceptance. [v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) remain draft;
-preparation of this matrix is not final qualification or release approval.
+The [extended device qualification plan](docs/DEVICE-QUALIFICATION-v0.2.md)
+retains its 21 mandatory gates and measured soak for claiming full qualification;
+its validators and thresholds are unchanged. That extended claim is not required
+for the operator-approved [bench prototype scope](docs/FINALIZATION-v0.2.md).
+The offline toolkit never touches a device or grants release authorization.
+[v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) disclose what actually passed and
+what remains unvalidated; `main` promotion and release remain separate decisions.
 
 Debug builds provide a bounded, metadata-only [device QA dump contract](docs/DEVICE-QA-CONTRACT.md)
 for all four actual worker counters while the chart remains on-screen. This is
