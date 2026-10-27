@@ -169,3 +169,171 @@ No ADB/install, robot/LAN production traffic, VPN/firewall/access changes,
 production signing, release publication or `integration → main` merge is part of
 this increment. Synthetic bounded histories and native fixture measurements are
 not physical endurance qualification.
+
+## Increment 14 — phase fixture and qualification harness
+
+The dedicated `tests/device_plot_fixture.py` publishes two **2 Hz** Jazzy
+Float64 topics in a fresh `/plot_<32 hexadecimal UUID>` namespace. Phases are
+finite nonzero, NaN, positive/negative infinity, source stop/return and a sustained
+window run. Each phase must last at least six seconds; a short nonfinite burst
+that the ordinary 500 ms worker could miss is not a passing control. The second
+publisher stays finite and advancing throughout primary-source failures.
+
+`tests/device_plot_writer.cpp` is an **additional separate Cyclone DDS writer**
+for explicit `dds_write_ts` reset/forward-jump stimuli. The rclpy API does not
+supply a DDS source-timestamp override: changing a ROS header would not test this
+contract. `/a` and `/b` prove Jazzy Fast DDS/Cyclone interoperability; `/stamped`
+proves real DDS source-clock behavior with a Cyclone producer. These are distinct
+claims. No writer is compiled into or exposed by the Android product.
+
+### Host reproduction (no Android/device access)
+
+Reuse the pinned toolchain read-only; generate/build only in this worktree.
+`tools/test.sh --portable` prepares `build/native-host/multiwatch_wire` and the
+real `plot_numeric` test. The latter is an in-process DDS numeric control, not
+separate-process Jazzy evidence. Build the optional stamp writer with:
+
+```bash
+export POCKET_TOOLCHAINS=/absolute/path/to/pinned/toolchains
+bash tools/test.sh --portable
+cc -c app/src/main/cpp/generated/PocketTypes.c \
+  -I"$POCKET_TOOLCHAINS/host/include" -o build/plot-types.o
+c++ -std=c++17 tests/device_plot_writer.cpp build/plot-types.o \
+  -Iapp/src/main/cpp/generated -I"$POCKET_TOOLCHAINS/host/include" \
+  -L"$POCKET_TOOLCHAINS/host/lib" -Wl,-rpath,"$POCKET_TOOLCHAINS/host/lib" \
+  -lddsc -o build/plot-stamped-writer
+python3 tests/run_plot_host.py --image EXISTING_IMAGE_ID \
+  --toolchains "$POCKET_TOOLCHAINS" --out "$PWD/build/plot-dds-run"
+```
+
+The runner never pulls an image. It pins the resolved image ID and launches each
+RMW in its own uniquely named, nonroot, read-only **`--network none`** container
+with resource limits, an absolute process deadline and removal/readback of that
+exact ID. The exact pinned host ddsc prefix precedes ROS's library path; otherwise
+sourcing Jazzy can silently replace the tested library. The existing pinned
+`tests/fixture.Dockerfile` image is sufficient; the new phase fixture is mounted
+from this checkout, not copied into the generic CI publisher.
+
+`plot_phase_host.py` polls the **real production Session** at 500 ms, retaining
+raw JSONL and publication events. Every nonfinite phase must reach at least five
+distinct native cumulative counts. The window phase runs 34 real seconds. It also
+checks idle timestamp stability, a continuously advancing healthy reader,
+source-reset/jump with monotonic receipt, removal and reassignment. Source count
+jumps are not expanded into points.
+
+With those actual records, run the opt-in native host Canvas replay:
+
+```bash
+export POCKET_PLOT_DDS_RECORDS="$PWD/build/plot-dds-run"
+# Select JDK 17, the existing SDK, a populated explicit GRADLE_USER_HOME,
+# and POCKET_ROBOLECTRIC_JARS as described above; keep <=2 Gradle workers/1 GiB.
+./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1g \
+  :app:testDebugUnitTest --tests '*Plot*Test'
+# Restore the full suite after the filtered run; parse nonempty XML reports.
+./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1g \
+  :app:testDebugUnitTest :app:lintDebug --rerun-tasks
+```
+
+`PlotDdsReplayTest` feeds those unmodified records through production
+`PlotController`/`PlotHistory`/`PlotView` and Robolectric **native graphics**,
+checking real receive-window eviction, gaps, retirement/reselection, reader
+identity, pause pixels with continuing intake, selective paused removal and
+completed-draw provenance. Reset may preserve selected empty controls. The
+single frame that explicitly reselects returned slots 0/2 may also be empty;
+this test-local selection transition is not claimed as an applied native sample.
+Only those exact slots on that frame, the primary pending slot, and stopped
+controls are exempt from populated-data checks. None of these control frames
+counts as data-bearing evidence. Subsequent return observations are drawn and
+must provide multiple populated, provenance-bound completed frames. It saves phase chart PNGs
+beside the input records.
+This is a real-DDS-record replay plus host Android Canvas, **not** the Android
+worker/JNI or physical rendering. Without the opt-in environment it explicitly
+skips; a filtered/empty/skipped report is not DDS-Canvas acceptance. The host
+campaign's full Java XML scan permits exactly one intentional exception:
+`com.lamggm.rospocket.RealJniSessionTest`/
+`realJniLeaseFailureReceiptPollRecoveryAndSurvivors`. The source uses
+`Assume` with `Explicit isolated host JNI gate only`; actual Gradle XML may
+serialize this as an empty `<skipped/>`, so the exact suite/class/method
+allowlist is authoritative (an explicit different reason is rejected).
+That case is exercised by the
+parent Linux JNI gate; this campaign does not claim JNI execution. The
+`PlotDdsReplayTest` report remains fully unskipped and must contain exactly one
+`bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas` case; its helper unit
+case is also retained.
+
+`PlotQualificationTest` additionally proves exact **599 → 600 → 601** retention
+on each of four rings, inclusive 30-second boundary and cross-ring eviction,
+actual Canvas absence of lines through receive/source breaks, and two-series
+pause/resume pixels. Its timestamps are deliberately synthetic model inputs.
+The 600 boundary is **not** claimed on the 2 Hz device: a 30-second latest-snapshot
+window should hold only roughly 60 observed points, never 600 fabricated ones.
+
+A behavioral RED exposed a paused same-name replacement race: retirement and
+reselection could complete before refresh, leaving an old frozen reader copy
+because its string ID was selected again. `PlotView` now matches the immutable
+series provenance against the current selected history, filtering the retired
+copy while retaining other paused traces. The QA12 schema/export paths are
+unchanged. A resume displays only the newly selected current reader.
+
+### Opt-in physical campaign, prepared but NOT executed in this increment
+
+`python3 tests/tablet_plot_acceptance.py --help` is safe without ADB configuration.
+The `run` command requires an explicit serial, `--authorize-device`, actual
+candidate APK, domain, run namespace and **immutable existing fixture container
+ID**. It uses the increment-10 guarded client for user/package/focus/IME/private
+hierarchy capture and bounded navigation. No install, emulator, network-policy
+change or fixture creation is performed by this CLI.
+
+The separately authorized bench owner must start the dedicated publisher with
+its actual Docker `Config.Cmd` including all of:
+
+```text
+python3 /fixture/device_plot_fixture.py --domain <domain>
+--namespace /plot_<uuid> --control /tmp/plot-phase --duration 2040
+--stamped-writer /fixture/plot-stamped-writer
+```
+
+Set label `ros-pocket.plot-run=/plot_<uuid>`. Mount the exact fixture Python file
+and locally verified `build/plot-stamped-writer` at those paths, the pinned ddsc
+prefix read-only, and provide writable `/tmp`, a deadline and resource limits.
+The CLI verifies command/label/running state and both executable/source hashes
+before any phase write or shutdown. A physical LAN fixture requires separate
+network authorization; this software round ran **only network-none containers**.
+
+```bash
+python3 tests/tablet_plot_acceptance.py run --authorize-device \
+  --serial "$AUTHORIZED_SERIAL" --namespace "$RUN_NAMESPACE" --domain "$DOMAIN" \
+  --candidate-apk "$FROZEN_APK" --fixture-container "$OWNED_CONTAINER_ID" \
+  --out "$PRIVATE_EVIDENCE"
+# Optional --peer is the existing app peer setting; unset means automatic mode.
+```
+
+The full physical flow has a bounded **1800-second** campaign allowance. An
+external bench runner must use the shared `RUNNER_TIMEOUT_SECONDS` (**1980 s**)
+and start its owned publisher with `FIXTURE_MAX_SECONDS` (**2040 s**), allowing
+180 s for independent cleanup and 60 s for startup/headroom. These constants live
+in `tests/device_plot_fixture.py`; its existing 420 s CLI default is intended for
+short fixtures, not this complete physical flow. The 2040 s maximum is enforced
+before ROS imports. Measured first-chart setup consumed about 489 s/139 fresh
+XML captures, while the remaining fixed waits alone require 109 s; the former
+540/580/600 s campaign/runner/publisher tuple cannot cover the full flow. The new
+allowance includes remaining guarded UI captures/navigation and scheduling margin;
+it is not a physical completion claim. Do not alter worker/draw freshness,
+2 Hz source rate, six-second phase coverage, ring limits or the separate official
+30-minute soak. Earlier timeouts remain incomplete evidence.
+
+The campaign verifies installed APK SHA-256, navigates source-derived selectors
+from both viewport directions, explicitly configures best-effort/volatile,
+selects three numeric series, records fresh worker/export fences and completed
+Canvas statistics, captures/crops the actual chart, checks frozen pause pixels
+with advancing counters and changed resume pixels, both paused removal controls,
+stale retirement/no automatic resurrection, reset/jump, real window eviction and
+reassignment. Cleanup independently disconnects the guarded app and gracefully
+stops the verified fixture with state readback; failures remain failures.
+
+Host tests include viewport-omitting injected transports and a fully synthetic
+campaign orchestration control. Those are **not physical evidence**, even when
+they exercise the actual public campaign function. Physical results deliberately
+retain `physicalAccepted: false`: screenshot/readability review, exact integrated
+candidate review/CI and explicit operator acceptance remain separate. The
+30-minute official resource/battery soak is not replaced by this functional run.

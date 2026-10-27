@@ -7,22 +7,36 @@ prototype, not a port of desktop rqt plugins or a full rcljava client.
 
 ## Development sequence
 
-**v0.3 planning:** [`integration/v0.3`](https://github.com/lamggm/ros2_pocket/tree/integration/v0.3)
-contains the [v0.3 plan and explicit sequence](docs/ROADMAP-v0.3.md): accepted
-v0.2 base → bench navigation → profile storage → profile application → v0.3
-qualification. This is documentation-only preparation, not implementation or
-v0.2 acceptance. LaserScan, user-facing export and numeric batches remain
-optional decisions. Future v0.3 implementation PRs target `integration/v0.3`.
+**Current development:** [`integration/v0.3`](https://github.com/lamggm/ros2_pocket/tree/integration/v0.3).
+Follow the [v0.3 roadmap](docs/ROADMAP-v0.3.md): reconcile the final v0.2 base →
+bench navigation → local profiles (storage, then explicit application) →
+bounded closeout. Implementation PRs target `integration/v0.3`, not `main` or
+`integration/v0.2`. Read [AGENTS.md](AGENTS.md) before agent-driven work.
+Navigation and profiles are planned work, **not implemented features** in this
+base reconciliation. LaserScan, user-facing export and numeric batches remain
+out of this cycle.
 
-The v0.2 development base is **`integration/v0.2`**. Follow the ordered
-[roadmap and acceptance gates](docs/ROADMAP-v0.2.md); implementation branches
-start from the latest integration and target it in their PRs, not `main`.
-Read [AGENTS.md](AGENTS.md) before agent-driven work. The final integration PR
-stays draft until qualification and operator acceptance on the physical tablet.
+**Inherited v0.2:** [PR #1](https://github.com/lamggm/ros2_pocket/pull/1) was
+merged into `main` at `c659b8521c093aacc3ccecd0855c07727398db2b`; the
+[post-merge CI](https://github.com/lamggm/ros2_pocket/actions/runs/40515533393)
+passed. The operator approved a **bench prototype**, not full physical/endurance
+qualification. The [delivery scope and evidence](docs/FINALIZATION-v0.2.md)
+retain the actual source/APK identities of host checks and the short real-tablet
+plot/pause/resume smoke. Extended Wi-Fi/IP, endurance and physical qualification
+remain explicitly unvalidated backlog, not automatic blockers for v0.3.
+Historical thresholds and validators are unchanged; deferred tests are not PASS.
+No tag, release or store publication is included.
+
+**CI limitation:** PR verification is enabled. The push filter does not yet
+include `integration/v0.3`; the operator chose not to broaden GitHub credential
+permissions to publish that workflow change. See the [roadmap](docs/ROADMAP-v0.3.md)
+for the explicit follow-up and integrated-tree verification requirements.
 
 ## Connect
 
-1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.1.0).
+1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.2.0,
+   versionCode 2 in this preparation). The header uses the actual build version;
+   this version label is not final candidate identity or physical qualification.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. Choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
@@ -54,6 +68,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   per-watch field trees, numeric paths, source stamps, UTF-8 frames and fixed
   covariance arrays. NaN/Inf are explicit, never invented zeros. Other/custom
   types remain listed but unsupported.
+- [Reader-creation failure tests and hook isolation](docs/READER-FAILURE-TESTS.md):
+  native actual-argument regression scope and explicit instrumentation/device blockers.
 - [Up to four independent watches](docs/MULTIWATCH.md): value/tree, count,
   received Hz, matches, QoS, persistent errors and monotonic age per slot.
   Replace/remove one without restarting the other readers or discovery.
@@ -75,7 +91,8 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   checkboxes are separate from the structured inspector's field selection.
   Pause freezes the display only; per-reader replacement/removal/error retires
   only that reader's traces. No display-text parsing or source-rate reconstruction.
-  Real isolated DDS integration is tested; physical plot acceptance is **pending**.
+  Real isolated DDS integration and a short physical two-series/pause/resume smoke
+  passed; full physical plot qualification remains **pending**.
 - No parameter editing, services/actions, images, LaserScan, maps, TF or RViz.
 - Native intake runs about twice per second; visible updates are limited to about
   once per 1.5 seconds. Received Hz measures intake, not guaranteed source rate.
@@ -181,16 +198,38 @@ are uploaded, for **7 days**; no device dumps, fixture snapshots, private logs,
 keystores or toolchains. CI success must be observed for the published SHA; local
 validation is not evidence that a remote workflow already ran.
 
+Os gates 11/13/14 estão registrados em
+[`ci/finalization-gates.json`](ci/finalization-gates.json), com seleções reais,
+não vazias, e mínimos explícitos. O entrypoint comum `tools/test.sh --portable`
+executa `python3 tools/verify_finalization_ci.py`, rejeitando registros pendentes,
+seleções ausentes/vazias, skips, falhas e contagens abaixo do mínimo.
+
+`tools/test.sh --fixture` mantém os gates DDS anteriores e executa também
+`tools/host_campaigns.py`: multiwatch real nos dois RMWs, controles de mutação,
+fases DDS reais e replay pelo modelo/Canvas nativo host. Os adapters com hooks
+ficam em um build host separado; não habilitam capacidade no APK ordinary.
+O replay força a suíte Java completa e arquiva XML próprio, rejeitando o caso
+opt-in vazio/skipped. `POCKET_TOOLCHAINS` é explícito e não exige caminhos do
+host pessoal no CI. Os dois entrypoints já são chamados pelo workflow existente;
+não é necessário ampliar credenciais nem alterar o YAML público.
+
+Registro e implementação do pipeline não provam execução remota. Revisão do
+SHA reconciliado, regressões executadas, CI remoto e qualificação física são
+gates separados; nenhum registro substitui Android instrumentation, soak físico
+ou aceite final do operador.
+
 Upstream native LICENSE/NOTICE are included in APK assets. Generated binaries,
 signing keys, local environment files and test evidence remain ignored.
 
 ## Verification
 
-The [v0.2 device qualification plan](docs/DEVICE-QUALIFICATION-v0.2.md) defines
-21 required evidence gates, exact source/APK binding, and a predeclared measured
-soak. The offline report toolkit never touches a device and cannot replace
-physical acceptance. [v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) remain draft;
-preparation of this matrix is not final qualification or release approval.
+The [extended device qualification plan](docs/DEVICE-QUALIFICATION-v0.2.md)
+retains its 21 mandatory gates and measured soak for claiming full qualification;
+its validators and thresholds are unchanged. That extended claim is not required
+for the operator-approved [bench prototype scope](docs/FINALIZATION-v0.2.md).
+The offline toolkit never touches a device or grants release authorization.
+[v0.2 release notes](docs/RELEASE-NOTES-v0.2.md) disclose what actually passed and
+what remains unvalidated; `main` promotion and release remain separate decisions.
 
 Debug builds provide a bounded, metadata-only [device QA dump contract](docs/DEVICE-QA-CONTRACT.md)
 for all four actual worker counters while the chart remains on-screen. This is
@@ -205,11 +244,14 @@ restart, retained connection settings and resumed topic reading. Both Jazzy
 Fast DDS and Cyclone DDS were exercised. The isolated fixture also validates
 real Jazzy `/rosout` messages in separate ROS publisher and Cyclone reader processes.
 
-Additional native regression: after a real live sample, an invalid DDS topic name
-forces actual topic-creation failure; repeated polls must show inactive telemetry
-and a persistent error. Successful resubscription and session reset clear it.
-Reader-creation failure was not separately induced. C++ domain/endpoint/name/JSON
-and Java input/network-selection tests accompany the source.
+Additional native regression: actual topic- and reader-creation argument failures
+have isolated host tests with structurally verified inactive telemetry, repeated
+polls, identity-bound raw DDS receipts, and new advancing fixture data after both
+recoveries. See [native failure scope](docs/READER-FAILURE-TESTS.md): Android
+instrumentation is built and Linux JNI extra-watch-plus-rosout coexistence is
+exercised, but Android execution/physical acceptance remain UNVERIFIED. See the
+[explicit diagnostic policy](docs/ANDROID-DIAGNOSTIC-POLICY.md). C++
+domain/endpoint/name/JSON and Java input/network-selection tests accompany the source.
 
 ### Automated isolated host fixtures (no tablet)
 
@@ -229,7 +271,7 @@ Unicode and truncation boundaries, NaN/Inf, numeric paths and reader recovery.
 The fixture image tag hashes its Dockerfile, publisher and loopback configuration
 together so parallel feature worktrees cannot reuse a stale publisher image. No host/LAN/robot
 network or device is accessible. Containers have unique names, resource limits,
-120-second publisher lifetimes and cleanup traps; the existing tablet fixture
+bounded publisher lifetimes and cleanup traps; the existing tablet fixture
 name is never reused or stopped. JUnit XML stays under `build/native-host/`.
 
 The recipe is intentionally Linux x86_64 (host ABI compatible with Ubuntu 24.04).

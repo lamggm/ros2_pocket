@@ -23,10 +23,24 @@ def tool():
     return module
 
 
+_ARTIFACTS = tempfile.TemporaryDirectory(prefix='qualification-synthetic-')
+
+
+def synthetic_apk(diagnostic=False):
+    """Explicit supported ZIP/ELF-marker fixture, NOT installable/signature evidence."""
+    import zipfile
+    path=Path(_ARTIFACTS.name)/('on.apk' if diagnostic else 'off.apk')
+    binary=b'\x7fELF\0POCKET_TEST_HOOKS='+ (b'ON\0POCKET_DIAGNOSTIC_POLICY=ros-pocket-dds-fault-v1\0' if diagnostic else b'OFF\0')
+    if not path.exists():
+        with zipfile.ZipFile(path,'w') as z:z.writestr('lib/arm64-v8a/librospocket.so',binary)
+    return path,binary
+
+
 def metadata():
-    return dict(schema_version=1, apk='synthetic.apk', size_bytes=123,
-                sha256='a' * 64, package='com.lamggm.rospocket.dev',
-                version_code=2, version_name='0.2-unit-control', debuggable=True,
+    apk,_=synthetic_apk()
+    return dict(schema_version=1, apk=str(apk), size_bytes=apk.stat().st_size,
+                sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), package='com.lamggm.rospocket.dev',
+                version_code=2, version_name='0.2-unit-control', debuggable=True, test_hooks=False,
                 abis=['arm64-v8a'], signing=dict(certificate_sha256='b' * 64,
                 certificate_dn='CN=Android Debug', **{'class': 'debug'}),
                 source=dict(head_sha='c' * 40, dirty=False, snapshot_sha256='d' * 64))
@@ -39,8 +53,8 @@ def cli_candidate(root):
         [sys.executable, str(ROOT / 'tools/artifact_metadata.py'), '--source', '--repo', str(ROOT)],
         text=True))
     apk = root / 'synthetic.apk'
-    apk.write_bytes(b'TOOL UNIT TEST ONLY; not a real installable APK')
-    candidate.update(sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), size_bytes=apk.stat().st_size)
+    apk.write_bytes(synthetic_apk()[0].read_bytes())
+    candidate.update(apk=str(apk),sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), size_bytes=apk.stat().st_size)
     return candidate, apk
 
 
@@ -49,7 +63,170 @@ def run_cli(*args):
                           capture_output=True, text=True, timeout=10)
 
 
+def diagnostic_metadata():
+    result=metadata()
+    apk,binary=synthetic_apk(True)
+    result.update(schema_version=2,apk=str(apk),sha256=hashlib.sha256(apk.read_bytes()).hexdigest(),size_bytes=apk.stat().st_size,test_hooks=True,diagnostic_policy='ros-pocket-dds-fault-v1',native_libraries=[dict(abi='arm64-v8a',path='lib/arm64-v8a/librospocket.so',sha256=hashlib.sha256(binary).hexdigest(),test_hooks=True,policy='ros-pocket-dds-fault-v1')])
+    return result
+
+
 class QualificationTests(unittest.TestCase):
+    def diagnostic_soak(self,q):
+        data=self.synthetic_soak(q);data['schema_version']=2;data['snapshot']=diagnostic_metadata()
+        for sample in data['samples']:sample['received_counts']=[count+30 for count in sample['received_counts']]
+        package=data['snapshot']['package'];pid=data['pid'];instance='12345678-1234-4234-9234-123456789abc'
+        def observation(start,active=False):
+            identity=dict(pid=pid,uid=10123,start_time_ticks=1234)
+            return dict(schema_version=1,parser='aosp-android16-qpr2-am-processes-v2',android_api=36,android_build_sha256='f'*64,
+                        command=['dumpsys','activity','--proto','processes',package],exit_code=0,stderr_empty=True,truncated=False,
+                        package=package,pid=pid,uid=10123,start_time_ticks=1234,process_instance=instance,
+                        input_sha256='a'*64,input_size_bytes=550,targetActive=active,host_start_ns=start,host_end_ns=start+1000000,
+                        identity_before=dict(identity,host_start_ns=start,host_end_ns=start+100),
+                        identity_after=dict(identity,host_start_ns=start+999900,host_end_ns=start+1000000))
+        for i,s in enumerate(data['samples']):
+            base=(i*15+1)*10**9;fence=(i+1)*10**9
+            s['monotonic_s']=(base+4000000)/10**9
+            s['diagnostic_proof']=dict(os_before=observation(base),os_after=observation(base+4000000),export_fence_ns=fence,
+                fence_read=dict(host_start_ns=base+1000000,host_end_ns=base+2000000),capture_read=dict(host_start_ns=base+2000000,host_end_ns=base+4000000),
+                diagnostic=dict(schemaVersion=2,valid=True,capability=True,contract='ros-pocket-dds-fault-v1',runnerActive=False,armed=False,ticketPending=False,operationInFlight=False,
+                    leasePhase='INACTIVE',leaseEpoch=0,revision=3,nativeRevision=4,captureSequence=i+1,capturedMonotonicNs=fence+100,exportedMonotonicNs=fence+200,
+                    processInstance=instance,pid=pid,startTimeTicks=1234,sessionGeneration=7,lifecycle=1,policy=2,requests=[dict(slot=j,version=1,appliedVersion=1,pending=False) for j in range(4)]))
+            d=s['diagnostic_proof']['diagnostic']
+            s['diagnostic_proof']['qa']=dict(schemaVersion=1,valid=True,foreground=True,debuggable=True,applicationId=package,pid=pid,
+                capturedMonotonicNs=d['capturedMonotonicNs'],exportedMonotonicNs=d['exportedMonotonicNs'],sessionGeneration=7,lifecycleGeneration=1,policyGeneration=2,
+                watches=[dict(slot=j,valid=True,pending=False,readerActive=True,freshAtExport=True,nativeFresh=True,hasError=False,state='receiving',matched=1,readerGeneration=10+j,requestVersion=1,appliedVersion=1,count=s['received_counts'][j]) for j in range(4)],
+                plotDisplay=dict(observedMonotonicNs=fence+200,chartFullyVisible=True,paused=False,drawPending=False,drawAgeNs=100,lastDrawMonotonicNs=fence+100,preparedRevision=1,drawnRevision=1,drawnSeries=[dict(seriesIndex=0,slot=0,pointCount=2,finitePoints=2,gapPoints=0,breakBeforePoints=1,oldestReceiveNs=fence-100,newestReceiveNs=fence)]))
+            qa=s['diagnostic_proof']['qa'];display=qa['plotDisplay']
+            for series in display['drawnSeries']:
+                series.update(seriesId='Watch 1 · /synthetic/0\ndata',fieldPath='data',sessionGeneration=7,readerGeneration=10)
+            display['series']=copy.deepcopy(display['drawnSeries'])
+            qa['plotIntake']=dict(capacityPerSeries=600,windowNs=30_000_000_000,maximumSeries=4,invalidationRevision=1,
+                                  series=copy.deepcopy(display['drawnSeries']))
+        data['os_transport_validation']=dict(parser='aosp-android16-qpr2-am-processes-v2',android_api=36,android_build_sha256='f'*64,physical_device_verified=True,
+            qualified_by='SYNTHETIC TOOL CONTROL ONLY',evidence_sha256='b'*64,negative_control=observation(0),
+            positive_control=dict(os=observation(0,True),app_runner_active=False,app_lease_phase='INACTIVE',collection_refused=True))
+        return data
+
+    def test_previous_parser_identity_cannot_qualify_new_contract(self):
+        q=tool();data=self.diagnostic_soak(q);candidate=data['snapshot']
+        self.assertEqual('passed',q.analyze_soak(data,candidate)['status'])
+        for location in ('transport','negative','positive','before','after'):
+            bad=copy.deepcopy(data)
+            target={'transport':bad['os_transport_validation'],
+                    'negative':bad['os_transport_validation']['negative_control'],
+                    'positive':bad['os_transport_validation']['positive_control']['os'],
+                    'before':bad['samples'][1]['diagnostic_proof']['os_before'],
+                    'after':bad['samples'][1]['diagnostic_proof']['os_after']}[location]
+            target['parser']='aosp-android16-am-processes-v1'
+            with self.subTest(location=location):
+                self.assertEqual('incomplete',q.analyze_soak(bad,candidate)['status'])
+
+    def test_diagnostic_soak_requires_independent_per_sample_os_bracket_and_real_gate(self):
+        q=tool();data=self.diagnostic_soak(q);candidate=data['snapshot']
+        self.assertEqual('passed',q.analyze_soak(data,candidate)['status'])
+        for mutation in ('os-active-no-app-lease','missing-before','unknown-command','pid','start','instance','late-after','stale-safe','sequence','boolean-integer','unqualified-positive','missing-proof','version'):
+            bad=copy.deepcopy(data);proof=bad['samples'][1]['diagnostic_proof']
+            if mutation=='os-active-no-app-lease':proof['os_before']['targetActive']=True
+            elif mutation=='missing-before':del proof['os_before']
+            elif mutation=='unknown-command':proof['os_before']['command']=['dumpsys','activity','instrumentation']
+            elif mutation=='pid':proof['os_after']['pid']+=1
+            elif mutation=='start':proof['os_before']['identity_after']['start_time_ticks']+=1
+            elif mutation=='instance':proof['diagnostic']['processInstance']='another-instance'
+            elif mutation=='late-after':proof['os_after']['host_end_ns']+=6*10**9
+            elif mutation=='stale-safe':proof['diagnostic']['capturedMonotonicNs']=proof['export_fence_ns']
+            elif mutation=='sequence':proof['diagnostic']['captureSequence']=1
+            elif mutation=='boolean-integer':proof['diagnostic']['armed']=0
+            elif mutation=='unqualified-positive':bad['os_transport_validation']['positive_control']['os']['targetActive']=False
+            elif mutation=='missing-proof':del bad['samples'][1]['diagnostic_proof']
+            else:bad['schema_version']=1
+            with self.subTest(mutation=mutation):self.assertEqual('incomplete',q.analyze_soak(bad,candidate)['status'])
+        # Exercise the PUBLIC analyzer CLI, not only an optional/private validator.
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'metadata.json').write_text(json.dumps(candidate));bad=copy.deepcopy(data);bad['samples'][2]['diagnostic_proof']['os_after']['targetActive']=True;(root/'input.json').write_text(json.dumps(bad))
+            result=run_cli('analyze-soak','--metadata',root/'metadata.json','--input',root/'input.json')
+            self.assertEqual(1,result.returncode,result.stderr);self.assertEqual('incomplete',json.loads(result.stdout)['status'])
+
+    def test_diagnostic_init_reinspects_actual_apk_instead_of_trusting_metadata(self):
+        import types
+        q=tool();candidate=diagnostic_metadata()
+        from tools.artifact_metadata import validate_hook_capability
+        producer=types.SimpleNamespace(collect_metadata=mock.Mock(return_value=copy.deepcopy(candidate)),validate_hook_capability=validate_hook_capability)
+        with mock.patch.dict(sys.modules,artifact_metadata=producer):
+            q.verify_diagnostic_apk(Path(candidate['apk']),candidate,ROOT)
+            producer.collect_metadata.assert_called_once()
+            changed=copy.deepcopy(candidate);changed['native_libraries'][0]['sha256']='f'*64;producer.collect_metadata.return_value=changed
+            with self.assertRaises(ValueError):q.verify_diagnostic_apk(Path(candidate['apk']),candidate,ROOT)
+            producer.collect_metadata.side_effect=ValueError('actual ELF policy unknown')
+            with self.assertRaises(ValueError):q.verify_diagnostic_apk(Path(candidate['apk']),candidate,ROOT)
+
+    def test_version2_is_explicit_diagnostic_and_report_installed_binding(self):
+        q=tool();candidate=diagnostic_metadata();q.validate_metadata(candidate)
+        report=q.new_report(candidate);self.assertEqual(2,report['schema_version']);q.validate_report(report)
+        for key,value in [('test_hooks',False),('schema_version',1),('diagnostic_policy','arbitrary')]:
+            bad=copy.deepcopy(candidate);bad[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):q.validate_metadata(bad)
+        downgraded=copy.deepcopy(candidate);downgraded.update(schema_version=1,test_hooks=False)
+        with self.assertRaises(ValueError):q.validate_metadata(downgraded)
+        for mutation in ('missing','duplicate','hash','abi','policy'):
+            bad=copy.deepcopy(candidate);libs=bad['native_libraries']
+            if mutation=='missing':libs.clear()
+            elif mutation=='duplicate':libs.append(copy.deepcopy(libs[0]))
+            elif mutation=='hash':libs[0]['sha256']='bad'
+            elif mutation=='abi':libs[0]['abi']='x86_64'
+            else:libs[0]['policy']='arbitrary'
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):q.validate_metadata(bad)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'installed.json').write_text(json.dumps(candidate));q.validate_structured_evidence('installed-apk',['installed.json'],root,candidate)
+            altered=copy.deepcopy(candidate);altered['native_libraries'][0]['sha256']='f'*64
+            (root/'installed.json').write_text(json.dumps(altered))
+            with self.assertRaises(ValueError):q.validate_structured_evidence('installed-apk',['installed.json'],root,candidate)
+
+    def test_candidate_hook_capability_must_be_explicit_boolean_false(self):
+        q = tool()
+        for value in (True, None, 0, 'false', 'missing'):
+            bad = metadata()
+            if value == 'missing':
+                del bad['test_hooks']
+            else:
+                bad['test_hooks'] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                q.validate_metadata(bad)
+
+    def test_fully_bound_synthetic_ready_report_cannot_admit_unknown_or_enabled_hooks(self):
+        q = tool()
+        candidate = metadata()
+        report = q.new_report(candidate)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'unit.txt').write_text('SYNTHETIC ONLY, NOT PHYSICAL')
+            soak = self.synthetic_soak(q)
+            (root / 'soak.json').write_text(json.dumps(soak))
+            (root / 'installed.json').write_text(json.dumps(candidate))
+            for gate_id in q.GATES:
+                evidence = {'soak': 'soak.json', 'installed-apk': 'installed.json'}.get(gate_id, 'unit.txt')
+                report = q.record_result(report, candidate, gate_id, 'passed', [evidence], root,
+                                         operator='UNIT TEST ONLY', note='Synthetic validation control')
+            self.assertTrue(q.evaluate_report(report, candidate, candidate['source'], root)['ready'])
+            for value in (True, None, 0, 'false', 'missing'):
+                bad = copy.deepcopy(candidate)
+                if value == 'missing':
+                    del bad['test_hooks']
+                else:
+                    bad['test_hooks'] = value
+                forged = copy.deepcopy(report)
+                forged['snapshot'] = bad
+                soak['snapshot'] = bad
+                (root / 'soak.json').write_text(json.dumps(soak))
+                (root / 'installed.json').write_text(json.dumps(bad))
+                for gate in forged['gates']:
+                    gate['snapshot_id'] = q.snapshot_id(bad)
+                    for evidence in gate['evidence']:
+                        evidence['sha256'] = hashlib.sha256((root / evidence['path']).read_bytes()).hexdigest()
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    q.evaluate_report(forged, bad, bad['source'], root)
+                with self.subTest(installed=value), self.assertRaises(ValueError):
+                    q.validate_structured_evidence('installed-apk', ['installed.json'], root, candidate)
+
     def test_cli_init_depth_boundary_is_reloadable_or_preserves_destination(self):
         q = tool()
         scratch = ROOT / 'build/qualification/unit'
@@ -519,8 +696,8 @@ class QualificationTests(unittest.TestCase):
                 [sys.executable, str(ROOT / 'tools/artifact_metadata.py'), '--source', '--repo', str(ROOT)],
                 text=True))
             apk = root / 'synthetic.apk'
-            apk.write_bytes(b'TOOL UNIT TEST ONLY; not a real installable APK')
-            candidate.update(sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), size_bytes=apk.stat().st_size)
+            apk.write_bytes(synthetic_apk()[0].read_bytes())
+            candidate.update(apk=str(apk),sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), size_bytes=apk.stat().st_size)
             meta = root / 'metadata.json'
             meta.write_text(json.dumps(candidate))
             report = root / 'report.json'
@@ -582,8 +759,8 @@ class QualificationTests(unittest.TestCase):
             self.assertIn('duplicate JSON key', result.stderr)
             candidate = metadata()
             apk = root / 'unit.apk'
-            apk.write_bytes(b'unit')
-            candidate.update(sha256=hashlib.sha256(b'unit').hexdigest(), size_bytes=4)
+            apk.write_bytes(synthetic_apk()[0].read_bytes())
+            candidate.update(apk=str(apk),sha256=hashlib.sha256(apk.read_bytes()).hexdigest(), size_bytes=apk.stat().st_size)
             meta.write_text(json.dumps(candidate))
             result = subprocess.run([sys.executable, str(ROOT / 'tools/qualification.py'),
                                      'init', '--metadata', str(meta), '--apk', str(apk), '--repo', str(ROOT),
