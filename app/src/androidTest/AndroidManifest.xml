@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- AGP overrides the FIRST instrumentation node with defaultConfig's runner. -->
+    <instrumentation android:name="com.lamggm.rospocket.ReaderFailureInstrumentation"
+        android:targetPackage="com.lamggm.rospocket.dev" android:functionalTest="true" />
+    <instrumentation android:name="com.lamggm.rospocket.MultiwatchInstrumentation"
+        android:targetPackage="com.lamggm.rospocket.dev" android:functionalTest="true" />
+</manifest>

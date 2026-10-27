@@ -6,17 +6,27 @@ Antes de planejar ou implementar uma tarefa, leia [`docs/ROADMAP-v0.2.md`](docs/
 
 O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
 
+## Condução e escopo das tarefas
+
+- O ROS Pocket é um aplicativo em evolução, não um projeto de certificação aeroespacial. Prefira entregas simples, úteis e incrementais; não exija maturidade de produto final para encerrar cada melhoria.
+- Trabalhe em **uma tarefa bem delimitada por vez**, com objetivo, limites e condição de término curtos. Conclua e relate esse resultado antes de abrir outra frente.
+- O agente principal conduz a implementação e o diagnóstico na conversa. Delegue apenas tarefas menores e independentes, como uma revisão pontual; não crie uma cadeia de agentes para administrar trabalho simples.
+- Use validação proporcional à mudança: reproduza o problema e teste diretamente o comportamento alterado e as regressões relevantes. Não transforme toda correção em reconstrução da infraestrutura de testes ou campanha completa de qualificação.
+- Não encadeie automaticamente uma tarefa concluída em push, novas execuções de CI, campanhas físicas extensas, testes de rede, soak ou finalização de release. Essas ações pertencem a escopos separados e precisam estar incluídas no trabalho combinado com o operador.
+- Separe bugs que impedem o uso e riscos reais de melhorias de robustez, casos extremos e funcionalidades futuras. Registre os itens adiáveis no backlog, em vez de ampliar silenciosamente a tarefa atual.
+- Encerre com o que foi alterado, o resultado realmente verificado e as limitações restantes. Uma entrega limitada não significa aceite completo da versão: preserve resultados incompletos e não invente passes nem dispense silenciosamente requisitos de segurança ou release. Se o escopo de uma versão mudar, reconcilie o plano explicitamente.
+
 ## Branches e integração
 
 - A base de desenvolvimento deste ciclo é **`integration/v0.2`**, não `main`.
 - Inspecione `git status`, branch atual e histórico antes de editar; preserve alterações existentes.
 - Antes de abrir a próxima branch, busque o remoto e confira a integração atualizada. Crie a branch do incremento a partir de `origin/integration/v0.2` limpa e atualizada.
-- As oito frentes da v0.2 podem trabalhar em paralelo, cada uma em branch e worktree próprias. A numeração do roadmap indica prioridade de integração e dependências, não um bloqueio para iniciar trabalho independente.
+- O padrão de execução é sequencial, uma frente delimitada por vez. Paralelismo de implementação só com autorização explícita para a tarefa atual, em branches e worktrees isoladas; a possibilidade histórica de paralelizar incrementos não é autorização permanente.
 - Antes de integrar uma frente, incorpore a integração atualizada na branch e valide os contratos/dependências do roadmap. Para branches públicas compartilhadas, prefira merge de `origin/integration/v0.2`; não faça rebase/force-push que reescreva trabalho de outro agente.
 - Quando outra frente ainda não entregou um contrato necessário, implemente componentes isolados e testes unitários explicitamente identificados como tais. Não invente respostas ROS/Android para declarar a integração pronta.
 - PRs de incrementos devem apontar para **`integration/v0.2`**. Teste e revise antes de mergear; use squash para cada incremento.
 - Depois de integrar um incremento, valide novamente o conjunto e identifique o APK candidato pelo SHA exercitado.
-- O PR de **`integration/v0.2` → `main`** permanece em draft e sem auto-merge até a qualificação final e aceite do operador no tablet. Não faça push/merge direto em `main` como atalho.
+- A v0.2 tem escopo autorizado de **protótipo de bancada**, com critérios e evidências em `docs/FINALIZATION-v0.2.md`. Qualificação física extensa, Wi-Fi/IP e soak são backlog explícito, não bloqueios dessa entrega limitada; não converter suas pendências em PASS nem alterar os validadores. O PR de **`integration/v0.2` → `main`** permanece draft e sem auto-merge até autorização própria do operador. Não faça push/merge direto em `main` como atalho.
 - O merge final deve preservar os incrementos auditáveis; não reescreva a história pública.
 - Não faça duas implementações simultâneas no mesmo checkout ou duas automações concorrentes no tablet. Use worktrees isoladas para trabalho paralelo independente.
 
