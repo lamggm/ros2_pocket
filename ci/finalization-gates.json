@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "gates": [
+    {"id": "11-soak", "state": "registered", "test_files": ["tests/test_collect_soak.py", "tests/test_device_snapshot.py"], "minimum_tests": 17},
+    {"id": "13-multiwatch", "state": "registered", "test_files": ["tests/test_multiwatch13.py", "tests/test_tablet_multiwatch13.py"], "minimum_tests": 13},
+    {"id": "14-plot", "state": "registered", "test_files": ["tests/test_plot_acceptance.py", "tests/test_plot_campaign_flow.py"], "minimum_tests": 14}
+  ]
+}

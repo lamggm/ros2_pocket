@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""Required isolated host campaigns for integrated fronts 13/14.
+
+Called by tools/test.sh --fixture, including the unchanged public CI workflow.
+Never uses a device or changes the ordinary Android native capability policy.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import uuid
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def commands(root, toolchains, image, out):
+    build = out / 'native-hooks'
+    library = build / 'libpocket_core.a'
+    prefix = toolchains / 'host'
+    common = ['-Iapp/src/main/cpp', '-Iapp/src/main/cpp/generated', '-I'+str(prefix/'include')]
+    link = ['-L'+str(prefix/'lib'), '-Wl,-rpath,'+str(prefix/'lib'), '-lddsc', '-lpthread']
+    return [
+        ['cmake', '-S', 'app/src/main/cpp', '-B', str(build), '-G', 'Ninja',
+         '-DCMAKE_PREFIX_PATH='+str(prefix), '-DPOCKET_ENABLE_TEST_HOOKS=ON', '-DCMAKE_BUILD_TYPE=Debug'],
+        ['cmake', '--build', str(build), '--target', 'pocket_core', '--parallel', '2'],
+        ['c++', '-std=c++17', '-DPOCKET_ENABLE_TEST_HOOKS=1', *common,
+         'tests/multiwatch13_native.cpp', str(library), *link, '-o', str(build/'multiwatch13_native')],
+        ['cc', '-c', 'app/src/main/cpp/generated/PocketTypes.c', '-I'+str(prefix/'include'),
+         '-o', str(out/'plot-types.o')],
+        ['c++', '-std=c++17', *common, 'tests/device_plot_writer.cpp', str(out/'plot-types.o'),
+         *link, '-o', str(root/'build/plot-stamped-writer')],
+        *[[sys.executable, 'tests/run_multiwatch13.py', '--image', image,
+           '--binary', str(build/'multiwatch13_native'), '--output', str(out/'multiwatch'), '--rmw', rmw]
+          for rmw in ('rmw_fastrtps_cpp', 'rmw_cyclonedds_cpp')],
+        [sys.executable, 'tests/multiwatch13_mutation_controls.py'],
+        [sys.executable, 'tests/run_plot_host.py', '--image', image,
+         '--toolchains', str(toolchains), '--out', str(out/'plots')],
+        ['./gradlew', '--offline', '--no-daemon', '--max-workers=2', '-Dorg.gradle.jvmargs=-Xmx1g',
+         ':app:testDebugUnitTest', '--rerun-tasks'],
+    ]
+
+
+_REPLAY_CLASS = 'com.lamggm.rospocket.PlotDdsReplayTest'
+_REAL_REPLAY = 'bothRealRmwStreamsTraverseModelWindowAndCompletedCanvas'
+_REPLAY_CASES = frozenset((
+    'emptySelectedControlsAreNotHealthyCanvasEvidence',
+    _REAL_REPLAY,
+))
+_JNI_CLASS = 'com.lamggm.rospocket.RealJniSessionTest'
+_JNI_CASE = 'realJniLeaseFailureReceiptPollRecoveryAndSurvivors'
+_JNI_SKIP_MESSAGE = 'Explicit isolated host JNI gate only'
+
+
+def _read_java_report(path, allow_jni_skip):
+    try:
+        suite = ET.parse(path).getroot()
+    except (OSError, ET.ParseError) as exc:
+        raise ValueError(f'Invalid or unreadable Java XML report: {path}') from exc
+    if suite.tag != 'testsuite':
+        raise ValueError(f'Java XML report is not a testsuite: {path}')
+    cases = []
+    for child in suite:
+        if child.tag == 'testcase':
+            cases.append(child)
+        elif child.tag == 'properties':
+            for prop in child:
+                if prop.tag != 'property' or list(prop):
+                    raise ValueError(f'Java XML report has an invalid properties entry: {path}')
+        elif child.tag in ('system-out', 'system-err'):
+            if list(child):
+                raise ValueError(f'Java XML report has a non-leaf output element: {path}')
+        else:
+            raise ValueError(f'Java XML report has an unknown root element: {path}')
+    if not cases:
+        raise ValueError(f'Java XML report has no testcases: {path}')
+    counts = {}
+    for key in ('tests', 'failures', 'errors', 'skipped'):
+        raw = suite.get(key)
+        try:
+            counts[key] = int(raw) if raw is not None else -1
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'Java XML report has an invalid {key} count: {path}') from exc
+        if counts[key] < 0:
+            raise ValueError(f'Java XML report has a missing/negative {key} count: {path}')
+    if counts['failures'] or counts['errors']:
+        raise ValueError(f'Java XML report contains failures/errors: {path}')
+    actual = {'tests': len(cases), 'failures': 0, 'errors': 0, 'skipped': 0}
+    allowed_skips = 0
+    for case in cases:
+        if not case.get('classname') or not case.get('name'):
+            raise ValueError(f'Java XML testcase lacks classname/name: {path}')
+        outcome_elements = []
+        for child in case:
+            if child.tag not in ('failure', 'error', 'skipped'):
+                raise ValueError(f'Java XML testcase has an unknown child element: {path}')
+            if list(child):
+                raise ValueError(f'Java XML testcase outcome is not a leaf: {path}')
+            outcome_elements.append(child)
+        outcomes = [child.tag for child in outcome_elements]
+        if len(outcomes) > 1:
+            raise ValueError(f'Java XML testcase has inconsistent outcomes: {path}')
+        if outcomes:
+            outcome = outcomes[0]
+            actual[{'failure': 'failures', 'error': 'errors', 'skipped': 'skipped'}[outcome]] += 1
+            if outcome == 'skipped':
+                skipped = outcome_elements[0]
+                approved = (allow_jni_skip
+                            and suite.get('name') == _JNI_CLASS
+                            and case.get('classname') == _JNI_CLASS
+                            and case.get('name') == _JNI_CASE
+                            and skipped is not None
+                            # Actual Gradle XML emits <skipped/> without the
+                            # Assume message; keep the exact case allowlist.
+                            and (skipped.get('message') == _JNI_SKIP_MESSAGE
+                                 or (skipped.get('message') is None and not (skipped.text or '').strip())))
+                if not approved:
+                    raise ValueError(f'Unexpected skipped Java testcase: {path}')
+                allowed_skips += 1
+    if counts != actual:
+        raise ValueError(f'Inconsistent Java XML case counts: {path}')
+    return suite, cases, allowed_skips
+
+
+def verify_java_reports(directory):
+    reports = sorted(directory.glob('TEST-*.xml'))
+    if not reports:
+        raise ValueError('Missing Java XML reports')
+    allowed_skips = 0
+    for path in reports:
+        _, _, report_skips = _read_java_report(path, allow_jni_skip=True)
+        allowed_skips += report_skips
+    if allowed_skips > 1:
+        raise ValueError('More than one intentional host JNI skip')
+
+
+def verify_replay(path):
+    suite, cases, _ = _read_java_report(path, allow_jni_skip=False)
+    if (suite.get('name') != _REPLAY_CLASS
+            or any(case.get('classname') != _REPLAY_CLASS for case in cases)
+            or len(cases) != len(_REPLAY_CASES)
+            or {case.get('name') for case in cases} != _REPLAY_CASES):
+        raise ValueError('Actual two-RMW DDS/native Canvas replay did not pass unskipped')
+
+
+def verify_multiwatch(record):
+    required = {'mixed_rates', 'fifth_rejected', 'negative_qos', 'qos_recovery',
+                'topic_failure_0', 'reader_failure_0', 'topic_failure_2', 'reader_failure_2',
+                'same_topic', 'remove_same_topic', 'recreate', 'rosout_clear', 'stop'}
+    result = record.get('result', {})
+    cases = result.get('cases')
+    if (record.get('cleanupVerified') is not True or type(record.get('exitCode')) is not int
+            or record['exitCode'] != 0 or not isinstance(cases, list)
+            or not all(isinstance(case, str) for case in cases)
+            or len(cases) != len(required) or set(cases) != required
+            or result.get('classification') != 'host-isolated-real-dds-not-android'):
+        raise ValueError('Incomplete real multiwatch DDS result')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--image', required=True, help='Existing immutable/local image; never pull')
+    args = parser.parse_args()
+    toolchains = Path(os.environ.get('POCKET_TOOLCHAINS', str(Path.home()/'.cache/ros2-pocket/toolchains'))).resolve(strict=True)
+    out = ROOT / 'build/host-campaigns' / ('run-'+uuid.uuid4().hex)
+    out.mkdir(parents=True)
+    (out/'multiwatch').mkdir()
+    env = dict(os.environ, POCKET_TOOLCHAINS=str(toolchains), POCKET_PLOT_DDS_RECORDS=str(out/'plots'))
+    # Snapshot the actual working source, not only its branch label.
+    def source():
+        return subprocess.run([sys.executable, 'tools/artifact_metadata.py', '--source'], cwd=ROOT,
+                              env=env, check=True, capture_output=True, text=True, timeout=20).stdout
+    before = source()
+    (out/'source-before.json').write_text(before)
+    for index, command in enumerate(commands(ROOT, toolchains, args.image, out)):
+        print('INTEGRATED_HOST_GATE', index, json.dumps(command), flush=True)
+        subprocess.run(command, cwd=ROOT, env=env, check=True, timeout=600)
+    records = list((out/'multiwatch').glob('*.json'))
+    rmws = set()
+    for path in records:
+        record = json.loads(path.read_text())
+        verify_multiwatch(record)
+        rmws.add(record['rmw'])
+    expected = {'rmw_fastrtps_cpp', 'rmw_cyclonedds_cpp'}
+    if len(records) != 2 or rmws != expected:
+        raise ValueError('Missing two-RMW multiwatch campaign')
+    for rmw in expected:
+        record = json.loads((out/'plots'/rmw/'result.json').read_text())
+        if record.get('passed') is not True or record.get('rmw') != rmw:
+            raise ValueError('Incomplete real plot DDS result')
+    xml = ROOT/'app/build/test-results/testDebugUnitTest'
+    verify_replay(xml/'TEST-com.lamggm.rospocket.PlotDdsReplayTest.xml')
+    verify_java_reports(xml)
+    shutil.copytree(xml, out/'java-xml')
+    after = source()
+    (out/'source-after.json').write_text(after)
+    if before != after:
+        raise ValueError('Source changed during integrated host campaigns')
+    report = dict(status='passed', classification='host-dds-native-canvas-NOT-Android', rmws=sorted(rmws),
+                  output=str(out), replay='unskipped', physicalAccepted=False)
+    (out/'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    print('INTEGRATED_HOST_RESULT', json.dumps(report), flush=True)
+
+
+if __name__ == '__main__':
+    main()
