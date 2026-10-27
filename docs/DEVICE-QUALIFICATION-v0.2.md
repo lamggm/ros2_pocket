@@ -1,11 +1,17 @@
-# Qualificação v0.2 — preparação, não aceite físico
+# Qualificação estendida v0.2 — preparação, não aceite físico completo
 
-**Estado: pendente.** Esta frente entrega um validador de relatórios e um plano
-pré-declarado, não um candidato aprovado. Nenhum comando deste toolkit instala,
-lança, modifica ou consulta automaticamente um dispositivo, publica DDS, altera
-Wi-Fi/VPN/firewall ou faz merge. A integração continua draft até os gates reais.
-Os 16 checks históricos do protótipo **não** qualificam a integração v0.2.
-Existência de branch, código compilável ou CI verde não prova entrega de uma frente.
+**Estado da qualificação estendida: pendente.** O operador aprovou uma entrega
+menor de **protótipo de bancada**, com critérios e evidências em
+[FINALIZATION-v0.2.md](FINALIZATION-v0.2.md). A matriz extensa abaixo não é bloqueio
+dessa entrega limitada; continua obrigatória para alegar qualificação completa.
+Nenhum gate, orçamento, validador ou resultado histórico foi alterado ou aprovado
+por essa redução de escopo. O smoke curto no tablet não satisfaz a matriz inteira.
+
+Este toolkit entrega um validador e plano pré-declarado, não um candidato aprovado.
+Nenhum comando instala, lança, modifica ou consulta automaticamente um dispositivo,
+publica DDS, altera Wi-Fi/VPN/firewall ou faz merge. Promoção para `main` exige
+autorização própria. Os 16 checks históricos do protótipo não qualificam a
+integração v0.2. Branch, código compilável ou CI verde não provam aceite completo.
 
 ## Snapshot e limites de confiança
 
@@ -15,7 +21,21 @@ versões do APK, tamanho/hash, ABIs, certificado e classe de assinatura. Não ed
 metadados para fazê-los coincidir. O APK deve ser o mesmo verificado por
 `aapt2`/`apksigner`; a qualificação confere seus bytes, não reimplementa Android signing.
 
+O contrato v1 exige `test_hooks` explicitamente **boolean false**, tanto no candidato
+normal não instrumentado quanto na evidência `installed-apk`. True, ausente, null,
+zero numérico e strings são inválidos. Metadados legados têm capacidade desconhecida;
+a migração exige inspeção fresca dos binários exatos e novo relatório vinculado,
+nunca inserir false em evidência antiga. Binário sem marcador reconhecido exige
+rebuild, não edição do JSON. Veja o [contrato e migração](READER-FAILURE-TESTS.md).
+Nenhum orçamento/plano de soak ou gate físico é dispensado por este campo.
+
 - `init` e `evaluate` conferem fonte atual e tamanho/SHA-256 do APK local.
+  **Ambos os esquemas** reinspecionam todos os ELF/ABIs: v1 exige exatamente OFF;
+  apagar campos de diagnóstico não autoriza um binário ON/desconhecido. `analyze-soak`,
+  `record` do soak e a API de avaliação também exigem os bytes do candidato.
+  Use `--apk` explicitamente com analyze/record; por compatibilidade, se omitido,
+  `metadata.apk` é resolvido ao lado do JSON (caminho absoluto também é inspecionado).
+  Arquivo ausente, hash divergente ou política desconhecida bloqueiam; não há waiver JSON.
 - Todo resultado registrado vincula-se ao snapshot completo e a arquivos locais
   não vazios com SHA-256. Ausência, alteração, escape do diretório e duplicação de
   evidência são recusados. JSON duplicado, não finito ou maior que 4 MiB é recusado.
@@ -143,20 +163,106 @@ Sem CPU/PSS/intake/bateria numéricos finitos, identidade, carga ou duração/ca
 Medição completa que excede orçamento retorna `failed`. Nenhuma média/contagem é
 inventada ou extraída de labels sem observação real.
 
-### Captura manual somente leitura — não executada por esta preparação
+### Coletor oficial somente leitura — execução física ainda pendente
 
-Não há coletor ADB automático neste incremento. O analisador puro foi escolhido
-para não presumir acesso a contadores que a UI/Android podem não fornecer. Um
-operador autorizado deve preparar captura **limitada** a 1800 s, no máximo 122
-pontos, período 15 s e timeout de 5 s por leitura. Use relógio monotônico do mesmo
-host e deadline absoluto, não somas de `sleep` que escondem custo das consultas.
-Se a coleta estourar a cadência, interromper ou perder qualquer métrica, preserve
-a tentativa como incomplete; não interpole. Não execute ADB sem autorização.
+`tools/collect_soak.py` consome o contrato real de `Activity.dump` através de
+`tools/device_snapshot.py`, sem UIAutomator, captura de acessibilidade, novo
+reader ou publicação DDS. **Não executá-lo em dispositivo sem nova autorização.**
+O desenvolvimento/teste host desta ferramenta não é um soak físico.
 
-Exemplos de leituras pontuais (não formam um coletor; definir SERIAL explicitamente
-no terminal privado; timeout é do host). Recuse serial vazio, mais de um PID e
-qualquer cmdline que não seja **exatamente** `com.lamggm.rospocket.dev` antes de
-capturar; revalide PID/cmdline em cada ponto e encerre se o processo mudar:
+Antes da campanha, o operador prepara os quatro produtores **2 Hz**, deixa o
+mesmo APK candidato em processo ordinário, todos os watches saudáveis e o gráfico
+finito totalmente visível/despausado. O arquivo `load-plan.json` é o objeto exato
+`soak_plan` da CLI `qualification.py matrix`, revisado antes da coleta. Ele não é
+uma configuração de orçamento nem comprova sozinho a frequência do produtor;
+retenha também a evidência da configuração da fixture. Não existe contrato de
+introspecção da taxa configurada do publicador no QA e o coletor não o inventa.
+
+Somente após autorização física explícita, em terminal privado:
+
+```bash
+python3 tools/collect_soak.py preflight \
+  --repo . --metadata build/artifacts/app-debug.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk \
+  --serial "$SERIAL" --authorize-read-only \
+  --load-plan build/qualification/load-plan.json \
+  --output-dir build/qualification/preflight-NOVO
+# Para candidato ON, adicionar a ambos os comandos:
+# --os-transport-validation build/qualification/os-transport-validation.json
+python3 tools/collect_soak.py collect \
+  --repo . --metadata build/artifacts/app-debug.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk \
+  --serial "$SERIAL" --authorize-read-only \
+  --load-plan build/qualification/load-plan.json \
+  --output-dir build/qualification/soak-NOVO
+```
+
+- `preflight` consulta identidade, clocks, OS e QA, mas **sempre** sai `1`/incomplete:
+  não mede CPU/intake por 30 minutos nem concede aceite. Revise seu evento
+  `preflight-observation`; ausência deste evento indica preflight bloqueado.
+- `collect` não aceita duração, cadência, número de watches ou budgets alternativos.
+  Há uma janela prévia real de 15 s para o primeiro delta CPU, seguida de 121 pontos
+  em deadlines absolutos; um 122º ponto fecha a duração mínima se o jitter das
+  leituras deixar o 121º abaixo de 1800 s. Todo intervalo continua 13–17 s e o span
+  aceito continua 1800–1815 s. Não há interpolação, catch-up ou resume.
+- Cada comando tem timeout absoluto **≤5 s**, stdout/stderr limitados e cleanup do
+  próprio subprocesso. Todas as consultas de uma amostra compartilham ainda um
+  deadline de 5 s. Transporte lento/SELinux/getconf ausente bloqueiam, sem fallback.
+- PID único, cmdline exato, UID e `/proc/PID/stat`/starttime são reconferidos e
+  cercam OS/QA/métricas. `getconf CLK_TCK` é lido de novo em cada ponto. CPU usa
+  delta exato `utime+stime / CLK_TCK / delta monotônico ×100`, um core, e verifica
+  continuidade de uptime do dispositivo; não compara relógio Java com host.
+- Os bytes/hash/ABI/política do APK local são reinspecionados; `pm path` monolítico
+  e `sha256sum` do APK instalado devem coincidir em cada amostra. A CLI verifica
+  também fonte/proveniência e, para ON, package/assinatura/metadados reais pelos
+  verificadores existentes. Nenhuma assinatura ou instalação é realizada.
+- OFF continua exigindo capability boolean false; ON continua true mesmo disarmed.
+  Ambos recusam lease/runner/fault/ticket/operação ativos ou desconhecidos. O
+  transporte OS conservador exige API36 e o parser AOSP já versionado; builds ou
+  campos não suportados bloqueiam. ON exige previamente o atestado físico de
+  controles OS positivo/negativo para o mesmo hash de build. Nada gera esse
+  atestado automaticamente nem classifica controle sintético como físico.
+- Cada ponto cerca a captura com **OS-before → export fence Java → captura worker
+  estritamente posterior → OS-after**. Requests/readers/session/lifecycle/policy,
+  UUID do processo, contadores, export clocks e sequência não podem regredir ou
+  trocar. Uma captura ainda igual ao fence pode aguardar dentro do deadline;
+  entrada malformada ou identidade divergente nunca é escondida por retry.
+- PSS TOTAL (KiB), bateria `level/scale`, todas as fontes de alimentação conhecidas
+  e status são lidos de verdade; power conectado, bateria com updates parados,
+  campos ausentes/desconhecidos e ambiguidade bloqueiam. Não há zeros substitutos.
+- `events.jsonl` é progressivo, privado (0600 em diretório 0700), fsync por evento,
+  limitado a 20.000 registros/32 MiB. O orçamento de 32 MiB é o menor bound
+  deliberadamente escolhido que suporta a campanha sintética pública com frame QA
+  válido de 24.448 bytes de payload, 121–122 pontos completos e folga observada;
+  ele ainda deixa o cap absoluto independente de 20.000 registros. Guarda leituras do alvo em base64 e hashes/
+  intervalos; protobuf OS e fingerprint ficam **somente hash/tamanho**, para não
+  reter argumentos ou processos alheios. A rejeição por esgotamento mantém esse
+  teto; eventos terminais são best-effort e não podem impedir os snapshots
+  `incomplete` de `soak-input.json` e `analysis.json`, que continuam atômicos.
+  `soak-input.json` é substituído atomicamente a cada ponto e `analysis.json`
+  contém o retorno oficial.
+- Na regressão pública sintética follow-up, o frame QA foi aceito pelos parsers
+  reais e a campanha reteve 12.718.837 bytes em 4.253 registros para 121 pontos;
+  restaram 20.835.595 bytes e 15.747 registros antes dos caps. O `soak-input.json`
+  resultante teve 3.971.216 bytes, abaixo do limite compartilhado de serialização
+  de 4 MiB. Isso é classificação host-only sintética, não soak físico, Android,
+  ADB ou aceite de bateria/CPU/PSS.
+- Diretório de saída deve ser novo e estar sob `build/` desta fonte; arquivo,
+  symlink, tentativa anterior ou execução interrompida não são retomados. SIGINT/
+  SIGTERM preservam pontos completos e deixam incomplete; SIGKILL/falha de disco
+  pode deixar apenas o último snapshot atômico/journal parcial, jamais PASS. O
+  analisador recusa envelope oficial incomplete, curto ou inconsistente e revalida
+  clocks/CPU/identidades/QA/OS dos coletores OFF e ON. O input manual legado mantém
+  seu contrato separado; não se transforma em saída autenticada do coletor.
+
+Saídas do coletor: `0` = coleta completa e análise de métricas passed (não aceite
+físico/ready); `1` = preflight, incomplete ou failed; `2` = entrada/saída inválida.
+Não commitar nem publicar arquivos da campanha. Fixture, controles OS físicos,
+revisão independente, screenshot e aceite final continuam pendentes.
+
+As leituras pontuais abaixo documentam as entradas do coletor; não compõem uma
+campanha e continuam exigindo autorização. Defina SERIAL explicitamente e recuse
+serial vazio, múltiplos PIDs ou cmdline divergente:
 
 ```bash
 : "${SERIAL:?defina explicitamente o dispositivo autorizado}"
@@ -196,12 +302,14 @@ Formato do JSON bruto (valores abaixo descrevem tipos, não medições de exempl
 
 ```bash
 python3 tools/qualification.py analyze-soak \
-  --metadata build/artifacts/app-debug.json --input build/qualification/soak-input.json
+  --metadata build/artifacts/app-debug.json --input build/qualification/soak-input.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk
 # Se passed, registrar o INPUT bruto como evidência, não o resumo acima.
 python3 tools/qualification.py record \
   --repo . --metadata build/artifacts/app-debug.json \
   --report build/qualification/report.json --evidence-root build/qualification \
-  --gate soak --status passed --evidence soak-input.json
+  --gate soak --status passed --evidence soak-input.json \
+  --apk app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## Segurança e execução futura
@@ -219,3 +327,41 @@ Incluem controle positivo inteiramente **sintético de validação do relatório
 seu ready comprova apenas o algoritmo, nunca aceite físico. Build Android,
 interoperabilidade, campanhas de rede, soak e aceite permanecem execuções futuras
 separadas para o SHA/APK final integrado.
+
+## Fail-closed diagnostic consumer details
+
+The pinned Android16 parser validates every accepted field recursively, including
+foreign process/instrumentation records, wire types, duplicate scalars, booleans,
+PID conflicts and duplicate active records. Unknown **or unsupported** root/nested
+sections reject the observation; no opaque protobuf payload proves absence.
+The supported schema is an explicit subset of `android-16.0.0_r1` AOSP
+`activitymanagerservice.proto`, `package_item_info.proto`, `component_name.proto`,
+`bundle.proto` and `util/common.proto`. Complex root sections not yet supported
+remain blocked, even if legitimate. A real vendor positive/negative transport
+control is still mandatory and may require extending the strict typed subset;
+synthetic parser tests do not establish device support.
+
+Every sample requires a positive Java export fence strictly newer than the prior
+same-process fence, capture and export. Its worker capture must be strictly newer
+than this fence, with advancing sequence/time and exact PID/starttime/instance.
+Host ordering/deadlines remain separate; host clocks are never compared with Java.
+
+Graph acceptance consumes actual completed `drawnSeries` statistics, not prepared
+list length: ordered series indices, current live slot/reader association, bounded
+exact integer counts with finite points, coherent receive-time range and recent
+newest data. It checks `observedMonotonicNs == exportedMonotonicNs` (the actual
+Activity passes the same timestamp), positive draw time and exact observed−draw
+age. The exported series identifies a slot, not a separate reader-generation
+field; association uses that sample's coherent watch plus stable campaign reader
+identity, without inventing a stronger producer field.
+
+Metadata outputs use exclusive unpredictable staging files and atomic per-file
+replacement without following destination symlinks. Both files are staged first;
+the sidecar is published before the candidate commit point. This is not a
+multi-file filesystem transaction: after an interrupted partial publish, require
+its `target_sha256` and `target_source_snapshot` to equal the candidate before
+using a sidecar. Never infer coherence from filenames or successful parsing.
+
+## Explicit diagnostic DEV migration
+
+See [ANDROID-DIAGNOSTIC-POLICY.md](ANDROID-DIAGNOSTIC-POLICY.md) for metadata/report/soak schema 2, binary-derived capability, coherent cache-only runtime evidence and mandatory independent per-sample OS instrumentation proofs. Ordinary v1 remains explicit boolean false. Diagnostic compiled capability remains true while disarmed. Same candidate APK throughout; no transferred passes. Android/vendor OS positive control and physical/soak acceptance remain **UNVERIFIED**.

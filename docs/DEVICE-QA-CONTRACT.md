@@ -35,7 +35,7 @@ The JSON is metadata-only and limited to **24,576 UTF-8 bytes**. Native snapshot
 - `watches`: exactly four entries in slot order `0..3` for a captured sample. An invalidated/not-yet-captured sample has an empty array, `valid:false`, no capture/session fields and null capture age. Absence does not mean zero counts.
 - `foreground`: Activity-started/current-owner observation. Consumers must also require chart visibility/focus; this flag alone does not prove the Activity is unobscured.
 - `applicationId`, `versionName`, `versionCode`, `debuggable`, `pid`: compiled/runtime identity metadata. Version metadata is not a Git/APK identity. Bind independently to the exact installed APK hash/certificate and build provenance; version finalization belongs to increment 15.
-- `testHooks`: currently `{ "capability": "unavailable", "armed": null }`. **Unknown is not disarmed.** Increment 12 must implement the verified capability/arming producer before increment 11 accepts a soak. No test hook is added here.
+- `testHooks`: nested schema-2 coherent cached native/Java diagnostic state from increment 12. A fresh OFF binary reports boolean `capability:false`; explicit diagnostic ON reports `capability:true` and `contract:ros-pocket-dds-fault-v1`, even while disarmed. Missing, malformed, mixed, revision-invalidated or stale state reports `valid:false`/unknown, never safe false. See [the diagnostic policy](ANDROID-DIAGNOSTIC-POLICY.md) for required identities and independent OS proofs. The public watch coherence rules are unchanged.
 
 Invalidation occurs on Stop, explicit disconnect/new connection, native teardown/network loss, and primary/extra request replacement/removal. Epoch checks reject in-flight old polls; native reader fences reject an obsolete generation even after a same-topic QoS request has applied. The next genuine coherent worker poll is required for recovery.
 
@@ -91,3 +91,7 @@ Selectors do not make an off-screen View accessible. The dump exists specificall
 ## Verification boundaries
 
 Host Robolectric tests exercise the actual Java Activity/Views/worker queue with an explicit JNI test double: dump side effects, exact integers, slot fences/order, lifecycle/network invalidation, expiry, bounded metadata, selectors and frozen-display/advancing-intake separation. `QaDumpGateTest` runs in debug **and** release variants. Native DDS interoperability remains covered by the existing isolated fixture suites. No synthetic host test is physical-device evidence; physical preflight, soak, RF/IP interruption and operator acceptance remain separate gates.
+
+## Explicit diagnostic DEV migration
+
+See [ANDROID-DIAGNOSTIC-POLICY.md](ANDROID-DIAGNOSTIC-POLICY.md) for metadata/report/soak schema 2, binary-derived capability, coherent cache-only runtime evidence and mandatory independent per-sample OS instrumentation proofs. Ordinary v1 remains explicit boolean false. Diagnostic compiled capability remains true while disarmed. Same candidate APK throughout; no transferred passes. Android/vendor OS positive control and physical/soak acceptance remain **UNVERIFIED**.

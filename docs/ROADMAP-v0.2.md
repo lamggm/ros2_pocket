@@ -6,6 +6,19 @@
 
 **Stack atual:** Java Android, JNI/C++, Cyclone DDS 0.10.5, Jazzy como alvo de interoperabilidade, JDK 17, Gradle 8.7/AGP 8.5.2, Android SDK 35 e NDK r28c.
 
+## Estado atual e condução
+
+Este roadmap preserva o plano e o baseline históricos. O estado reconciliado,
+a validação host e as pendências estão em [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md).
+A orientação atual em `AGENTS.md` é uma tarefa delimitada por vez, com validação
+proporcional. Autorizações históricas de paralelismo não são permanentes.
+O operador autorizou o merge da PR #12 e o escopo de **protótipo de bancada**.
+Os critérios atuais de entrega estão em [FINALIZATION-v0.2.md](FINALIZATION-v0.2.md):
+validação host/CI, APK identificado e teste curto real de gráfico/pausa/retomada.
+Wi-Fi/IP, qualificação física extensa e soak ficam no backlog, não bloqueiam o
+protótipo e não recebem PASS. A promoção para `main` e release exigem autorização
+separada. Os contratos de leitura, dados obsoletos, buffers e segurança não mudam.
+
 ## Baseline observado
 
 - `main`: `295753e8ee5de83da458a304fb139a5c35228557`.
@@ -29,13 +42,13 @@ main (baseline estável)
         └── test/v0.2-08-device-qualification
 ```
 
-- As oito branches são frentes paralelas, por decisão do operador. A sequência indica prioridade de merge e dependências; não exige esperar o incremento anterior para iniciar trabalho independente.
+- Oito branches foram usadas como frentes paralelas na implementação histórica. O padrão atual é sequencial, conforme `AGENTS.md`; novo paralelismo requer autorização explícita para a tarefa.
 - Cada frente usa worktree própria. Ao avançar a integração, incorporar `origin/integration/v0.2` nas branches ativas por merge e revalidar; não reescrever história compartilhada com rebase/force-push.
 - Criar cada branch de trabalho a partir da **integração já atualizada**; PR com base em `integration/v0.2`, nunca em `main`.
 - TDD para comportamento novo: demonstrar RED, implementar mínimo, obter GREEN e fazer revisão antes do merge.
 - Squash dos incrementos na integração. Depois de cada merge: testar o conjunto na integração e gerar candidato identificado pelo SHA.
 - Evitar trabalho simultâneo no mesmo checkout/dispositivo; trabalho paralelo independente usa worktree própria.
-- Manter PR de integração → main em draft. Não habilitar auto-merge. Remover draft somente após os gates finais e aceite do operador no tablet.
+- Manter PR de integração → main em draft e sem auto-merge até autorização própria do operador. O escopo atual é o protótipo definido em `FINALIZATION-v0.2.md`; qualificação extensa não é bloqueio automático dessa entrega limitada.
 - Merge final por merge commit, preservando os incrementos auditáveis. Não reescrever a história pública.
 - Este plano não modifica proteção de branch, acesso, VPN, firewall ou configurações do robô.
 
@@ -131,7 +144,9 @@ ligados aos snapshots tipados de cada um dos quatro readers, incluindo todos os
 87 campos numéricos de Odometry, com identidade por slot/reader/sessão.
 Limites, contratos e regressões reais isoladas estão em [LIVE-PLOTS.md](LIVE-PLOTS.md).
 Fixtures DDS e Robolectric não substituem revisão independente, CI do SHA final
-nem qualificação física/endurance e aceite do operador, que permanecem gates.
+nem teste físico. O smoke curto no tablet passou no escopo documentado em
+`FINALIZATION-v0.2.md`; qualificação física extensa/endurance seguem pendentes,
+sem bloquear o protótipo autorizado.
 
 ### 08 — Qualificação física e candidato v0.2
 
@@ -139,7 +154,12 @@ nem qualificação física/endurance e aceite do operador, que permanecem gates.
 
 **Entregas:** matriz de aceitação da integração, correções pequenas encontradas, notas de versão e APK candidato rastreável. Nenhuma função extra de última hora.
 
-**Gates obrigatórios:**
+**Plano original de qualificação estendida (preservado):**
+
+A lista abaixo continua obrigatória para alegar qualificação completa, não para
+o escopo reduzido autorizado. Os critérios vigentes do protótipo e a evidência
+curta já executada estão em `FINALIZATION-v0.2.md`. Nenhum resultado antigo foi
+convertido em PASS; os validadores extensos permanecem inalterados.
 
 - Testes/lint/build/secret scan do SHA final; todos os incrementos revisados.
 - Interoperabilidade Jazzy Fast DDS e Cyclone DDS e domínio incorreto isolado.
@@ -153,6 +173,39 @@ nem qualificação física/endurance e aceite do operador, que permanecem gates.
 
 Parâmetros, chamadas de serviços/actions, publicação/teleop, gravação rosbag, imagens/mapas/TF/RViz e tipos customizados dinâmicos. Parâmetros usam RPC ROS 2: antes de prometer leitura/edição, fazer spike explícito sobre cliente rcl/RMW versus implementação de serviços em DDS, interoperabilidade e modelo de timeout. Operações de escrita exigem outra decisão de produto e testes de segurança; não entram por acidente porque a UI ganhou um botão.
 
-## Estado desta preparação
+## Histórico — preparação paralela 11–15
 
-Manter a integração e o PR draft, com as oito branches de trabalho preparadas e worktrees isoladas para desenvolvimento paralelo. Esta preparação altera apenas documentação e estrutura de branches; não implementa funções nem faz merge em main. Cada frente avança por tarefa explícita e respeita os contratos e gates acima.
+Esta seção registra o plano daquela rodada, não trabalho atual nem autorização
+permanente. A reconciliação e revisão já concluídas estão em `FINALIZATION-v0.2.md`.
+
+O operador autorizou implementar **11/12/13/14/15 em paralelo**, em worktrees
+isoladas, com reconciliação posterior pelo pai e testes físicos quando o tablet
+estiver disponível. Isso substitui a espera para iniciar implementação; não
+remove dependências de integração, revisão, CI do SHA exato ou gates físicos.
+Nenhum Android (tablet ou emulador) é operado nesta rodada.
+
+Os incrementos 01–10 já têm fonte na história disponível. A base local da rodada
+é `796b59aaf50a468344b825f693331e11bdabb06e`, recuperação do conteúdo revisado da
+12 sobre `7b2dc76de3679935fac5adf69839818e8ca5a914`, **não** o commit upstream
+original atribuído `7a5e841811f66bcb660da0f9b2b901f1aa272c68`. Presença de código,
+recuperação ou teste isolado não significa aceite integrado/físico.
+
+- **11:** coletor de soak e consumidores QA/OS, mantendo plano e orçamentos oficiais.
+- **12:** revisão independente da recuperação e regressões reais, sem inventar história.
+- **13:** fixture/harness multiwatch próprios, limite/quinto pedido/QoS/falha/logs novos.
+- **14:** fixture/harness gráficos próprios, gaps/clock/pausa/eviction/Canvas real.
+- **15:** identidade `0.2.0`/code `2`, UI derivada do BuildConfig, regressões e
+  documentos/checklist; CI com registro obrigatório **pendente** de 11/13/14.
+
+A 15 pode preparar versão/CI antes de as outras integrarem, mas não pode congelar
+candidato final nem declarar ready. O [checklist de reconciliação](FINALIZATION-v0.2.md)
+distingue fonte implementada de aceite pendente por incremento e descreve o
+registro fail-closed. A revisão independente e reconciliação combinada continuam
+pendentes. Fonte/documentos devem terminar antes do build do futuro candidato;
+um APK novo recebe hash/metadados próprios e não herda testes físicos antigos.
+
+Estado vigente: integração → main draft e sem auto-merge até autorização própria.
+A PR #12 tem merge autorizado. Wi-Fi/IP com recuperação autorizada, soak oficial
+de 30 minutos e qualificação extensa continuam pendentes, fora dos bloqueios do
+protótipo. Sem assinatura release, tag, loja ou publicação implícitas. Não repetir
+o smoke físico nem abrir campanhas automaticamente.
