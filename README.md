@@ -12,11 +12,14 @@ Follow the [v0.3 roadmap](docs/ROADMAP-v0.3.md): reconcile the final v0.2 base �
 bench navigation → local profiles (storage, then explicit application) →
 bounded closeout. Implementation PRs target `integration/v0.3`, not `main` or
 `integration/v0.2`. Read [AGENTS.md](AGENTS.md) before agent-driven work.
-This navigation increment groups the existing controls into **Conexão**, **Tópicos**,
-**Monitor** and **Logs** without creating another DDS session or worker. Local
-profiles are still planned, **not implemented**. LaserScan, user-facing export
-and numeric batches remain out of this cycle. Physical navigation/orientation
-smoke is pending explicit authorization; host checks are not device acceptance.
+Navigation groups the existing controls into **Conexão**, **Tópicos**, **Monitor**
+and **Logs** without creating another DDS session or worker. It was integrated in
+[PR #15](https://github.com/lamggm/ros2_pocket/pull/15), merge `de3c254`, with passing
+CI 40537386529 and a bounded 11-check real-tablet smoke of source `a86cf7d`.
+The local-profile increment is implemented on `feat/v0.3-02-bench-profiles`, not
+yet integrated or accepted on the physical tablet. See [local profiles](#local-profiles).
+LaserScan, user-facing export and numeric batches remain out of this cycle.
+Host checks are not device acceptance; navigation evidence does not qualify profiles.
 
 **Inherited v0.2:** [PR #1](https://github.com/lamggm/ros2_pocket/pull/1) was
 merged into `main` at `c659b8521c093aacc3ccecd0855c07727398db2b`; the
@@ -54,6 +57,48 @@ refuse physical Wi-Fi binding; if needed, **the device owner** may explicitly
 exclude this app from the VPN. The app never changes VPN settings itself. An
 excluded app cannot use the VPN/tailnet connection.
 
+## Local profiles
+
+In **Conexão**, below the connection diagnostics, **Perfis locais** stores named
+bench configurations: Domain ID, optional IPv4 peer, four watch slots (including
+empty slots), their requested topic/type/QoS, and up to four numeric graph fields.
+Only configuration is saved, never samples, live counters or DDS handles.
+
+1. Configure the connection/watches/graph using the existing controls.
+2. Choose **Novo perfil**, enter a name, then **Salvar configuração atual**.
+3. Selecting an existing profile only chooses the target for operations. Saving
+   explicitly replaces that profile with the current configuration; **Renomear**
+   changes only its name. Deletion requires confirmation and does not alter a
+   running session.
+4. Disconnect explicitly, select a saved profile and tap **Aplicar**. Application
+   while connected (including reconnecting) is blocked. Apply loads the requested
+   configuration without creating any DDS readers.
+5. Tap **Conectar** separately. Unavailable topics/type mismatches remain explicit,
+   never silently replaced. Saved graph fields wait for fresh matching typed data;
+   no old points are restored. A checked restored field can be unchecked normally.
+
+Once a profile catalog exists, process restart starts disconnected even if legacy
+connection preferences requested reconnection. The **last explicitly applied
+configuration snapshot** is restored, not the last selected or subsequently edited
+profile. Deleting that last-applied profile also clears its startup snapshot (as
+stated in the confirmation); it does not change the current configuration/session.
+The applied snapshot takes precedence over Android's automatically saved View
+drafts during Activity restoration. Home/return within the same Activity retains the existing foreground-only
+connection policy. Apply/disconnect never leaves saved samples masquerading as live.
+
+Schema v1 limits: 16 profiles, unique case-insensitive names of 1–48 Unicode
+characters / 128 UTF-8 bytes, no control/format characters, file at most 128 KiB,
+four slots, four unique numeric fields from the existing standard decoders.
+The private `bench-profiles-v1.json` uses Android `AtomicFile`, bounded reads,
+explicit saves and a stale-writer guard. Invalid/unknown schemas preserve the
+file and legacy preferences, disable profile edits and block automatic connection;
+the user can still connect manually. Reopen after resolving the file problem;
+there is intentionally no destructive reset button. A failed save is reported,
+not converted into a successful empty catalog. Disk I/O occurs only in bounded
+manual UI operations/startup, never on the DDS worker. This is not a claim of
+power-loss durability or a multi-process database. No cloud, sync, account,
+import/export, new permissions or native DDS/JNI changes are included.
+
 ## Features and limits
 
 Connection states, recovery, and the additive session/JNI contract for downstream
@@ -83,8 +128,10 @@ workstreams are documented in [connection diagnostics](docs/connection-diagnosti
   deserialization, including graph/log traffic; not a total-process memory bound.
 - Default QoS: **best effort / volatile**. A reliable reader cannot match a
   best-effort writer; a transient-local reader cannot match a volatile writer.
-- Foreground-only: Stop releases DDS and multicast resources. Returning reconnects;
-  a process restart retains domain/peer/QoS, but requires selecting the topic again.
+- Foreground-only: Stop releases DDS and multicast resources. Returning reconnects
+  within the existing Activity. Legacy process restart retains domain/peer/QoS;
+  with a profile catalog it starts disconnected, restoring only the last explicitly
+  applied configuration and awaiting new samples after explicit connection.
 - IPv4, same-Wi-Fi-LAN operation. `DontRoute=true` filters distant VPN/Docker DDS
   locators. Routed subnets, IPv6-only networks and SROS2/DDS Security are not
   supported or validated by this prototype.

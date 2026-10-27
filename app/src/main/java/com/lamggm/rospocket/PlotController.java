@@ -27,6 +27,32 @@ final class PlotController {
  private final LinkedHashMap<String,Field> available=new LinkedHashMap<>();
  private final LinkedHashMap<String,Long> sequences=new LinkedHashMap<>();
  private final Map<String,PlotHistory.Source> sources=new HashMap<>();
+ private BenchProfiles.Profile profile;
+ private final List<BenchProfiles.Series> profileChoices=new ArrayList<>();
+ synchronized void configureProfile(BenchProfiles.Profile p){
+  for(PlotHistory.Series s:history.snapshot())history.remove(s.id);
+  profile=p;profileChoices.clear();profileChoices.addAll(p.plots);resetRevision=++revision;
+ }
+ private boolean profileWatch(BenchProfiles.Series choice,String watch){
+  if(profile==null)return false;
+  String topic=profile.watches.get(choice.slot).wire.substring(2);
+  return watch.equals("Watch "+(choice.slot+1)+" · "+topic)||(choice.slot==0&&watch.equals(topic));
+ }
+ synchronized List<BenchProfiles.Series> profileSelection(){
+  LinkedHashMap<String,BenchProfiles.Series> selected=new LinkedHashMap<>();
+  for(BenchProfiles.Series s:profileChoices)selected.put(s.key(),s);
+  for(PlotHistory.Series s:history.snapshot())if(s.provenance.slot>=0){BenchProfiles.Series choice=new BenchProfiles.Series(s.provenance.slot,s.path);selected.put(choice.key(),choice);}
+  return new ArrayList<>(selected.values());
+ }
+ synchronized List<String> pendingProfileFields(){
+  List<String> pending=new ArrayList<>();
+  for(BenchProfiles.Series choice:profileChoices){boolean ready=false;for(Field f:available.values())if(f.path.equals(choice.path)&&profileWatch(choice,f.watch))ready=true;if(!ready)pending.add("Watch "+(choice.slot+1)+" · "+choice.path);}
+  return pending;
+ }
+ synchronized void removeSelection(String id){
+  int split=id.indexOf('\n');if(split>=0){String watch=id.substring(0,split),path=id.substring(split+1);profileChoices.removeIf(s->s.path.equals(path)&&profileWatch(s,watch));}
+  history.remove(id);revision++;
+ }
  private long nativeSession=-1,nativeReader=-1;
  private final long[] readers={-1,-1,-1,-1},minimumReaders={-1,-1,-1,-1};
  private final String[] slotWatches={"","","",""};
@@ -78,6 +104,7 @@ final class PlotController {
   for(Field field:frame.fields){
    if(!field.watch.equals(key)||field.path.length()>256||key.length()>512||(field.unit!=null&&field.unit.length()>64))continue;
    if(available.size()<MAX_FIELDS*4)available.put(field.id(),field);
+   for(BenchProfiles.Series choice:profileChoices)if(choice.slot==frame.provenance.slot&&choice.path.equals(field.path)&&profileWatch(choice,key))history.select(field.id(),field.path,field.unit,frame.provenance);
    present.add(field.id());history.append(field.id(),frame.received,field.value,frame.source,frame.provenance);
   }
   for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(key+"\n")&&!present.contains(s.id))history.append(s.id,frame.received,null,frame.source,frame.provenance);
@@ -112,6 +139,7 @@ final class PlotController {
  }
  static String watchName(int slot,JSONObject row){return "Watch "+(slot+1)+" · "+row.optString("subscription");}
  synchronized void requestSlot(int slot){
+  profileChoices.removeIf(s->s.slot==slot);
   minimumReaders[slot]=readers[slot]<0?-1:readers[slot]+1;
   retireSlot(slot);
  }

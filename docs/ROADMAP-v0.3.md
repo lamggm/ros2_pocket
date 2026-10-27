@@ -1,6 +1,6 @@
 # ROS Pocket v0.3 — navegação e perfis de bancada
 
-**Estado:** base reconciliada pela PR #14, merge `a5fc28d056e4bde233b242131ae3d9d5094e7911`, com a mesma árvore do head `8b65985` aprovado no CI 40523750784. Navegação implementada na branch `feat/v0.3-01-bench-navigation`, ainda sem integração nem aceite físico. Perfis não implementados. Trabalho principal no chat, uma entrega delimitada por vez.
+**Estado:** base reconciliada pela PR #14 (`a5fc28d`); navegação integrada pela PR #15, merge `de3c25409de4a2e2921f6a52586619e18d4197cd`, árvore idêntica ao head `a86cf7d` revisado, aprovado no CI 40537386529 e em smoke físico delimitado 11/11. Perfis implementados localmente na branch `feat/v0.3-02-bench-profiles`, ainda sem integração nem aceite físico. Trabalho principal no chat, uma entrega delimitada por vez.
 
 **Objetivo:** navegar pelo inspetor sem uma página gigante e recuperar configurações completas de bancada. Não repetir como novidade o Explorer, logs, quatro watches ou gráficos da v0.2.
 
@@ -72,13 +72,15 @@ Adaptar `tests/tablet_ui.py`/`tests/tablet_plot_acceptance.py` apenas se os sele
 
 **Branch proposta:** `feat/v0.3-02-bench-profiles`, depois de 01 integrada. Modelo/armazenamento e fluxo de UI são passos internos sequenciais, não duas campanhas.
 
-**Dados:** nome, Domain ID, peer opcional, até quatro pares tópico/tipo com QoS e campos de gráfico já suportados. Referência inicial: até 16 perfis; fixar limites de nome/bytes e schema v1 nos testes do modelo antes da implementação. Não salvar amostras, contadores live, handles DDS ou gerações.
+**Dados:** nome, Domain ID, peer opcional, até quatro pares tópico/tipo com QoS e campos de gráfico já suportados. Schema v1 e limites fixados nos testes: até 16 perfis; nome único sem distinção de caixa, 1–48 caracteres Unicode / 128 bytes UTF-8 sem controles; arquivo de até 128 KiB; quatro slots (vazios permitidos), quatro séries numéricas únicas. Não salvar amostras, contadores live, handles DDS ou gerações.
 
 **Operações:** criar a partir da configuração, salvar alterações explicitamente, selecionar, renomear e excluir.
 
 **Política de aplicação:** selecionar não conecta nem modifica sessão ativa. Aplicar é permitido somente desconectado; conectado, instruir desconexão explícita. Aplicar carrega e valida a configuração, e Conectar permanece ação deliberada. Sem hot-swap transacional de readers, autosave de cada toque ou conexão automática por perfil.
 
 Após reinício, restaurar a configuração escolhida desconectada, sem apresentar amostras antigas como live. Tópico ausente/type divergente fica pendente/erro explícito, sem substituir a seleção por outro tópico.
+
+**Semântica implementada:** a configuração escolhida para restauração é o snapshot da última aplicação explícita, não a última seleção no dropdown nem uma edição salva posteriormente. A existência do catálogo bloqueia reconexão automática após recriação/process restart; Home/retorno da mesma Activity segue o lifecycle herdado. Salvar/renomear/excluir são operações explícitas; exclusão confirmada não altera a sessão em execução. Corrupção/schema desconhecido preserva o arquivo e preferências antigas, bloqueia escrita de perfis e conexão automática; não há reset destrutivo. Arquivo atômico local com I/O limitado na UI, nunca no worker DDS; sem promessa de banco multiprocesso/durabilidade sob queda de energia. Validação host não substitui smoke físico dos perfis, que continua pendente.
 
 **Arquivos candidatos:** novas classes de modelo/armazenamento e testes sob `app/src/{main,test}/java/com/lamggm/rospocket/`; consultar `MainActivity.java`, `InputRules.java`, `ConnectionPolicy.java`, `WatchSlots.java` e `PlotController.java`. Nomes finais de classes não são APIs existentes.
 
