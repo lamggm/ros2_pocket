@@ -1,6 +1,6 @@
 # ROS Pocket v0.3 — navegação e perfis de bancada
 
-**Estado:** base reconciliada pela PR #14 (`a5fc28d`); navegação integrada pela PR #15, merge `de3c25409de4a2e2921f6a52586619e18d4197cd`, árvore idêntica ao head `a86cf7d` revisado, aprovado no CI 40537386529 e em smoke físico delimitado 11/11. Perfis implementados localmente na branch `feat/v0.3-02-bench-profiles`, ainda sem integração nem aceite físico. Trabalho principal no chat, uma entrega delimitada por vez.
+**Estado:** base reconciliada pela PR #14 (`a5fc28d`); navegação integrada pela PR #15, merge `de3c25409de4a2e2921f6a52586619e18d4197cd`, árvore idêntica ao head `a86cf7d` revisado, aprovado no CI 40537386529 e em smoke físico delimitado 11/11. Perfis integrados pela PR #16, merge `e655da3e8017416adb76e0aafb3771ed3057dbf0`, árvore idêntica ao head `d0b64c8` revisado e aprovado no CI 40569878837; smoke físico dos perfis pendente. O passo 03 prepara `0.3.0-rc1` sem teste no tablet, promoção para main, tag ou release. Trabalho principal no chat, uma entrega delimitada por vez.
 
 **Objetivo:** navegar pelo inspetor sem uma página gigante e recuperar configurações completas de bancada. Não repetir como novidade o Explorer, logs, quatro watches ou gráficos da v0.2.
 
@@ -93,6 +93,8 @@ Após reinício, restaurar a configuração escolhida desconectada, sem apresent
 **Branch proposta:** `test/v0.3-03-bench-closeout`, após as duas features integradas.
 
 **Arquivos candidatos:** `app/build.gradle`, README, docs de navegação/perfis e plano curto de aceite v0.3. Revalidar versionCode/package/certificado antes de escolher identidade; a reconciliação 00 não muda a versão 0.2.0 herdada.
+
+**Preparação autorizada sem tablet:** candidato `0.3.0-rc1`, versionCode `3`, mesmo package DEV. O APK local de bancada reutiliza o certificado debug do último APK físico conhecido; os APKs de runners CI usam suas próprias chaves debug e não são substitutos para atualização in-place. Conferir novamente o dispositivo/identidade antes de qualquer instalação futura. O [fechamento e roteiro curto](FINALIZATION-v0.3.md) mantém o smoke físico pendente; esta etapa não encerra o aceite da versão nem autoriza main/tag/release.
 
 - Revisão sem bloqueadores e testes/build/lint/CI aplicáveis no SHA/árvore exatos.
 - APK ordinary, hooks OFF, fonte/hash/ABI/certificado rastreáveis. Evidências privadas fora do Git.
