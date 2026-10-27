@@ -16,8 +16,12 @@ Navigation groups the existing controls into **Conexão**, **Tópicos**, **Monit
 and **Logs** without creating another DDS session or worker. It was integrated in
 [PR #15](https://github.com/lamggm/ros2_pocket/pull/15), merge `de3c254`, with passing
 CI 40537386529 and a bounded 11-check real-tablet smoke of source `a86cf7d`.
-The local-profile increment is implemented on `feat/v0.3-02-bench-profiles`, not
-yet integrated or accepted on the physical tablet. See [local profiles](#local-profiles).
+Local profiles were integrated in [PR #16](https://github.com/lamggm/ros2_pocket/pull/16),
+merge `e655da3`, with passing [CI 40569878837](https://github.com/lamggm/ros2_pocket/actions/runs/40569878837).
+Their physical-tablet smoke is still **pending**. See [local profiles](#local-profiles).
+This closeout prepares **0.3.0-rc1**, not a physically accepted release. The
+[candidate scope and short pending smoke](docs/FINALIZATION-v0.3.md) distinguish
+host/CI validation from device acceptance; no tag, release or main promotion is included.
 LaserScan, user-facing export and numeric batches remain out of this cycle.
 Host checks are not device acceptance; navigation evidence does not qualify profiles.
 
@@ -39,9 +43,10 @@ for the explicit follow-up and integrated-tree verification requirements.
 
 ## Connect
 
-1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, version 0.2.0,
-   versionCode 2 in this preparation). The header uses the actual build version;
-   this version label is not final candidate identity or physical qualification.
+1. Launch **ROS Pocket DEV** (`com.lamggm.rospocket.dev`, candidate version
+   **0.3.0-rc1**, versionCode **3**). The header uses the actual build version;
+   the candidate label does not imply physical qualification. No installation is
+   performed by this preparation; future in-place updates must match the installed signer.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
 3. In **Conexão**, choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
