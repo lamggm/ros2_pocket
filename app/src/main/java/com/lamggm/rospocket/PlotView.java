@@ -73,10 +73,12 @@ final class PlotView extends LinearLayout {
   }
   StringBuilder labels=new StringBuilder(paused?"PAUSADO · ingestão continua\n":"Histórico de snapshots recebidos\n");
   int i=0;for(PlotHistory.Series s:visible){labels.append(++i).append(" · ").append(s.id.replace('\n',' ')).append(s.unit==null?" · unidade desconhecida":" · "+s.unit).append("\n");}
-  if(visible.isEmpty())labels.append("Sem série selecionada / sem dados numéricos atuais.");legend.setText(labels);chart.invalidate();
+  if(visible.isEmpty())labels.append("Sem série selecionada / sem dados numéricos atuais.");
+  for(String field:controller.pendingProfileFields())labels.append("\nPERFIL · campo pendente: ").append(field);
+  legend.setText(labels);chart.invalidate();
  }
  private void removeSeries(String id){
-  controller.history.remove(id);
+  controller.removeSelection(id);
   if(paused){
    List<PlotHistory.Series> retained=new ArrayList<>();
    for(PlotHistory.Series s:visible)if(!s.id.equals(id))retained.add(s);
