@@ -1,4 +1,6 @@
 <resources>
+<item name="nav_connection" type="id"/><item name="nav_topics" type="id"/><item name="nav_monitor" type="id"/><item name="nav_logs" type="id"/>
+<item name="section_connection" type="id"/><item name="section_topics" type="id"/><item name="section_monitor" type="id"/><item name="section_logs" type="id"/>
 <item name="domain" type="id"/><item name="peer" type="id"/><item name="connect" type="id"/>
 <item name="status" type="id"/><item name="topics" type="id"/><item name="nodes" type="id"/>
 <item name="message" type="id"/><item name="counts" type="id"/><item name="qos_reliable" type="id"/>

@@ -1,6 +1,6 @@
 # ROS Pocket v0.3 — navegação e perfis de bancada
 
-**Estado:** ciclo iniciado pelo operador. Esta tarefa reconcilia a base e os documentos; navegação e perfis ainda não estão implementados. Trabalho principal no chat, uma entrega delimitada por vez.
+**Estado:** base reconciliada pela PR #14, merge `a5fc28d056e4bde233b242131ae3d9d5094e7911`, com a mesma árvore do head `8b65985` aprovado no CI 40523750784. Navegação implementada na branch `feat/v0.3-01-bench-navigation`, ainda sem integração nem aceite físico. Perfis não implementados. Trabalho principal no chat, uma entrega delimitada por vez.
 
 **Objetivo:** navegar pelo inspetor sem uma página gigante e recuperar configurações completas de bancada. Não repetir como novidade o Explorer, logs, quatro watches ou gráficos da v0.2.
 

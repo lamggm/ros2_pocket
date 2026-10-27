@@ -12,9 +12,11 @@ Follow the [v0.3 roadmap](docs/ROADMAP-v0.3.md): reconcile the final v0.2 base �
 bench navigation → local profiles (storage, then explicit application) →
 bounded closeout. Implementation PRs target `integration/v0.3`, not `main` or
 `integration/v0.2`. Read [AGENTS.md](AGENTS.md) before agent-driven work.
-Navigation and profiles are planned work, **not implemented features** in this
-base reconciliation. LaserScan, user-facing export and numeric batches remain
-out of this cycle.
+This navigation increment groups the existing controls into **Conexão**, **Tópicos**,
+**Monitor** and **Logs** without creating another DDS session or worker. Local
+profiles are still planned, **not implemented**. LaserScan, user-facing export
+and numeric batches remain out of this cycle. Physical navigation/orientation
+smoke is pending explicit authorization; host checks are not device acceptance.
 
 **Inherited v0.2:** [PR #1](https://github.com/lamggm/ros2_pocket/pull/1) was
 merged into `main` at `c659b8521c093aacc3ccecd0855c07727398db2b`; the
@@ -38,10 +40,13 @@ for the explicit follow-up and integrated-tree verification requirements.
    versionCode 2 in this preparation). The header uses the actual build version;
    this version label is not final candidate identity or physical qualification.
 2. Connect to the same Wi-Fi LAN as the ROS 2 participants.
-3. Choose their **Domain ID** (portable range 0–101 in this version).
+3. In **Conexão**, choose their **Domain ID** (portable range 0–101 in this version).
 4. Leave **peer IPv4 empty** for automatic discovery, then connect.
-5. Choose **Watch 1–4**, then **Ler** on a supported Explorer topic. QoS edits
-   and **Remover watch selecionado** affect only that selected slot.
+5. In **Monitor**, choose **Watch 1–4**, then open **Tópicos** and tap **Ler** on
+   a supported Explorer topic. Return to **Monitor** for values, structured
+   messages and plots. QoS edits and **Remover watch selecionado** affect only
+   that selected slot. **Logs** contains `/rosout`; **Conexão** contains diagnosis
+   and the ROS node list. Switching sections does not disconnect.
 
 Multicast filtering, AP/client isolation and host firewalls can prevent discovery.
 A matching Domain ID alone does not guarantee connectivity. Some Android VPNs

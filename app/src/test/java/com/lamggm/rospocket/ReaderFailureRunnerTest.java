@@ -64,7 +64,7 @@ public class ReaderFailureRunnerTest {
   }finally{f.set(DeviceTestHooks.CONTROLLER,old);p.getField("source").set(null,null);p.getField("stopSetup").setBoolean(null,true);}
  }
  @Test public void hiddenOrDisabledExplorerViewsAreNotReadyEvenWithCompleteDiscovery() throws Exception {
-  MainActivity a=Robolectric.buildActivity(MainActivity.class).create().visible().get();Class<?> p=probe();Object runner=runner(p,a);p.getField("stopSetup").setBoolean(null,false);
+  MainActivity a=Robolectric.buildActivity(MainActivity.class).create().visible().get();a.findViewById(R.id.nav_topics).performClick();Class<?> p=probe();Object runner=runner(p,a);p.getField("stopSetup").setBoolean(null,false);
   java.lang.reflect.Field activity=p.getSuperclass().getDeclaredField("activity");activity.setAccessible(true);activity.set(runner,a);
   java.lang.reflect.Method ready=p.getSuperclass().getDeclaredMethod("fixtureReady",org.json.JSONObject.class);ready.setAccessible(true);
   ExplorerView explorer=a.findViewById(R.id.topics);org.json.JSONArray set=topics(4);explorer.update(set);org.json.JSONObject poll=new org.json.JSONObject().put("topics",set);
