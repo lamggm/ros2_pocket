@@ -53,7 +53,8 @@ def main():
             logs = docker('logs', cid)
             (out / 'container.log').write_text(logs.stdout + logs.stderr)
             if result.stdout.strip() != '0':
-                raise RuntimeError(f'{rmw} failed with exit {result.stdout.strip()}; see {out}')
+                raise RuntimeError(f'{rmw} failed with exit {result.stdout.strip()}; see {out}\n'
+                                   + (logs.stdout + logs.stderr)[-16000:])
             report = json.loads((out / 'result.json').read_text())
             assert report['passed'] is True
             print(json.dumps(report), flush=True)
