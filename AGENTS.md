@@ -16,10 +16,10 @@ O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS dir
 - Separe bugs que impedem o uso e riscos reais de melhorias de robustez, casos extremos e funcionalidades futuras. Registre os itens adiáveis no backlog, em vez de ampliar silenciosamente a tarefa atual.
 - Encerre com o que foi alterado, o resultado realmente verificado e as limitações restantes. Uma entrega limitada não significa aceite completo da versão: preserve resultados incompletos e não invente passes nem dispense silenciosamente requisitos de segurança ou release. Se o escopo de uma versão mudar, reconcilie o plano explicitamente.
 
-## Ciclo atual: v0.3
+## Ciclo v0.3 — fechamento autorizado
 
 - A base é **`integration/v0.3`**. Sequência: **00 reconciliação → 01 navegação → 02 perfis locais → 03 fechamento proporcional**. Armazenamento e aplicação são passos internos da entrega de perfis.
-- O operador solicitou iniciar a v0.3. A primeira tarefa incorpora a `main` final da v0.2 e atualiza os documentos; nenhuma feature é declarada pronta nesta reconciliação.
+- Navegação, perfis e candidato foram integrados. O [smoke físico curto](docs/SMOKE-v0.3.md) do APK público passou 8/8; o operador autorizou separadamente a promoção para `main`. A v0.3 fecha como protótipo de bancada, sem nova feature/campanha automática.
 - Confira status, branch, histórico, worktrees, remoto e URL real de push antes de editar/publicar; preserve alterações existentes.
 - Inicie cada incremento na `origin/integration/v0.3` atualizada, com PR para **`integration/v0.3`**, nunca para v0.2 ou diretamente para `main`.
 - O padrão é sequencial; implementação paralela exige autorização específica e worktrees isoladas. Não faça implementações concorrentes no mesmo checkout.
@@ -27,7 +27,7 @@ O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS dir
 - Navegação/perfis não criam sessão ou worker DDS paralelo, quinto watch ou dados salvos classificados como live. Aplicar perfil exige estar desconectado; conectar continua ação explícita.
 - LaserScan, exportação e lotes numéricos são backlog fora desta versão, não opcionais a empilhar no último incremento.
 - O CI atende PRs, mas o filtro de push de `integration/v0.3` permanece pendente: o operador escolheu publicar base/documentação **sem ampliar permissões** do login GitHub, que não possui `workflow`. Não alterar YAML/credenciais silenciosamente nem afirmar que todo push da integração dispara CI.
-- O futuro PR `integration/v0.3` → `main` fica draft e sem auto-merge até critérios proporcionais do ciclo e autorização própria de merge. Esta preparação não autoriza tag/release ou instalação no tablet.
+- A promoção `integration/v0.3` → `main` está autorizada após aceite físico e CI da árvore exata. Usar merge normal, preservar a documentação da main e conferir SHA/árvore. Essa autorização não inclui mover tag, trocar o APK testado, publicar nova release ou instalar de novo no tablet.
 
 ## Histórico da v0.2 — não reabrir a campanha
 

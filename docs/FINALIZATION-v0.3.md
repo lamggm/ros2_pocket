@@ -1,4 +1,23 @@
-# ROS Pocket v0.3 — candidato de bancada e aceite físico pendente
+# ROS Pocket v0.3 — fechamento do protótipo de bancada
+
+## Resultado atual
+
+O [smoke físico curto do APK público](SMOKE-v0.3.md) passou **8/8** no
+SM-X400 / Android 16 em 28/10/2026. O operador autorizou separadamente a promoção
+`integration/v0.3` → `main`, com CI na árvore exata e preservação dos guias da PR #19.
+O ciclo fecha como **protótipo de bancada**: navegação e perfis concluídos,
+sem transformar Wi-Fi/IP, soak, Humble ou qualificação extensa em PASS.
+
+A versão binária permanece **0.3.0-rc1**, fonte `9019184`, code 3, ARM64,
+hooks OFF. O merge não cria APK, tag ou release nova e não transfere o aceite
+para uma compilação independente. Consulte o [estado atual](PROJECT-STATUS.md)
+e o [relatório sanitizado](SMOKE-v0.3.md) para identidade, critérios e limites.
+
+## Preparação original — registro histórico
+
+> O restante deste documento registra a preparação **anterior** à publicação e ao
+> teste no tablet. As pendências e autorizações abaixo descrevem aquele momento;
+> o resultado posterior é o 8/8 vinculado acima, não uma reescrita do aceite antigo.
 
 ## Estado e escopo
 
