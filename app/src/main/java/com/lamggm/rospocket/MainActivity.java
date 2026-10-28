@@ -42,6 +42,8 @@ public final class MainActivity extends Activity {
  private final StructuredMessageView[] watchStructured=new StructuredMessageView[4];
  private RosoutConsoleView rosoutConsole;
  private SharedPreferences prefs;
+ private ProfilePanel profiles;
+ private boolean profileConfigured;
  private static final ScheduledExecutorService DDS_WORKER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"pocket-dds");t.setDaemon(true);return t;});
  // Foreground identity is read across UI/worker threads; nativeOwner is confined to DDS_WORKER.
  private static volatile WeakReference<MainActivity> foregroundActivity=new WeakReference<>(null);
@@ -77,6 +79,17 @@ public final class MainActivity extends Activity {
   connectWanted=prefs.getBoolean("wanted",false);
   reliableValue=prefs.getBoolean("reliable",false);transientValue=prefs.getBoolean("transient",false);
   makeUi();
+  if(profiles.catalogExists())connectWanted=false;
+  if(profiles.applied()!=null)loadProfile(profiles.applied());
+ }
+ @Override protected void onRestoreInstanceState(Bundle saved){
+  BenchProfiles.Profile applied=profiles.applied();
+  if(applied==null){super.onRestoreInstanceState(saved);return;}
+  // Android restores EditText/CheckBox state after onCreate/onStart. The last
+  // explicit application, not an unsaved View draft, owns the restored config.
+  switchingWatch=true;
+  try{super.onRestoreInstanceState(saved);}finally{switchingWatch=false;}
+  loadProfile(applied);
  }
  private int dp(float n){return (int)(getResources().getDisplayMetrics().density*n+0.5f);}
  private TextView label(String text,int sp,int color){TextView t=new TextView(this);t.setText(text);t.setTextSize(sp);t.setTextColor(color);return t;}
@@ -86,6 +99,14 @@ public final class MainActivity extends Activity {
  private EditText input(String hint,String value,int id,int type){
   EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setId(id);e.setSingleLine(true);e.setTextColor(FG);e.setHintTextColor(MUTED);e.setTextSize(16);e.setInputType(type);e.setSelectAllOnFocus(true);return e;
  }
+ private final LinearLayout[] sections=new LinearLayout[4];
+ private final Button[] sectionButtons=new Button[4];
+ private void showSection(int selected){
+  for(int i=0;i<sections.length;i++){
+   sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
+   sectionButtons[i].setSelected(i==selected);
+  }
+ }
  private void makeUi(){
   LinearLayout root=column();root.setBackgroundColor(BG);root.setPadding(dp(18),dp(18),dp(18),dp(12));
   root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -94,23 +115,37 @@ public final class MainActivity extends Activity {
    return insets;
   });
   root.addView(label("ROS Pocket",29,FG));
-  TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(12));root.addView(subtitle);
-  LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-  row.addView(label("Domain ID",15,MUTED));
+  TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(8));root.addView(subtitle);
+  String[] sectionNames={"connection","topics","monitor","logs"};String[] sectionLabels={"Conexão","Tópicos","Monitor","Logs"};
+  LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
+  for(int i=0;i<sectionNames.length;i++){
+   final int selected=i;Button button=new Button(this);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs}[i]);button.setText(sectionLabels[i]);button.setAllCaps(false);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;nav.addView(button,new LinearLayout.LayoutParams(0,dp(48),1));
+  }
+  root.addView(nav);
+  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+  LinearLayout body=column();scroll.addView(body);
+  for(int i=0;i<sectionNames.length;i++){
+   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs}[i]);body.addView(sections[i]);
+  }
+  LinearLayout connection=sections[0];
+  LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.addView(label("Domain ID",15,MUTED));
   domain=input("0–101",prefs.getString("domain","0"),R.id.domain,InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_SIGNED);
   LinearLayout.LayoutParams domainParams=new LinearLayout.LayoutParams(dp(100),dp(54));domainParams.setMargins(dp(12),0,dp(12),0);row.addView(domain,domainParams);
   connect=new Button(this);connect.setId(R.id.connect);connect.setText("Conectar");connect.setTextColor(BG);connect.setBackgroundTintList(ColorStateList.valueOf(ACCENT));row.addView(connect,new LinearLayout.LayoutParams(dp(154),dp(52)));
-  connect.setOnClickListener(v->{if(connectWanted)disconnect();else requestConnection(true);});root.addView(row);
-  peer=input("Peer IPv4 opcional — deixe vazio para descoberta automática",prefs.getString("peer",""),R.id.peer,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);peer.setTextSize(14);root.addView(peer,new LinearLayout.LayoutParams(-1,dp(48)));
-  status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));root.addView(status);
-  ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout body=column();scroll.addView(body);
+  connect.setOnClickListener(v->{if(connectWanted)disconnect();else requestConnection(true);});connection.addView(row);
+  peer=input("Peer IPv4 opcional — deixe vazio para descoberta automática",prefs.getString("peer",""),R.id.peer,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);peer.setTextSize(14);connection.addView(peer,new LinearLayout.LayoutParams(-1,dp(48)));
+  status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));connection.addView(status);
   LinearLayout diagnosticCard=card();diagnosticCard.addView(label("CONEXÃO",14,ACCENT));
-  diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);body.addView(diagnosticCard);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
+  diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);connection.addView(diagnosticCard);
+  LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);connection.addView(nodeCard);
+  TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));connection.addView(footer);
+  profiles=new ProfilePanel(this,new ProfilePanel.Actions(){
+   public BenchProfiles.Profile capture(String id,String name){return captureProfile(id,name);}
+   public boolean connected(){return connectWanted;}
+   public void apply(BenchProfiles.Profile profile){loadProfile(profile);}
+  });connection.addView(profiles);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
-  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);body.addView(graphCard);
-  TextView spacer=label("",1,MUTED);body.addView(spacer,new LinearLayout.LayoutParams(-1,dp(12)));
+  topicList=new ExplorerView(this,this::select);topicList.setId(R.id.topics);graphCard.addView(topicList);sections[1].addView(graphCard);
   LinearLayout echo=card();selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
@@ -135,13 +170,10 @@ public final class MainActivity extends Activity {
    watchText[i]=label("Watch "+(i+1)+" · sem assinatura",14,MUTED);watchText[i].setId(new int[]{R.id.watch_state_1,R.id.watch_state_2,R.id.watch_state_3}[i-1]);watchText[i].setTag("watch-state:"+i);watchText[i].setPadding(0,dp(8),0,dp(8));echo.addView(watchText[i]);
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
-  body.addView(echo);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
-  LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);body.addView(logCard);
-  plotView=new PlotView(this,plots);body.addView(plotView);
-  body.addView(label("",1,MUTED),new LinearLayout.LayoutParams(-1,dp(12)));
-  LinearLayout nodeCard=card();nodeCard.addView(label("NÓS ROS 2",14,ACCENT));nodes=label("Aguardando ros_discovery_info…",14,MUTED);nodes.setId(R.id.nodes);nodes.setTypeface(Typeface.MONOSPACE);nodes.setPadding(0,dp(8),0,0);nodeCard.addView(nodes);body.addView(nodeCard);
-  TextView footer=label("Sem rosbridge · sem servidor auxiliar · sem comandos de movimento.\nBloqueio de multicast, isolamento do AP e firewall podem impedir descoberta.",12,MUTED);footer.setPadding(0,dp(12),0,dp(8));body.addView(footer);
+  sections[2].addView(echo);
+  plotView=new PlotView(this,plots);sections[2].addView(plotView);
+  LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);sections[3].addView(logCard);
+  showSection(0);
   setContentView(root);
  }
  @Override protected void onStart(){
@@ -160,7 +192,8 @@ public final class MainActivity extends Activity {
    domain.clearFocus();peer.clearFocus();
    foregroundActivity=new WeakReference<>(this);policy.reset();
    qa.invalidate();
-   if(resetSelection){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
+   if(resetSelection&&!profileConfigured){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
+   else watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);
    requested=new Config(d,p);connectWanted=true;plots.reset(policy.generation());
    inactive("RECONECTANDO · aguardando dados desta sessão");
    extrasInactive("RECONECTANDO · aguardando dados desta sessão");
@@ -229,6 +262,9 @@ public final class MainActivity extends Activity {
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Grafo indisponível nesta conexão");lastNodes="";
  }
  private static long monotonicMillis(){return System.nanoTime()/1_000_000L;}
+ private boolean connectionCurrent(int token,Config config,long epoch){
+  return foregroundActivity.get()==this&&resumed&&generation==token&&connectWanted&&requested==config&&policy.accepts(epoch);
+ }
  private void tick(int token){
   if(foregroundActivity.get()!=this||!resumed||generation!=token||!connectWanted||requested==null)return;
   final Config config=requested;
@@ -259,11 +295,19 @@ public final class MainActivity extends Activity {
     JSONObject result=NativeBridge.Api.json(bridge.start(config.domain,address,config.peer));
     if(!result.optBoolean("ok"))throw new IllegalStateException(result.optString("error","Falha no DDS"));
     workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
+    if(!connectionCurrent(token,config,epoch)){stopSession();return;}
     subscriptionFailure="";lastUi=0;watchSlots.resetApplied();
-    if(!selectedWire.isEmpty()&&policy.accepts(epoch))subscribeSelected(watchSlots.get(0),epoch);
-    else if(selectedWire.isEmpty())appliedReaderEpoch=epoch; // New session has no primary reader to await.
-    for(int i=1;i<4;i++){WatchSlots.Request r=watchSlots.get(i);if(!r.wire.isEmpty())applyExtra(r);}
+    // Capture once after a still-current start, so ordinary reconnect edits are
+    // honored without pulling a later disconnected profile into this session.
+    WatchSlots.Frame[] startup=watchSlots.frames();
+    for(int i=0;i<4;i++){
+     if(!connectionCurrent(token,config,epoch)){stopSession();return;}
+     WatchSlots.Request r=startup[i].request;if(!watchSlots.current(r))continue;
+     if(i==0){if(!r.wire.isEmpty())subscribeSelected(r,epoch);else appliedReaderEpoch=epoch;}
+     else if(!r.wire.isEmpty())applyExtra(r,null,epoch);
+    }
    }
+   if(!connectionCurrent(token,config,epoch))return;
    // Peer absence or a failed reader never tears down/rebuilds this healthy participant.
    // Tag the snapshot with the clear actually applied on this DDS worker,
    // not a newer UI request whose native clear may still be queued.
@@ -339,7 +383,7 @@ public final class MainActivity extends Activity {
   String failure;
   DeviceTestHooks.Acquisition acquired=null;
   try{
-   synchronized(policy){synchronized(watchSlots){if(ticket!=null&&(!watchSlots.current(request)||!resumed||foregroundActivity.get()!=this||nativeOwner.get()!=this))throw new IllegalStateException("stale native owner");acquired=DeviceTestHooks.before(ticket,this,request,generation,requested,policy.generation());}}
+   synchronized(policy){synchronized(watchSlots){if(!watchSlots.current(request)||!resumed||!connectWanted||requested!=workerConfig||!nativeRunning||foregroundActivity.get()!=this||nativeOwner.get()!=this||!policy.accepts(epoch)){DeviceTestHooks.reject(ticket);return;}acquired=DeviceTestHooks.before(ticket,this,request,generation,requested,policy.generation());}}
    JSONObject result=NativeBridge.Api.json(bridge.subscribe(request.wire,request.type,request.reliable,request.transientLocal));
    failure=result.optBoolean("ok")?"":result.optString("error","Falha na assinatura");
   }catch(Throwable ex){failure="Falha na assinatura: "+ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());}
@@ -375,6 +419,8 @@ public final class MainActivity extends Activity {
    inactive("ERRO DE ASSINATURA/SESSÃO · último valor não é telemetria atual");
    selectedTitle.setText("LEITURA · Watch 1 · "+(snapshot.optBoolean("readerActive")?subscription+" · leitor anterior preservado":"sem assinatura ativa"));
    status.setText(failure);status.setTextColor(WARNING);
+  }else if(!profileTopicState(0,topics).isEmpty()){
+   inactive(profileTopicState(0,topics));selectedTitle.setText("LEITURA · Watch 1 · "+selectedWire+" · "+selectedType);
   }else if(pendingReader){
    inactive("RECONECTANDO · aguardando nova assinatura");selectedTitle.setText("LEITURA · Watch 1 · assinatura solicitada pendente");
   }else if(!subscription.isEmpty()&&snapshot.optBoolean("readerActive")){
@@ -416,18 +462,41 @@ public final class MainActivity extends Activity {
   });
   return ticket;
  }
+ private BenchProfiles.Profile captureProfile(String id,String name){
+  int d=connectWanted&&requested!=null?requested.domain:InputRules.domain(domain.getText().toString());
+  String p=connectWanted&&requested!=null?requested.peer:peer.getText().toString().trim();
+  java.util.List<BenchProfiles.Watch> watches=new java.util.ArrayList<>();
+  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watches.add(new BenchProfiles.Watch(i==0?selectedWire:r.wire,i==0?selectedType:r.type,i==0?reliableValue:r.reliable,i==0?transientValue:r.transientLocal));}
+  java.util.List<BenchProfiles.Series> series=plots.profileSelection();
+  return new BenchProfiles.Profile(id,name,d,p,watches,series);
+ }
+ private void loadProfile(BenchProfiles.Profile p){
+  if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
+  DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
+  profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);
+  plots.configureProfile(p);
+  for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
+  BenchProfiles.Watch primary=p.watches.get(0);selectedWire=primary.wire;selectedType=primary.type;reliableValue=primary.reliable;transientValue=primary.transientLocal;chooseWatch(0);
+  plotView.refresh();rosoutEpoch++;rosoutConsole.clearNow();
+  selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"sem tópico":selectedWire.substring(2)));
+  counts.setText("PERFIL APLICADO · desconectado; assinatura pendente");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
+  extrasInactive("PERFIL APLICADO · desconectado; assinatura pendente");
+  status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(MUTED);
+ }
  private void disconnect(){
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
   extrasInactive("Desconectado · sem assinatura ativa");
-  for(int i=0;i<4;i++)watchSlots.request(i,"","",false,false);
+  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watchSlots.request(i,profileConfigured?r.wire:"",profileConfigured?r.type:"",profileConfigured&&r.reliable,profileConfigured&&r.transientLocal);}
   structured.update(null,false);
   policy.reset();plots.reset(policy.generation());plotView.refresh();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   // A poll already holding policy/slots may publish after the early invalidation.
   // policy.reset() fences that poll; clear once more before returning to the UI.
   qa.invalidate();
   connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
-  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";selectedWire="";selectedType="";selectedTitle.setText("LEITURA · Watch 1 · selecione um tópico acima");counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
+  topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";
+  if(!profileConfigured){selectedWire="";selectedType="";}
+  selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"selecione um tópico em Tópicos":selectedWire+" · desconectado"));counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
   rosoutEpoch++;rosoutConsole.clearNow();
  }
@@ -467,12 +536,12 @@ public final class MainActivity extends Activity {
   });
   return ticket;
  }
- private void applyExtra(WatchSlots.Request r){applyExtra(r,null,policy.generation());}
+
  private void applyExtra(WatchSlots.Request r,DeviceTestHooks.Ticket ticket,long epoch){
   String failure="";
   DeviceTestHooks.Acquisition acquired=null;
   try{
-   synchronized(policy){synchronized(watchSlots){if(ticket!=null&&(!watchSlots.current(r)||!resumed||foregroundActivity.get()!=this||nativeOwner.get()!=this))throw new IllegalStateException("stale native owner");acquired=DeviceTestHooks.before(ticket,this,r,generation,requested,policy.generation());}}
+   synchronized(policy){synchronized(watchSlots){if(!watchSlots.current(r)||!resumed||!connectWanted||requested!=workerConfig||!nativeRunning||foregroundActivity.get()!=this||nativeOwner.get()!=this||(ticket!=null&&!policy.accepts(epoch))){DeviceTestHooks.reject(ticket);return;}acquired=DeviceTestHooks.before(ticket,this,r,generation,requested,policy.generation());}}
    JSONObject result=NativeBridge.Api.json(r.wire.isEmpty()?bridge.removeWatch(r.slot):bridge.watch(r.slot,r.wire,r.type,r.reliable,r.transientLocal));if(!result.optBoolean("ok"))failure=result.optString("error","Falha na assinatura");}
   catch(Throwable ex){failure="Falha na assinatura: "+ex.getClass().getSimpleName();}
   finally{DeviceTestHooks.after(acquired);}
@@ -498,6 +567,12 @@ public final class MainActivity extends Activity {
   final int token=generation;final Config expected=requested;
   if(worker!=null)worker.execute(()->{if(foregroundActivity.get()==this&&resumed&&generation==token&&connectWanted&&requested==expected&&policy.accepts(epoch)&&nativeRunning){bridge.removeWatch(0);subscriptionFailure="";watchSlots.complete(removal,"");appliedReaderEpoch=epoch;lastUi=0;}});
  }
+ private String profileTopicState(int slot,JSONArray topics){
+  if(!profileConfigured)return "";WatchSlots.Request requested=watchSlots.get(slot);if(requested.wire.isEmpty())return "";
+  boolean present=false;
+  if(topics!=null)for(int i=0;i<topics.length();i++){JSONObject topic=topics.optJSONObject(i);if(topic==null||!requested.wire.equals(topic.optString("wireName")))continue;present=true;if(requested.type.equals(topic.optString("wireType")))return "";}
+  return present?"TIPO DIVERGENTE · esperado "+requested.type:"TÓPICO AUSENTE · aguardando "+requested.wire+" · "+requested.type;
+ }
  private void renderExtras(JSONObject snapshot,WatchSlots.Frame[] frames,long capturedNanos){
   JSONArray rows=snapshot.optJSONArray("watches");
   for(int i=1;i<4;i++){
@@ -507,6 +582,7 @@ public final class MainActivity extends Activity {
    if(f.pending)text="assinatura pendente";
    else if(!f.error.isEmpty())text="ERRO · "+f.error;
    else if(f.request.wire.isEmpty())text="sem assinatura";
+   else if(!profileTopicState(i,snapshot.optJSONArray("topics")).isEmpty())text=profileTopicState(i,snapshot.optJSONArray("topics"));
    else if(w==null)text="aguardando snapshot multiwatch";
    else if(!w.optString("error").isEmpty())text="ERRO · "+w.optString("error");
    else{

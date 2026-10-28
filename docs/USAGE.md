@@ -4,8 +4,9 @@
 
 Este guia descreve o APK **0.3.0-rc1** publicado na
 [pré-release](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1).
-O código de outras branches pode ter uma interface diferente. O teste físico
-dos perfis e desse candidato integrado ainda está pendente.
+O código de outras branches pode ter uma interface diferente. O
+[smoke físico curto desse APK](SMOKE-v0.3.md) passou **8/8** no SM-X400 / Android 16;
+isso não é qualificação extensa ou suporte a todos os dispositivos.
 
 ## Instalar e atualizar
 

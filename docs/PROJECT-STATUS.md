@@ -11,15 +11,17 @@ contém APK DEV debug, checksum e manifesto. Fonte do APK:
 O certificado coincide com o último APK físico conhecido da bancada, não com
 qualquer compilação independente ou runner CI. A release não é versão estável.
 
-O **aceite físico dos perfis e desse candidato integrado segue pendente**.
-Publicar um APK não executa o roteiro físico nem promove código para `main`.
+O **aceite físico curto passou 8/8** no SM-X400 / Android 16 em 28/10/2026.
+Veja o [resultado completo e limites](SMOKE-v0.3.md). O operador autorizou a
+promoção da integração para `main`; isso não muda a pré-release nem cria outra release.
 Para instalar, use a release; para compilar a mesma fonte, use sua tag.
 
 ## Onde está o código
 
-- `main`: base de código v0.2 promovida pela PR #1. Esta reorganização muda
-  apenas documentação, não a versão ou a implementação do aplicativo nessa branch.
-- `integration/v0.3`: código integrado de navegação, perfis e preparação do candidato.
+- `main`: destino da promoção autorizada do código v0.3, preservando o README
+  organizado e registrando o aceite físico delimitado.
+- `integration/v0.3`: integração de navegação/perfis/candidato, reconciliada com
+  os guias da PR #19 para esta promoção; sem novas alterações de código do app.
 - `v0.3.0-rc1`: tag da fonte exata do APK publicado; não deve ser movida para
   incorporar correções documentais ou builds novos.
 
@@ -35,17 +37,22 @@ O [roadmap v0.3](ROADMAP-v0.3.md) conserva sequência, limites e decisões do ci
   `de3c254`, CI 40537386529; smoke físico delimitado **11/11**, fonte `a86cf7d`.
 - **Perfis:** [PR #16](https://github.com/lamggm/ros2_pocket/pull/16), merge
   `e655da3`, CI 40569878837; revisão independente e regressões de lifecycle
-  aprovadas. Smoke físico dos perfis pendente.
+  aprovadas. Aceite físico posterior no candidato publicado: **8/8**.
 - **Candidato:** [PR #17](https://github.com/lamggm/ros2_pocket/pull/17), merge
   `6012a05c378c684e34859812c01b73ea701b3134`, árvore idêntica ao head `9019184`.
   [CI 40574783991](https://github.com/lamggm/ros2_pocket/actions/runs/40574783991)
   aprovado. Na fonte do APK, a validação local teve 348 Java aprovados, dois
   skips opt-in, 295 Python, 14 CTests, lint e build ordinary aprovados.
 
-Cada resultado conserva seu SHA/APK. O teste da navegação não é teste físico do
-novo candidato. [FINALIZATION-v0.3](FINALIZATION-v0.3.md) registra a preparação e
-os oito itens físicos pendentes; a publicação de pré-release foi autorizada depois.
-As restrições de seu momento histórico não significam que não exista release hoje.
+- **Documentação:** PR #19, merge `88e5e11`, README curto e guias por assunto.
+- **Aceite físico posterior:** [smoke 8/8](SMOKE-v0.3.md), no APK público da fonte
+  `9019184`, sem mudar o aplicativo; cleanup e apresentação conferidos.
+- **Promoção:** autorizada pelo operador após o smoke, preservando a ancestralidade
+  das duas branches e sem mover a tag ou publicar outra release.
+
+Cada resultado conserva seu SHA/APK. O teste anterior da navegação não foi usado
+como aceite do novo candidato. [FINALIZATION-v0.3](FINALIZATION-v0.3.md) separa o
+resultado atual do plano histórico anterior à instalação/publicação.
 
 ## Histórico da v0.2
 
@@ -81,7 +88,8 @@ comprovam execução dessa instrumentação no Android físico.
 ## Próximos trabalhos
 
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
-- Smoke físico curto do candidato, somente quando autorizado.
+- Publicação de eventual versão final é uma etapa própria; o download continua
+  sendo a pré-release rc1 já testada, sem renomear seus bytes como build novo.
 - LaserScan, exportação e lotes numéricos ficam fora da v0.3.
 - Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
 

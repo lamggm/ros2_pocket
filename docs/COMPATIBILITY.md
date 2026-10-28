@@ -23,7 +23,9 @@ em dispositivo com esse tamanho de página. A bancada física conhecida usa 4 Ki
 
 O projeto foi exercitado com **Jazzy**, em fixtures Fast DDS e Cyclone DDS.
 A validação host/CI não equivale a execução Android física para cada combinação.
-O aceite físico dos perfis e do candidato integrado continua pendente.
+O [smoke físico curto](SMOKE-v0.3.md) dos perfis/candidato passou **8/8** no
+SM-X400 / Android 16 com produtor Jazzy/Fast DDS e peer explícito. Não é uma
+matriz física completa de distribuições, RMWs ou descoberta automática.
 
 **Humble ainda não tem suporte validado.** A descoberta DDS e tipos padrão podem
 interoperar, mas isso precisa ser demonstrado por capacidade. O grafo atual usa

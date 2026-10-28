@@ -9,7 +9,7 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
 > A versão disponível é a pré-release **0.3.0-rc1**, um protótipo de bancada.
-> O teste físico dos perfis e desse candidato integrado ainda está pendente.
+> O [smoke físico de bancada](docs/SMOKE-v0.3.md) passou **8/8** no SM-X400 / Android 16.
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -76,7 +76,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Entender os testes](docs/VALIDATION.md): o que cada validação comprova e o que está pendente.
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 
-Os guias de uso descrevem o **APK publicado**. O código da pré-release está na
-tag [`v0.3.0-rc1`](https://github.com/lamggm/ros2_pocket/tree/v0.3.0-rc1);
-o desenvolvimento segue em `integration/v0.3`. Atualizar esta documentação na
-`main` não promove o código v0.3 nem altera o APK já publicado.
+A `main` reúne o código v0.3 e o aceite delimitado de bancada. A fonte exata do
+**APK publicado** continua na tag
+[`v0.3.0-rc1`](https://github.com/lamggm/ros2_pocket/tree/v0.3.0-rc1).
+Este fechamento não altera a tag, o APK ou a classificação de pré-release.

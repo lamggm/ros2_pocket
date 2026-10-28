@@ -2,9 +2,9 @@
 
 ## Fonte de verdade
 
-Antes de planejar ou implementar uma tarefa, leia [`docs/ROADMAP-v0.2.md`](docs/ROADMAP-v0.2.md) e o README. O roadmap contém a sequência recomendada, o escopo de cada incremento e seus gates de aceitação. Não substitua essa sequência por outra baseada em memória de conversa. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
+Leia o README e o roadmap do ciclo: [`docs/ROADMAP-v0.3.md`](docs/ROADMAP-v0.3.md) para o desenvolvimento atual; [`docs/ROADMAP-v0.2.md`](docs/ROADMAP-v0.2.md) e [`docs/FINALIZATION-v0.2.md`](docs/FINALIZATION-v0.2.md) para o histórico e os contratos herdados. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
 
-O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
+O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
 
 ## Condução e escopo das tarefas
 
@@ -16,31 +16,39 @@ O projeto atual é um inspetor Android ROS 2/DDS **somente leitura**. Preserve D
 - Separe bugs que impedem o uso e riscos reais de melhorias de robustez, casos extremos e funcionalidades futuras. Registre os itens adiáveis no backlog, em vez de ampliar silenciosamente a tarefa atual.
 - Encerre com o que foi alterado, o resultado realmente verificado e as limitações restantes. Uma entrega limitada não significa aceite completo da versão: preserve resultados incompletos e não invente passes nem dispense silenciosamente requisitos de segurança ou release. Se o escopo de uma versão mudar, reconcilie o plano explicitamente.
 
-## Branches e integração
+## Ciclo v0.3 — fechamento autorizado
 
-- A base de desenvolvimento deste ciclo é **`integration/v0.2`**, não `main`.
-- Inspecione `git status`, branch atual e histórico antes de editar; preserve alterações existentes.
-- Antes de abrir a próxima branch, busque o remoto e confira a integração atualizada. Crie a branch do incremento a partir de `origin/integration/v0.2` limpa e atualizada.
-- O padrão de execução é sequencial, uma frente delimitada por vez. Paralelismo de implementação só com autorização explícita para a tarefa atual, em branches e worktrees isoladas; a possibilidade histórica de paralelizar incrementos não é autorização permanente.
-- Antes de integrar uma frente, incorpore a integração atualizada na branch e valide os contratos/dependências do roadmap. Para branches públicas compartilhadas, prefira merge de `origin/integration/v0.2`; não faça rebase/force-push que reescreva trabalho de outro agente.
-- Quando outra frente ainda não entregou um contrato necessário, implemente componentes isolados e testes unitários explicitamente identificados como tais. Não invente respostas ROS/Android para declarar a integração pronta.
-- PRs de incrementos devem apontar para **`integration/v0.2`**. Teste e revise antes de mergear; use squash para cada incremento.
-- Depois de integrar um incremento, valide novamente o conjunto e identifique o APK candidato pelo SHA exercitado.
-- A v0.2 tem escopo autorizado de **protótipo de bancada**, com critérios e evidências em `docs/FINALIZATION-v0.2.md`. Qualificação física extensa, Wi-Fi/IP e soak são backlog explícito, não bloqueios dessa entrega limitada; não converter suas pendências em PASS nem alterar os validadores. O PR de **`integration/v0.2` → `main`** permanece draft e sem auto-merge até autorização própria do operador. Não faça push/merge direto em `main` como atalho.
-- O merge final deve preservar os incrementos auditáveis; não reescreva a história pública.
-- Não faça duas implementações simultâneas no mesmo checkout ou duas automações concorrentes no tablet. Use worktrees isoladas para trabalho paralelo independente.
+- A base é **`integration/v0.3`**. Sequência: **00 reconciliação → 01 navegação → 02 perfis locais → 03 fechamento proporcional**. Armazenamento e aplicação são passos internos da entrega de perfis.
+- Navegação, perfis e candidato foram integrados. O [smoke físico curto](docs/SMOKE-v0.3.md) do APK público passou 8/8; o operador autorizou separadamente a promoção para `main`. A v0.3 fecha como protótipo de bancada, sem nova feature/campanha automática.
+- Confira status, branch, histórico, worktrees, remoto e URL real de push antes de editar/publicar; preserve alterações existentes.
+- Inicie cada incremento na `origin/integration/v0.3` atualizada, com PR para **`integration/v0.3`**, nunca para v0.2 ou diretamente para `main`.
+- O padrão é sequencial; implementação paralela exige autorização específica e worktrees isoladas. Não faça implementações concorrentes no mesmo checkout.
+- Incorpore a integração atualizada por merge normal, sem rebase/force-push compartilhado. A reconciliação da base preserva a ancestralidade de `main`: não usar squash para descartar essa relação. Incrementos comuns podem usar squash após revisão e CI; conferir novamente o SHA integrado.
+- Navegação/perfis não criam sessão ou worker DDS paralelo, quinto watch ou dados salvos classificados como live. Aplicar perfil exige estar desconectado; conectar continua ação explícita.
+- LaserScan, exportação e lotes numéricos são backlog fora desta versão, não opcionais a empilhar no último incremento.
+- O CI atende PRs, mas o filtro de push de `integration/v0.3` permanece pendente: o operador escolheu publicar base/documentação **sem ampliar permissões** do login GitHub, que não possui `workflow`. Não alterar YAML/credenciais silenciosamente nem afirmar que todo push da integração dispara CI.
+- A promoção `integration/v0.3` → `main` está autorizada após aceite físico e CI da árvore exata. Usar merge normal, preservar a documentação da main e conferir SHA/árvore. Essa autorização não inclui mover tag, trocar o APK testado, publicar nova release ou instalar de novo no tablet.
+
+## Histórico da v0.2 — não reabrir a campanha
+
+- A [PR #1](https://github.com/lamggm/ros2_pocket/pull/1) foi mergeada em `main` no commit `c659b8521c093aacc3ccecd0855c07727398db2b`; o [CI pós-merge](https://github.com/lamggm/ros2_pocket/actions/runs/40515533393) passou.
+- A entrega autorizada é **protótipo de bancada**, conforme `docs/FINALIZATION-v0.2.md`. Qualificação extensa, Wi-Fi/IP e soak permanecem backlog não validado; não converter pendências em PASS nem alterar os validadores.
+- Não levar features v0.3 para `integration/v0.2` ou tratar instruções antigas de PR draft como estado atual.
+- Evidência física anterior conserva seu SHA/APK e alcance: merge/documentação nova não a transforma em teste do novo candidato.
 
 ## Validação e operação
 
-- Para mudanças de comportamento, use TDD: teste falhando, implementação mínima e teste passando. Exercite os modos de falha relevantes, não apenas compilação.
-- Distinga teste portável, fixture DDS, CI e teste físico. Um resultado de Home/restart não prova perda real de Wi-Fi ou mudança de IP.
-- Não marque dados antigos ou assinatura inativa como recebendo. Preserve erros até recuperação real; limite buffers, assinaturas e uso de recursos conforme o roadmap.
-- Fixtures de bancada usam domínios isolados; nunca publique comandos, altere parâmetros, invoque serviços/actions ou controle movimento para provar conectividade.
-- Não altere VPN, firewall, credenciais ou acesso remoto automaticamente. Um teste de Wi-Fi não pode derrubar o único canal de controle sem recuperação combinada.
-- CI público usa runners padrão hospedados pelo GitHub, permissões mínimas e retenção controlada. Não habilite larger runners pagos nem exponha um host pessoal como runner irrestrito para PRs públicos.
-- Não publique secrets, chaves de assinatura, APKs em commits, toolchains, endereços de dispositivos, logs privados ou dumps de interface. Consulte `.gitignore`; ele não remove segredos já presentes no histórico.
-- Não declare uma função entregue porque há código ou CI verde: registre o SHA, as verificações realmente executadas e as limitações não exercitadas.
+- Para mudanças de comportamento, use TDD: teste falhando, implementação mínima e teste passando. Exercite falhas relevantes, não apenas compilação.
+- Distinga teste portável, fixture DDS, CI e teste físico. Home/restart não prova perda real de Wi-Fi ou mudança de IP.
+- Não marque dados antigos/assinatura inativa como recebendo. Preserve erros até recuperação real, buffers, limites de assinaturas e contratos herdados.
+- Preserve fences de sessão/reader/applied epoch e teardown idempotente. Trocar seção não aciona `onStop`; sair do app obedece ao lifecycle vigente.
+- Fixtures usam domínios isolados; nunca publique comandos, altere parâmetros, invoque serviços/actions ou controle movimento para provar conectividade.
+- Não faça duas automações concorrentes no tablet. Atualização somente in-place, package/certificado compatíveis, sem uninstall/clear data e dentro de escopo físico autorizado.
+- Não altere VPN, firewall, credenciais ou acesso remoto automaticamente. Testes de Wi-Fi exigem recuperação independente e autorização para interrupção.
+- CI público usa runners hospedados padrão, permissões mínimas e retenção controlada. Não habilite larger runners pagos nem exponha host pessoal como runner irrestrito de PRs públicos.
+- Não publique secrets, chaves de assinatura, APKs em commits, toolchains, endereços de dispositivos, logs privados ou dumps de interface. `.gitignore` não remove segredos do histórico.
+- Registre SHA, verificações realmente executadas e limitações; código/CI verde não provam entrega física. Componentes isolados e fixtures sintéticas devem ser identificados como tais, sem inventar respostas ROS/Android.
 
 ## Limites do ciclo
 
-Parâmetros/RPC, serviços/actions, teleop/publicação, rosbag, RViz/mapas/TF e tipos customizados dinâmicos estão fora da v0.2. Mudanças nesse limite exigem decisão explícita e atualização do roadmap.
+Parâmetros/RPC, serviços/actions, teleop/publicação, rosbag, imagens/vídeo, LaserScan, RViz/mapas/TF, tipos customizados dinâmicos, exportação e lotes numéricos estão fora da v0.3 atual. Mudanças exigem decisão explícita e atualização do roadmap.

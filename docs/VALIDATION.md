@@ -19,7 +19,8 @@ novos resultados de teste.
   gates/limiares do plano correspondente. Um smoke curto não substitui esse plano.
 
 Para os resultados já existentes, veja [versões e histórico](PROJECT-STATUS.md).
-Para a v0.3, o [roteiro físico do candidato](FINALIZATION-v0.3.md) continua pendente.
+Na v0.3, os oito critérios do [roteiro físico](FINALIZATION-v0.3.md) passaram
+numa rodada completa; consulte o [resultado e limites](SMOKE-v0.3.md).
 
 ## Testes portáveis
 

@@ -1,8 +1,11 @@
 # ROS Pocket v0.3 — navegação e perfis de bancada
 
-> Registro da preparação v0.3, anterior à publicação da pré-release. Para a release disponível e as decisões posteriores, veja [o estado atual](PROJECT-STATUS.md). As pendências físicas e os contratos abaixo permanecem válidos.
+> Fechamento autorizado: implementação concluída e [smoke físico curto 8/8](SMOKE-v0.3.md)
+> no APK público rc1. A promoção da integração para `main` foi autorizada após o teste;
+> tag, APK e pré-release não mudam. A sequência e as autorizações intermediárias abaixo
+> registram o ciclo executado, não ordens para reabrir tarefas concluídas.
 
-**Estado:** base reconciliada pela PR #14 (`a5fc28d`); navegação integrada pela PR #15, merge `de3c25409de4a2e2921f6a52586619e18d4197cd`, árvore idêntica ao head `a86cf7d` revisado, aprovado no CI 40537386529 e em smoke físico delimitado 11/11. Perfis integrados pela PR #16, merge `e655da3e8017416adb76e0aafb3771ed3057dbf0`, árvore idêntica ao head `d0b64c8` revisado e aprovado no CI 40569878837; smoke físico dos perfis pendente. O passo 03 prepara `0.3.0-rc1` sem teste no tablet, promoção para main, tag ou release. Trabalho principal no chat, uma entrega delimitada por vez.
+**Estado atual:** base PR #14 (`a5fc28d`), navegação PR #15 (`de3c254`), perfis PR #16 (`e655da3`) e candidato PR #17 (`6012a05`) integrados e aprovados nos respectivos CIs. O APK publicado da fonte `9019184` passou o [smoke físico curto 8/8](SMOKE-v0.3.md); promoção para `main` autorizada separadamente. A documentação organizada pela PR #19 é preservada. Trabalho principal no chat, uma entrega delimitada por vez.
 
 **Objetivo:** navegar pelo inspetor sem uma página gigante e recuperar configurações completas de bancada. Não repetir como novidade o Explorer, logs, quatro watches ou gráficos da v0.2.
 
@@ -82,7 +85,7 @@ Adaptar `tests/tablet_ui.py`/`tests/tablet_plot_acceptance.py` apenas se os sele
 
 Após reinício, restaurar a configuração escolhida desconectada, sem apresentar amostras antigas como live. Tópico ausente/type divergente fica pendente/erro explícito, sem substituir a seleção por outro tópico.
 
-**Semântica implementada:** a configuração escolhida para restauração é o snapshot da última aplicação explícita, não a última seleção no dropdown nem uma edição salva posteriormente. A existência do catálogo bloqueia reconexão automática após recriação/process restart; Home/retorno da mesma Activity segue o lifecycle herdado. Salvar/renomear/excluir são operações explícitas; exclusão confirmada não altera a sessão em execução. Corrupção/schema desconhecido preserva o arquivo e preferências antigas, bloqueia escrita de perfis e conexão automática; não há reset destrutivo. Arquivo atômico local com I/O limitado na UI, nunca no worker DDS; sem promessa de banco multiprocesso/durabilidade sob queda de energia. Validação host não substitui smoke físico dos perfis, que continua pendente.
+**Semântica implementada:** a configuração escolhida para restauração é o snapshot da última aplicação explícita, não a última seleção no dropdown nem uma edição salva posteriormente. A existência do catálogo bloqueia reconexão automática após recriação/process restart; Home/retorno da mesma Activity segue o lifecycle herdado. Salvar/renomear/excluir são operações explícitas; exclusão confirmada não altera a sessão em execução. Corrupção/schema desconhecido preserva o arquivo e preferências antigas, bloqueia escrita de perfis e conexão automática; não há reset destrutivo. Arquivo atômico local com I/O limitado na UI, nunca no worker DDS; sem promessa de banco multiprocesso/durabilidade sob queda de energia. Validação host não substitui teste físico: o smoke curto posterior passou 8/8, com seu alcance registrado separadamente.
 
 **Arquivos candidatos:** novas classes de modelo/armazenamento e testes sob `app/src/{main,test}/java/com/lamggm/rospocket/`; consultar `MainActivity.java`, `InputRules.java`, `ConnectionPolicy.java`, `WatchSlots.java` e `PlotController.java`. Nomes finais de classes não são APIs existentes.
 
@@ -96,7 +99,7 @@ Após reinício, restaurar a configuração escolhida desconectada, sem apresent
 
 **Arquivos candidatos:** `app/build.gradle`, README, docs de navegação/perfis e plano curto de aceite v0.3. Revalidar versionCode/package/certificado antes de escolher identidade; a reconciliação 00 não muda a versão 0.2.0 herdada.
 
-**Preparação autorizada sem tablet:** candidato `0.3.0-rc1`, versionCode `3`, mesmo package DEV. O APK local de bancada reutiliza o certificado debug do último APK físico conhecido; os APKs de runners CI usam suas próprias chaves debug e não são substitutos para atualização in-place. Conferir novamente o dispositivo/identidade antes de qualquer instalação futura. O [fechamento e roteiro curto](FINALIZATION-v0.3.md) mantém o smoke físico pendente; esta etapa não encerra o aceite da versão nem autoriza main/tag/release.
+**Preparação original sem tablet:** candidato `0.3.0-rc1`, versionCode `3`, mesmo package DEV. O APK local de bancada reutiliza o certificado debug do último APK físico conhecido; os APKs de runners CI usam suas próprias chaves debug e não são substitutos para atualização in-place. Conferir novamente o dispositivo/identidade antes de qualquer instalação futura. O [fechamento](FINALIZATION-v0.3.md) conserva o plano original e aponta o resultado físico posterior 8/8; o teste e a promoção para main receberam autorizações próprias. Nenhuma dessas etapas cria tag/release automaticamente.
 
 - Revisão sem bloqueadores e testes/build/lint/CI aplicáveis no SHA/árvore exatos.
 - APK ordinary, hooks OFF, fonte/hash/ABI/certificado rastreáveis. Evidências privadas fora do Git.

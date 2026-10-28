@@ -15,8 +15,8 @@ git clone --branch v0.3.0-rc1 --single-branch https://github.com/lamggm/ros2_poc
 cd ros2_pocket
 ```
 
-O desenvolvimento segue em `integration/v0.3`. A documentação da `main` pode
-mostrar o APK publicado sem promover o código dessa versão para a branch.
+A `main` recebe a integração v0.3 com o mesmo código do app do candidato testado
+e documentação atualizada. A tag acima continua sendo a fonte exata do APK público.
 Confira `git status`, branch e SHA antes de compilar ou alterar arquivos.
 
 ## Preparar o ambiente

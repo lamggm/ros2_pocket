@@ -59,7 +59,8 @@ momento. Consulte o [estado atual](PROJECT-STATUS.md) antes de aplicar decisões
 antigas. Não reutilize aprovação de outro SHA/APK nem trate pendência como PASS.
 
 - [Roadmap v0.3](ROADMAP-v0.3.md).
-- [Preparação do candidato e smoke pendente v0.3](FINALIZATION-v0.3.md).
+- [Fechamento do protótipo de bancada v0.3](FINALIZATION-v0.3.md).
+- [Aceite físico curto v0.3: 8/8](SMOKE-v0.3.md).
 - [Roadmap v0.2](ROADMAP-v0.2.md).
 - [Entrega limitada de bancada v0.2](FINALIZATION-v0.2.md).
 - [Notas de fechamento v0.2](RELEASE-NOTES-v0.2.md).
