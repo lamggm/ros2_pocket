@@ -2,7 +2,7 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este documento descreve o APK publicado **0.3.0-rc1**. Descobrir um endpoint,
+Este documento descreve a v0.4 (APK físico **0.4.0-dev**, code4). Descobrir um endpoint,
 decodificar mensagens e reconstruir o grafo de nós são capacidades distintas.
 Um tópico aparecer na lista não comprova as outras duas.
 
@@ -47,6 +47,8 @@ Os watches decodificam estes tipos padrão:
 - `nav_msgs/msg/Odometry`.
 
 O reader dedicado de `/rosout` decodifica `rcl_interfaces/msg/Log` separadamente.
+O leitor visual adicional suporta `sensor_msgs/msg/LaserScan`, `Image` e
+`CompressedImage`, alternados; [encodings e orçamentos](SENSOR-VIEWS.md).
 Isso não significa que o tipo esteja disponível no projetor genérico dos watches.
 Tipos desconhecidos/customizados podem aparecer na descoberta, mas não recebem
 um decoder presumido.
@@ -61,6 +63,9 @@ explícitos, nunca são inventados zeros. Contrato em [mensagens estruturadas](S
   recebido, matches, QoS, erro persistente e idade monotônica. Contagens de
   endpoints excluem os readers do próprio inspetor.
 - Um reader dedicado e limitado de `/rosout`, independente dos quatro watches.
+- Um leitor visual ativo por vez, com teto DDS separado de 4MiB; não altera os
+  64KiB da telemetria. Smoke físico webcam JPEG + scan sintético 6/6 em
+  Jazzy/Cyclone DDS com peer LAN explícito; não é uma matriz completa.
 - Até **quatro séries numéricas**, com histórico de 30 segundos/600 pontos;
   Odometry oferece 87 folhas numéricas. O gráfico usa snapshots recentes,
   não reconstrói cada mensagem da fonte. Pausa congela o desenho, não o intake.
@@ -79,7 +84,7 @@ comprovam recepção. Veja também [lifecycle e perfis](USAGE.md#reinício-e-úl
 ## O que não faz parte desta versão
 
 O app não publica comandos nem oferece teleop, edição de parâmetros,
-serviços/actions, rosbag, imagens/vídeo, LaserScan, mapas/TF ou um RViz completo.
+serviços/actions, gravação rosbag/vídeo, RTSP, mapas/TF ou um RViz completo.
 Exportação para o usuário, lotes numéricos e decodificação dinâmica de tipos
 customizados ficam fora deste ciclo.
 

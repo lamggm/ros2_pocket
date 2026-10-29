@@ -2,11 +2,19 @@
 
 ## Fonte de verdade
 
-Leia o README e o roadmap do ciclo: [`docs/ROADMAP-v0.3.md`](docs/ROADMAP-v0.3.md) para o desenvolvimento atual; [`docs/ROADMAP-v0.2.md`](docs/ROADMAP-v0.2.md) e [`docs/FINALIZATION-v0.2.md`](docs/FINALIZATION-v0.2.md) para o histórico e os contratos herdados. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
+Trabalho atual autorizado: `docs/ROADMAP-v0.4.md`, integração `integration/v0.4`, feature `feat/v0.4-01-sensor-views`. As instruções específicas v0.3 abaixo são históricas, não destino das novas features. Leia o README e o roadmap do ciclo: [`docs/ROADMAP-v0.4.md`](docs/ROADMAP-v0.4.md) para o desenvolvimento atual; os roadmaps e finalizações anteriores preservam o histórico e os contratos herdados. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
 
 O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
 
 ## Condução e escopo das tarefas
+
+Orientações literais do operador, preservadas como referência de condução:
+
+> vamos, um de cada vez. quero que faça o principal aqui do chat e delegue apenas tarefas menores
+
+> Você está se perdendo muito nessas tarefas. Quero coisas mais simples e bem delimitadas, isso não é um app para nasa (ainda) ele tem tempo pra crescer e melhorar
+
+> Deixa esse comportamento salvo no agents.md do projeto
 
 - O ROS Pocket é um aplicativo em evolução, não um projeto de certificação aeroespacial. Prefira entregas simples, úteis e incrementais; não exija maturidade de produto final para encerrar cada melhoria.
 - Trabalhe em **uma tarefa bem delimitada por vez**, com objetivo, limites e condição de término curtos. Conclua e relate esse resultado antes de abrir outra frente.
@@ -16,7 +24,21 @@ O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS dir
 - Separe bugs que impedem o uso e riscos reais de melhorias de robustez, casos extremos e funcionalidades futuras. Registre os itens adiáveis no backlog, em vez de ampliar silenciosamente a tarefa atual.
 - Encerre com o que foi alterado, o resultado realmente verificado e as limitações restantes. Uma entrega limitada não significa aceite completo da versão: preserve resultados incompletos e não invente passes nem dispense silenciosamente requisitos de segurança ou release. Se o escopo de uma versão mudar, reconcilie o plano explicitamente.
 
-## Ciclo v0.3 — fechamento autorizado
+## Ciclo v0.4 — implementação autorizada
+
+- Integração `integration/v0.4`, feature `feat/v0.4-01-sensor-views`, sobre main c55fbb3.
+- Escopo: [sensores visuais](docs/SENSOR-VIEWS.md), LaserScan 2D e Image/CompressedImage
+  alternados. Um leitor visual adicional isolado dos quatro watches, mesmo domínio
+  ROS de rede via ExternalDomainId; não elevar teto da telemetria.
+- Principal implementa sequencialmente, revisão independente apenas de recortes.
+  TDD, fixtures ROS isoladas, Views/Canvas/decode e build ARM64 hooks OFF.
+- A implementação original não autorizava ADB/push/merge/release automaticamente.
+  Depois, o operador autorizou webcam/teste físico no Ryzen e, após 6/6 PASS,
+  merge na main e release v0.4.0. Reutilizar o APK físico sem recompilar; CI e
+  documentação posteriores não mudam sua identidade interna 0.4.0-dev.
+  Isso não autoriza rede/soak nem campanhas físicas adicionais.
+
+## Ciclo v0.3 — histórico do fechamento autorizado
 
 - A base é **`integration/v0.3`**. Sequência: **00 reconciliação → 01 navegação → 02 perfis locais → 03 fechamento proporcional**. Armazenamento e aplicação são passos internos da entrega de perfis.
 - Navegação, perfis e candidato foram integrados. O [smoke físico curto](docs/SMOKE-v0.3.md) do APK público passou 8/8; o operador autorizou separadamente a promoção para `main`. A v0.3 fecha como protótipo de bancada, sem nova feature/campanha automática.

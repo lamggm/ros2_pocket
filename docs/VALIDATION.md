@@ -19,6 +19,9 @@ novos resultados de teste.
   gates/limiares do plano correspondente. Um smoke curto não substitui esse plano.
 
 Para os resultados já existentes, veja [versões e histórico](PROJECT-STATUS.md).
+Na v0.4, o [fechamento de sensores](FINALIZATION-v0.4.md) registra host/revisões e
+smoke físico **6/6** com webcam real e LaserScan sintético. Esse smoke não é soak
+nem nova qualificação física de todos os quatro watches.
 Na v0.3, os oito critérios do [roteiro físico](FINALIZATION-v0.3.md) passaram
 numa rodada completa; consulte o [resultado e limites](SMOKE-v0.3.md).
 

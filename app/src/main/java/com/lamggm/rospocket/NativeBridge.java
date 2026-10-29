@@ -15,6 +15,9 @@ final class NativeBridge {
   default byte[] removeWatch(int slot){return ("{\"ok\":false,\"error\":\"Multiwatch indisponível nesta ponte\"}").getBytes(StandardCharsets.UTF_8);}
   void stop();
   default void clearRosout() {}
+  default byte[] startSensor(int d,String a,String p,String w,String t){return "{\"ok\":false,\"error\":\"Ponte visual indisponível\"}".getBytes(StandardCharsets.UTF_8);}
+  default byte[] pollSensor(){return new byte[0];}
+  default void stopSensor() {}
   static JSONObject json(byte[] bytes) throws org.json.JSONException {return new JSONObject(new String(bytes,StandardCharsets.UTF_8));}
  }
  static final class JniApi implements Api {
@@ -26,6 +29,9 @@ final class NativeBridge {
   public byte[] removeWatch(int s){return NativeBridge.removeWatch(s);}
   public void stop(){NativeBridge.stop();}
   public void clearRosout(){NativeBridge.clearRosout();}
+  public byte[] startSensor(int d,String a,String p,String w,String t){return NativeBridge.startSensor(d,a,p,w,t);}
+  public byte[] pollSensor(){return NativeBridge.pollSensor();}
+  public void stopSensor(){NativeBridge.stopSensor();}
  }
  static native byte[] start(int domain,String address,String peer);
  static native byte[] poll();
@@ -35,5 +41,8 @@ final class NativeBridge {
  static native byte[] removeWatch(int slot);
  static native void stop();
  static native void clearRosout();
+ static native byte[] startSensor(int d,String a,String p,String w,String t);
+ static native byte[] pollSensor();
+ static native void stopSensor();
  static JSONObject json(byte[] bytes) throws org.json.JSONException {return Api.json(bytes);}
 }

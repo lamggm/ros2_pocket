@@ -2,10 +2,9 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este guia descreve o APK **0.3.0-rc1** publicado na
-[pré-release](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1).
-O código de outras branches pode ter uma interface diferente. O
-[smoke físico curto desse APK](SMOKE-v0.3.md) passou **8/8** no SM-X400 / Android 16;
+Este guia descreve a [release v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0),
+cujo APK físico testado mantém a versão interna **0.4.0-dev**.
+O [smoke físico de sensores](FINALIZATION-v0.4.md) passou **6/6** no SM-X400 / Android 16;
 isso não é qualificação extensa ou suporte a todos os dispositivos.
 
 ## Instalar e atualizar
@@ -15,7 +14,7 @@ Na página da release, baixe o `.apk` em **Assets**, não os arquivos de código
 A release também fornece `SHA256SUMS` e `app-debug.json` para conferir a integridade.
 
 A instalação usa o nome **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`.
-O candidato é debug, versionCode 3, e tem hooks de teste desativados.
+O candidato é debug, versionCode 4, e tem hooks de teste desativados.
 A assinatura debug não é uma assinatura de produção.
 
 Para atualizar sem perder configurações, o Android exige o mesmo package e um
@@ -30,10 +29,11 @@ simplesmente seguir os guias de build ou baixar o arquivo.
 
 - **Conexão:** domínio, peer, conectar/desconectar, diagnóstico, nós e perfis locais.
 - **Tópicos:** Explorer, busca, filtros, favoritos, endpoints e QoS anunciado.
-- **Monitor:** seleção de Watch 1–4, mensagens, campos numéricos e gráficos.
+- **Monitor:** seleção de Watch 1–4, mensagens, campos numéricos, gráficos e sensores visuais.
 - **Logs:** console de `/rosout`, filtros, pausa e limpeza da visualização.
 
-Trocar de seção não desconecta nem cria uma nova sessão ou reader DDS.
+Trocar de seção não desconecta a telemetria. O leitor visual só opera no Monitor;
+sair dele suspende o sensor e invalida a imagem anterior.
 O app não publica comandos, altera parâmetros ou movimenta o robô.
 
 ## Conectar e ler um tópico
@@ -56,6 +56,10 @@ original do publicador. Confira também a idade dos dados: um valor na tela pode
 ser antigo mesmo com a conexão ativa.
 
 ## Gráficos e logs
+
+Para LaserScan 2D ou câmera, selecione **Visualizar** no tópico suportado no
+Explorer. O Monitor alterna um sensor visual por vez, sem ocupar os watches.
+Veja [formatos, limites, zoom e comportamento](SENSOR-VIEWS.md).
 
 Selecione campos numéricos de qualquer um dos quatro watches para criar até
 quatro séries. A escolha de campos no gráfico é separada da seleção no inspetor
