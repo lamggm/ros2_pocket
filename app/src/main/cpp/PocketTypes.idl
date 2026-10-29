@@ -29,6 +29,22 @@ module nav_msgs { module msg { module dds_ {
  geometry_msgs::msg::dds_::TwistWithCovariance_ twist;
 };
 }; }; };
+module sensor_msgs { module msg { module dds_ {
+@final struct LaserScan_ {
+ std_msgs::msg::dds_::Header_ header;
+ float angle_min; float angle_max; float angle_increment;
+ float time_increment; float scan_time; float range_min; float range_max;
+ sequence<float> ranges; sequence<float> intensities;
+};
+@final struct Image_ {
+ std_msgs::msg::dds_::Header_ header;
+ unsigned long height; unsigned long width; string encoding;
+ octet is_bigendian; unsigned long step; sequence<octet> data;
+};
+@final struct CompressedImage_ {
+ std_msgs::msg::dds_::Header_ header; string format; sequence<octet> data;
+};
+}; }; };
 module rcl_interfaces { module msg { module dds_ {
 @final struct Log_ {
  builtin_interfaces::msg::dds_::Time_ stamp;

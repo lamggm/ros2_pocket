@@ -66,9 +66,10 @@ public final class ExplorerView extends LinearLayout {
    CheckBox star=new CheckBox(getContext());star.setTag("favorite:"+key);star.setText("Favorito "+name);star.setTextColor(0xffe6edf3);star.setChecked(favorites.contains(key));rows.addView(star);
    Button more=new Button(getContext());more.setTag("details:"+key);more.setText("Detalhes / QoS · "+name);rows.addView(more);
    more.setOnClickListener(v->{detailKey=key;renderDetails();});
-   Button read=new Button(getContext());read.setTag("read:"+key);read.setText(topic.optBoolean("supported")?"Ler · "+name:"Sem decodificador · "+name);read.setEnabled(topic.optBoolean("supported"));rows.addView(read);
+   boolean visual=SensorPacket.supports(topic.optString("wireType"));
+   Button read=new Button(getContext());read.setTag("read:"+key);read.setText(visual?"Visualizar · "+name:topic.optBoolean("supported")?"Ler · "+name:"Sem decodificador · "+name);read.setEnabled(visual||topic.optBoolean("supported"));rows.addView(read);
    read.setOnClickListener(v->listener.read(topic));
-   text.setContentDescription("Tópico "+name);text.setOnClickListener(v->{detailKey=key;renderDetails();if(topic.optBoolean("supported"))listener.read(topic);});
+   text.setContentDescription("Tópico "+name);text.setOnClickListener(v->{detailKey=key;renderDetails();if(visual||topic.optBoolean("supported"))listener.read(topic);});
    star.setOnCheckedChangeListener((b,on)->{
     if(on&&favorites.size()>=256){b.setChecked(false);Toast.makeText(getContext(),"Limite de 256 favoritos locais",Toast.LENGTH_SHORT).show();return;}
     if(on)favorites.add(key);else favorites.remove(key);

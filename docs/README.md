@@ -1,11 +1,18 @@
 # Documentação do ROS Pocket
 
 [Voltar ao projeto](../README.md) ·
-[Baixar a pré-release](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1)
+[Baixar a v0.4](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0)
 
 Para começar a usar o APK, leia os guias abaixo. As referências técnicas e os
 registros históricos ficam separados para não interromper o passo a passo.
-Os guias descrevem a pré-release publicada; código de outras branches pode diferir.
+Os guias descrevem a v0.4; código de outras branches pode diferir. O APK físico
+mantém o nome interno 0.4.0-dev, sem recompilação para alterar a etiqueta.
+
+## Sensores visuais v0.4
+
+- [Sensores visuais](SENSOR-VIEWS.md): LaserScan 2D, Image/CompressedImage, uso, limites e validação host.
+- [Escopo v0.4](ROADMAP-v0.4.md): implementação autorizada e fronteiras do ciclo.
+- [Fechamento v0.4](FINALIZATION-v0.4.md): host/revisões e smoke físico 6/6, identidade do APK e limites.
 
 ## Para quem usa o app
 

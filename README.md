@@ -1,20 +1,25 @@
 # ROS Pocket
 
+> **v0.4 — sensores visuais:** LaserScan 2D e câmera por tópico ROS/DDS,
+> alternados na mesma área, sem bridge/RTSP. [Uso e limites](docs/SENSOR-VIEWS.md) ·
+> [aceite físico curto: 6/6](docs/FINALIZATION-v0.4.md).
+
 Inspecione tópicos ROS 2 pelo celular ou tablet Android, sem precisar abrir um
 notebook. O ROS Pocket se conecta diretamente via DDS para mostrar mensagens,
 gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 
-[Baixar o app](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1) ·
+[Baixar o app](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0) ·
 [Guia de uso](docs/USAGE.md) · [Documentação](docs/README.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A versão disponível é a pré-release **0.3.0-rc1**, um protótipo de bancada.
-> O [smoke físico de bancada](docs/SMOKE-v0.3.md) passou **8/8** no SM-X400 / Android 16.
+> A release **v0.4.0** é um protótipo de bancada. Reutiliza o APK físico testado,
+> identificado internamente como **0.4.0-dev**, versionCode **4**, assinatura debug.
+> O [smoke físico de sensores](docs/FINALIZATION-v0.4.md) passou **6/6** no SM-X400 / Android 16.
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
 
-1. Abra a [página da pré-release](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1).
+1. Abra a [página da release](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0).
 2. Em **Assets**, baixe o arquivo `.apk`. Os arquivos “Source code” não são o app.
 3. Instale em um Android **9 ou superior**, com processador **ARM64**. O Android
    pode pedir permissão para instalar aplicativos da origem escolhida.
@@ -34,6 +39,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Plotar até **quatro séries numéricas**, com pausa da visualização.
 - Ler e filtrar logs de `/rosout`.
 - Salvar configurações em **perfis locais** e aplicá-las antes de conectar.
+- Visualizar **LaserScan 2D ou câmera ROS**, alternados no Monitor, sem ocupar os watches.
 
 A interface tem quatro seções: **Conexão, Tópicos, Monitor e Logs**.
 O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
@@ -59,8 +65,8 @@ do grafo de nós. O trabalho de compatibilidade multidistribuição está na
 [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 
 O APK atual é ARM64, usa IPv4 na mesma LAN e decodifica uma lista definida de
-tipos padrão. Tipos customizados, LaserScan, imagens, mapas, parâmetros,
-serviços/actions e teleop não fazem parte desta versão.
+tipos padrão, incluindo [sensores visuais com limites explícitos](docs/SENSOR-VIEWS.md).
+Tipos customizados, mapas/TF, parâmetros, serviços/actions e teleop não fazem parte desta versão.
 Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 
 <a id="development-sequence"></a>
@@ -76,7 +82,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Entender os testes](docs/VALIDATION.md): o que cada validação comprova e o que está pendente.
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 
-A `main` reúne o código v0.3 e o aceite delimitado de bancada. A fonte exata do
-**APK publicado** continua na tag
-[`v0.3.0-rc1`](https://github.com/lamggm/ros2_pocket/tree/v0.3.0-rc1).
-Este fechamento não altera a tag, o APK ou a classificação de pré-release.
+A v0.4 preserva watches, gráficos, logs e perfis da v0.3. A release distribui os
+mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
+explica a fonte local testada e a reconciliação documental/CI posterior.
+As releases anteriores permanecem intactas.

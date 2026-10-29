@@ -38,6 +38,13 @@ public final class MainActivity extends Activity {
  private final PlotController plots=new PlotController();
  private final QaSnapshot qa=new QaSnapshot();
  private PlotView plotView;
+ private SensorPanel sensorPanel;
+ private ScheduledFuture<?> sensorTicker;
+ // Applied state is confined to the same process-wide DDS queue as telemetry.
+ private SensorPanel.Request appliedSensor;
+ private long appliedSensorEpoch=-1;
+ private SensorPanel.Request failedSensor;
+ private long failedSensorEpoch=-1,sensorRetryAt=0;
  private StructuredMessageView structured;
  private final StructuredMessageView[] watchStructured=new StructuredMessageView[4];
  private RosoutConsoleView rosoutConsole;
@@ -102,6 +109,7 @@ public final class MainActivity extends Activity {
  private final LinearLayout[] sections=new LinearLayout[4];
  private final Button[] sectionButtons=new Button[4];
  private void showSection(int selected){
+  if(sensorPanel!=null)sensorPanel.visible(selected==2);
   for(int i=0;i<sections.length;i++){
    sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
    sectionButtons[i].setSelected(i==selected);
@@ -171,6 +179,7 @@ public final class MainActivity extends Activity {
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
   sections[2].addView(echo);
+  sensorPanel=new SensorPanel(this);sections[2].addView(sensorPanel);
   plotView=new PlotView(this,plots);sections[2].addView(plotView);
   LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);sections[3].addView(logCard);
   showSection(0);
@@ -182,6 +191,8 @@ public final class MainActivity extends Activity {
   final int token=generation;
   if(connectWanted)requestConnection(false);
   ticker=worker.scheduleWithFixedDelay(()->tick(token),0,500,TimeUnit.MILLISECONDS);
+  sensorPanel.available(connectWanted);
+  sensorTicker=worker.scheduleWithFixedDelay(()->tickSensor(token),0,100,TimeUnit.MILLISECONDS);
  }
  private void requestConnection(boolean resetSelection){
   DeviceTestHooks.invalidate();
@@ -195,6 +206,7 @@ public final class MainActivity extends Activity {
    if(resetSelection&&!profileConfigured){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
    else watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);
    requested=new Config(d,p);connectWanted=true;plots.reset(policy.generation());
+   sensorPanel.available(true);
    inactive("RECONECTANDO · aguardando dados desta sessão");
    extrasInactive("RECONECTANDO · aguardando dados desta sessão");
    prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putBoolean("wanted",true).apply();
@@ -233,7 +245,8 @@ public final class MainActivity extends Activity {
   qa.invalidate();
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
-  try{if(owns)bridge.stop();}finally{
+  sensorPanel.invalidateStream();appliedSensor=null;failedSensor=null;sensorRetryAt=0;
+  try{if(owns){try{bridge.stopSensor();}finally{bridge.stop();}}}finally{
    nativeRunning=false;workerConfig=null;workerAddress="";
    try{if(owns){nativeOwner=new WeakReference<>(null);((ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE)).bindProcessToNetwork(null);}}
    finally{workerNetwork=null;WifiManager.MulticastLock old=multicast;multicast=null;if(old!=null&&old.isHeld())old.release();}
@@ -345,6 +358,29 @@ public final class MainActivity extends Activity {
    ui(token,epoch,()->{if(connectWanted&&requested==config){unavailable("ERRO · dados indisponíveis","Falha DDS: "+e+" · nova tentativa em até "+policy.delayMillis()/1000+" s");diagnostics.setText(failedNetwork+"\nDDS peers: — · Nós ROS: —");}});
   }
  }
+ private void tickSensor(int token){
+  if(foregroundActivity.get()!=this||!resumed||generation!=token||nativeOwner.get()!=this)return;
+  final Config config=requested;final long epoch=policy.generation();
+  final SensorPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?sensorPanel.desired():null;
+  final long visualEpoch=sensorPanel.epoch();
+  if(desired!=null&&failedSensor==desired&&failedSensorEpoch==visualEpoch&&monotonicMillis()<sensorRetryAt)return;
+  try{
+   if(appliedSensor!=desired||appliedSensorEpoch!=visualEpoch){
+    bridge.stopSensor();appliedSensor=desired;appliedSensorEpoch=visualEpoch;
+    if(desired!=null){
+     JSONObject answer=NativeBridge.Api.json(bridge.startSensor(config.domain,workerAddress,config.peer,desired.wire,desired.type));
+     if(!connectionCurrent(token,config,epoch)||!sensorPanel.current(desired,visualEpoch)){bridge.stopSensor();appliedSensor=null;return;}
+     if(!answer.optBoolean("ok"))throw new IllegalStateException(answer.optString("error","Falha no sensor"));
+     failedSensor=null;sensorRetryAt=0;
+    }
+   }
+   if(desired!=null){byte[] data=bridge.pollSensor();if(connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch)&&!sensorPanel.accept(desired,data,()->connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch)))throw new IllegalStateException("Leitor visual indisponível");}
+  }catch(Exception ex){
+   appliedSensor=null;appliedSensorEpoch=-1;failedSensor=desired;failedSensorEpoch=visualEpoch;sensorRetryAt=monotonicMillis()+1000;
+   if(desired!=null)sensorPanel.error(desired,String.valueOf(ex.getMessage()),()->connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch));
+   try{bridge.stopSensor();}catch(Exception ignored){android.util.Log.w("RosPocket","Falha ao parar sensor visual");}
+  }
+ }
  @Override public void dump(String prefix,java.io.FileDescriptor fd,java.io.PrintWriter writer,String[] args){
   if(args!=null&&args.length==1&&"--pocket-qa-v1".equals(args[0])){
    if(!BuildConfig.DEBUG){writer.println("ROS Pocket QA unavailable");return;}
@@ -440,6 +476,7 @@ public final class MainActivity extends Activity {
  }
  private void select(JSONObject topic){
   if(!connectWanted)return;
+  if(SensorPacket.supports(topic.optString("wireType"))){sensorPanel.select(topic.optString("wireName"),topic.optString("wireType"));showSection(2);return;}
   if(!topic.optBoolean("supported")){Toast.makeText(this,"Tipo descoberto, mas ainda sem decodificador: "+topic.optString("type"),Toast.LENGTH_LONG).show();return;}
   if(activeWatch>0){requestExtra(activeWatch,topic.optString("wireName"),topic.optString("wireType"),reliable.isChecked(),transientLocal.isChecked());return;}
   selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");resubscribe();
@@ -484,6 +521,7 @@ public final class MainActivity extends Activity {
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(MUTED);
  }
  private void disconnect(){
+  sensorPanel.available(false);
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
   extrasInactive("Desconectado · sem assinatura ativa");
@@ -501,6 +539,8 @@ public final class MainActivity extends Activity {
   rosoutEpoch++;rosoutConsole.clearNow();
  }
  @Override protected void onStop(){
+  sensorPanel.available(false);
+  if(sensorTicker!=null){sensorTicker.cancel(false);sensorTicker=null;}
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
   resumed=false;generation++;policy.invalidate();plots.reset(policy.generation());
@@ -512,6 +552,7 @@ public final class MainActivity extends Activity {
   rosoutEpoch++;rosoutConsole.clearNow();
   super.onStop();
  }
+ @Override protected void onDestroy(){sensorPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);

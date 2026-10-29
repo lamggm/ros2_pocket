@@ -2,33 +2,32 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## O que está publicado
+## v0.4 — fechamento de sensores visuais
 
-A [pré-release v0.3.0-rc1](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1)
-contém APK DEV debug, checksum e manifesto. Fonte do APK:
-`90191840826a30c3757f09fa8b33361def91d9f5`, package
-`com.lamggm.rospocket.dev`, versionCode 3, ARM64, hooks OFF.
-O certificado coincide com o último APK físico conhecido da bancada, não com
-qualquer compilação independente ou runner CI. A release não é versão estável.
+A [release v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0)
+acrescenta LaserScan 2D e câmera ROS alternados no Monitor, preservando watches,
+gráficos, logs e perfis. [Uso e limites](SENSOR-VIEWS.md).
 
-O **aceite físico curto passou 8/8** no SM-X400 / Android 16 em 28/10/2026.
-Veja o [resultado completo e limites](SMOKE-v0.3.md). O operador autorizou a
-promoção da integração para `main`; isso não muda a pré-release nem cria outra release.
-Para instalar, use a release; para compilar a mesma fonte, use sua tag.
+- Host/build ARM64 e revisão independente concluídos; smoke físico curto **6/6**
+  no SM-X400 / Android 16, com webcam real JPEG e LaserScan sintético.
+- APK distribuído: **0.4.0-dev**, versionCode **4**, package
+  `com.lamggm.rospocket.dev`, ARM64, debug v2, hooks OFF. Mantém exatamente os
+  bytes testados no tablet, sem rebuild para alterar a etiqueta da versão.
+- Fonte: implementação local baseada em `c55fbb3`; a integração incorpora apenas
+  reconciliação documental e ligação do replay de sensores ao CI após o smoke.
+- [Identidade do APK, critérios e limites](FINALIZATION-v0.4.md). O manifesto da
+  release distingue o snapshot de build/teste da árvore Git publicada.
+- `main` recebe a v0.4 pelo fechamento autorizado; nenhuma campanha extra é
+  iniciada por este documento. As tags e os APKs v0.3 permanecem intactos.
 
-## Onde está o código
+## Histórico publicado v0.3
 
-- `main`: destino da promoção autorizada do código v0.3, preservando o README
-  organizado e registrando o aceite físico delimitado.
-- `integration/v0.3`: integração de navegação/perfis/candidato, reconciliada com
-  os guias da PR #19 para esta promoção; sem novas alterações de código do app.
-- `v0.3.0-rc1`: tag da fonte exata do APK publicado; não deve ser movida para
-  incorporar correções documentais ou builds novos.
-
-Para implementar uma mudança, leia o `AGENTS.md` da branch de código escolhida.
-As regras antigas de v0.2 e as regras de v0.3 correspondem a ciclos diferentes;
-não trate uma atualização do README público como autorização de promoção.
-O [roadmap v0.3](ROADMAP-v0.3.md) conserva sequência, limites e decisões do ciclo.
+A [release v0.3.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0)
+foi publicada da main `c55fbb3`, reutilizando o APK da
+[pré-release v0.3.0-rc1](https://github.com/lamggm/ros2_pocket/releases/tag/v0.3.0-rc1).
+Fonte original do APK: `90191840826a30c3757f09fa8b33361def91d9f5`, code3,
+assinatura debug de bancada. Seu [smoke físico](SMOKE-v0.3.md) passou **8/8**.
+A evidência v0.3 não é usada como aceite físico da v0.4.
 
 ## Histórico da v0.3
 
@@ -88,9 +87,8 @@ comprovam execução dessa instrumentação no Android físico.
 ## Próximos trabalhos
 
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
-- Publicação de eventual versão final é uma etapa própria; o download continua
-  sendo a pré-release rc1 já testada, sem renomear seus bytes como build novo.
-- LaserScan, exportação e lotes numéricos ficam fora da v0.3.
+- A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
+- Exportação e lotes numéricos continuam backlog; LaserScan entrou na v0.4.
 - Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual

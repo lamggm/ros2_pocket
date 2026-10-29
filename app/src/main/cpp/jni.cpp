@@ -1,8 +1,10 @@
 #include <jni.h>
 #include "inspector.hpp"
 #include "model.hpp"
+#include "sensors.hpp"
 #include <mutex>
 static pocket::Session session;
+static pocket::SensorSession sensor;
 static std::mutex mutex;
 static std::string text(JNIEnv* env,jstring s) {
  if(!s)return "";
@@ -26,7 +28,23 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.subscribe(text(e,topic),text(e,type),reliable,transient));
 }
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stop(JNIEnv*,jclass) {
- std::lock_guard<std::mutex> lock(mutex);session.stop();
+ std::lock_guard<std::mutex> lock(mutex);sensor.stop();session.stop();
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensor(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type){
+ std::lock_guard<std::mutex> lock(mutex);
+ try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type)));}
+ catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollSensor(JNIEnv* e,jclass){
+ std::lock_guard<std::mutex> lock(mutex);
+ try{
+  auto frame=sensor.poll();std::string packet;uint32_t n=static_cast<uint32_t>(frame.metadata.size());
+  for(int i=0;i<4;i++)packet+=static_cast<char>(n>>(8*i));packet+=frame.metadata;
+  packet.append(reinterpret_cast<const char*>(frame.payload.data()),frame.payload.size());return bytes(e,packet);
+ }catch(const std::exception&){return bytes(e,"");}
+}
+extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopSensor(JNIEnv*,jclass){
+ std::lock_guard<std::mutex> lock(mutex);sensor.stop();
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_watch(JNIEnv* e,jclass,jint slot,jstring topic,jstring type,jboolean reliable,jboolean transient) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.watch(slot,text(e,topic),text(e,type),reliable,transient));
