@@ -61,6 +61,9 @@ ou inglês. Não precisam ser lidos em sequência para instalar ou usar o app.
 
 ## Planejamento e histórico
 
+- [Roadmap v0.5–v0.9](ROADMAP.md): direção futura, estados, aceite e limites por versão.
+- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; v0.5 planejada e v0.6–v0.9 propostas.
+
 Documentos de uma fase registram o que estava autorizado e validado naquele
 momento. Consulte o [estado atual](PROJECT-STATUS.md) antes de aplicar decisões
 antigas. Não reutilize aprovação de outro SHA/APK nem trate pendência como PASS.
