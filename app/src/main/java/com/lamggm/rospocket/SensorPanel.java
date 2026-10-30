@@ -51,6 +51,15 @@ class SensorPanel extends LinearLayout {
   title.setText((mode==0?"LASERSCAN 2D":"CÂMERA ROS")+" · "+wire+"\n"+type);
  }
  private void switchMode(int value){mode=value;selected=saved[value];zoom=1;invalidateStream();title.setText(selected==null?"Selecione um tópico "+(mode==0?"LaserScan":"Image/CompressedImage")+" no Explorer":selected.wire+"\n"+selected.type);}
+ BenchProfiles.Visual profile(){
+  Request scan=saved[0],camera=saved[1];
+  return new BenchProfiles.Visual(mode==0?"scan":"camera",scan==null?null:new BenchProfiles.Sensor(scan.wire,scan.type,true),camera==null?null:new BenchProfiles.Sensor(camera.wire,camera.type,false));
+ }
+ void configure(BenchProfiles.Visual visual){
+  saved[0]=visual.scan==null?null:new Request(visual.scan.wire,visual.scan.type);
+  saved[1]=visual.camera==null?null:new Request(visual.camera.wire,visual.camera.type);
+  switchMode("scan".equals(visual.mode)?0:1);
+ }
  Request desired(){return available&&visible?selected:null;}
  long epoch(){return stream;}
  boolean current(Request request,long epoch){return stream==epoch&&desired()==request;}
