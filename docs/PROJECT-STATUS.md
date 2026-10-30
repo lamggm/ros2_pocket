@@ -2,6 +2,21 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v0.6 — perfis portáteis
+
+Seleção scan/câmera e modo nos perfis; importação/exportação de um perfil JSON
+pelo seletor Android, com confirmação, validação e UUID novo. Schema1 permanece
+legível sem regravação no load; Aplicar e Conectar continuam separados.
+
+[Contrato](PORTABLE-PROFILES.md) · [Fechamento](FINALIZATION-v0.6.md).
+Fonte limpa do APK `153e3ee`, interno **0.6.0-dev/code6**, ARM64/debug/hooks OFF.
+457 casos Java sem falhas/erros, um skip legado; build/lint aprovados e revisão
+independente sem blockers. Smoke físico de configuração/documentos **7/7**,
+sem produtor DDS. Promoção, CI e release acompanhados na issue #23.
+O download da [última release](https://github.com/lamggm/ros2_pocket/releases/latest)
+inclui a identidade exata do APK; não confundir build do CI com candidato físico.
+v0.7–v0.9 continuam propostas, sem início automático.
+
 ## v0.5 — fechamento delimitado de CSV
 
 A v0.5 implementa [exportação CSV dos gráficos](CSV-EXPORT.md). O
@@ -10,10 +25,10 @@ A v0.5 implementa [exportação CSV dos gráficos](CSV-EXPORT.md). O
 com produtor DDS local Android. O reteste curto Jazzy/LAN passou separadamente
 após o operador reconectar ambos os dispositivos ao Wi-Fi.
 
-Fechamento e merge foram autorizados; **não há nova release neste passo**. O
-download público continua na v0.4.0. O candidato físico 0.5.0-dev/code5 é
-preservado sem rebuild e não se confunde com APK host/CI. Issue de entrega: #22.
-V0.6–v0.9 permanecem propostas; nenhuma campanha extra é iniciada automaticamente.
+A [release v0.5.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.5.0)
+foi publicada e verificada após merge da PR #27/main `aa7e39d`, com CI da PR e
+pós-merge aprovados. O APK físico 0.5.0-dev/code5 foi preservado sem rebuild e não
+se confunde com APK host/CI. Issue #22 e milestone v0.5 encerrados.
 
 ## v0.4 — fechamento de sensores visuais
 

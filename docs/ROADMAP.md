@@ -8,23 +8,22 @@
 
 **Exportar → levar a bancada pronta → capturar melhor → ampliar compatibilidade → consolidar estabilidade.**
 
-A base publicada é a [v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0),
-com LaserScan 2D e câmera ROS alternados, quatro watches, gráficos, rosout e perfis.
-Este roadmap separa recursos fechados no código de recursos presentes no APK
-público: a v0.5 foi implementada e validada em bancada, mas não publicada como
-release neste fechamento. A publicação deste documento não inicia o próximo
-ciclo, instala APKs ou autoriza campanhas físicas/rede.
+A [v0.5.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.5.0) publicou CSV
+sobre sensores, quatro watches, gráficos, rosout e perfis. A v0.6 acrescenta
+perfis portáteis, com host/revisão e smoke físico direcionado aprovados; promoção
+e publicação são acompanhadas na issue #23. Consulte a [última release](https://github.com/lamggm/ros2_pocket/releases/latest)
+para distinguir APK disponível de código em desenvolvimento. Este documento
+não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 
 - **Proposto:** direção futura, revisável antes de iniciar o ciclo.
 - **Planejado:** prioridade/escopo definidos; implementação ainda não iniciada.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5 fechada como entrega delimitada de bancada; v0.6–v0.9 propostas**.
-Contrato em [CSV-EXPORT.md](CSV-EXPORT.md) e evidências/limites em
-[FINALIZATION-v0.5.md](FINALIZATION-v0.5.md); sem release nova. Na publicação
-inicial do roadmap, todas estavam não iniciadas. Milestones futuros permanecem
-sem datas; o milestone v0.5 acompanha o fechamento da issue #22.
+**v0.5 publicada; v0.6 implementada e validada no escopo delimitado; v0.7–v0.9 propostas**.
+Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
+[perfis portáteis](FINALIZATION-v0.6.md). Na publicação inicial deste roadmap,
+todas estavam não iniciadas. Milestones futuros permanecem sem datas.
 Revisar este arquivo ao encerrar cada ciclo, preservando o histórico no Git.
 
 ## Acompanhamento
@@ -44,7 +43,7 @@ cada detalhe. Abrir tarefas menores somente quando iniciar o respectivo ciclo.
 
 ## v0.5 — Exportar o histórico dos gráficos em CSV
 
-**Estado:** entrega delimitada de bancada concluída; merge autorizado, sem release nova.
+**Estado:** entrega delimitada concluída, merge e release v0.5.0 publicados/verificados.
 [Evidências e limites](FINALIZATION-v0.5.md). **Depende de:** histórico de gráficos já existente.
 
 **Objetivo:** tirar os dados retidos do tablet para análise sem bloquear o worker DDS.
@@ -74,7 +73,9 @@ smoke Android delimitado quando autorizado.
 
 ## v0.6 — Bancadas completas e portáteis
 
-**Estado:** proposto. **Sequência:** depois da v0.5; reutiliza os perfis da v0.3.
+**Estado:** implementação, host/revisão e smoke físico 7/7 concluídos;
+promoção/release acompanhadas na issue #23. [Evidências e limites](FINALIZATION-v0.6.md).
+**Sequência:** depois da v0.5; reutiliza os perfis da v0.3.
 
 **Objetivo:** levar uma configuração pronta entre instalações.
 

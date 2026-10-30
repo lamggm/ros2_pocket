@@ -1,4 +1,4 @@
-# Perfis portáteis — contrato v0.6 em implementação
+# Perfis portáteis — v0.6
 
 [Roadmap](ROADMAP.md#v06) · [Issue #23](https://github.com/lamggm/ros2_pocket/issues/23)
 
@@ -44,9 +44,19 @@ importar. Um arquivo não escolhe qual perfil local substituir.
   ou importa silenciosamente. Se o seletor tirar o app do foreground, DDS obedece
   ao lifecycle existente. Não há captura background.
 
-## Validação prevista
+## Validação executada e limites
 
-TDD de schema/migração, storage e Views reais no host; round-trip de configuração
-com scan/câmera, cancelamento, duplicados e falhas. Build/lint e regressões do app,
-revisão pontual independente e smoke Android direcionado quando autorizado.
-Resultados executados serão registrados no fechamento, sem reutilizar aceite v0.5.
+TDD de schema/migração, storage e Views reais no host; 457 casos Java, zero falhas
+ou erros e um skip opt-in legado. Revisão independente sem bloqueadores; build
+ARM64/hooks OFF e lint sem erros. [Fechamento](FINALIZATION-v0.6.md).
+
+Smoke físico direcionado **7/7**: schema1 sem regravação no load; importar com
+confirmação/UUID novo; exportar o perfil salvo apesar de edição não salva; cancelar;
+rejeitar JSON inválido; aplicar e alternar as intenções scan/câmera; salvar e
+reiniciar desconectado. Usou configuração sintética, sem produtor DDS ou imagens.
+
+O limite de bytes não é timeout de provedor: um provedor que não retorna pode
+ocupar o único worker de transferência até encerrar o processo. Não há fila
+crescente nem bloqueio do worker DDS; timeout/cancelamento de I/O fica como
+robustez futura. Não é cloud/sync, catálogo completo, editor de dashboards ou
+gravação de amostras. Os testes não qualificam soak, rede ou sensores físicos.

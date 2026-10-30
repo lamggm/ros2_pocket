@@ -11,9 +11,12 @@ clocks separados, gaps e limites; não é rosbag nem captura de todas as mensage
 O operador autorizou o fechamento e merge após os testes abaixo. A promoção
 preserva a implementação já testada; as alterações de fechamento são documentais.
 
-**Não é publicação de release.** O download público permanece na v0.4.0 até uma
-autorização própria. Não reconstruir ou substituir o APK físico por um artefato
-de CI como se fossem os mesmos bytes.
+**Publicação posterior ao fechamento:** a [release v0.5.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.5.0)
+foi publicada após o operador estabelecer merge + release como entrega padrão.
+Tag no merge `aa7e39dbd19be035f7494751043bb3931b4ad533`; CI da PR #27 e pós-merge
+aprovados (41076500637 e 41079696301). APK/checksums/manifesto/resumo foram baixados
+e conferidos. Não reconstruir ou substituir o APK físico por um artefato de CI
+como se fossem os mesmos bytes.
 
 ## Identidade do candidato físico
 
