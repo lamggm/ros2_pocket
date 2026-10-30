@@ -1,9 +1,26 @@
-# Exportação CSV — v0.5
+# Exportação CSV — v0.5 e extensão v0.7
 
 [Projeto](../README.md) · [Roadmap](ROADMAP.md#v05)
 
 Implementado na v0.5, com [fechamento e evidências de bancada](FINALIZATION-v0.5.md).
 Não pertence ao APK público v0.4; a promoção do código não publica uma release.
+
+## Extensão v0.7: lotes e formato 2
+
+O [histórico em lotes](NUMERIC-BATCHES.md) exporta `capture_mode=numeric_batch`.
+Se alguma série da cópia contém esse modo, `format_version=2`: preserva as 17
+colunas legadas na mesma ordem e acrescenta `watch_local_batch_discarded_total`.
+É o contador cumulativo **da geração de reader no instante da cópia**, repetido
+nas linhas da série, não um descarte por ponto ou perda universal DDS/rede.
+Em uma cópia mista, linhas de modo legado mantêm `latest_snapshot` e deixam a
+nova coluna vazia. Uma cópia inteiramente legada continua formato1/17 colunas.
+
+Tempos de recepção iguais podem representar sequências distintas; preservar a
+ordem das linhas, sem eliminar gaps nem inventar nanos. O histórico segue
+limitado a 600 pontos/30 s no app. Pausa conserva também o contador original.
+O [smoke físico v0.7](FINALIZATION-v0.7.md) exercitou ambos os modos de display
+em formato2. As descrições abaixo de `latest_snapshot`/formato1 são o contrato
+legado v0.5, não uma garantia de captura integral na v0.7.
 
 ## Usar
 

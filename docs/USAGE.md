@@ -2,9 +2,9 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este guia corresponde à v0.6; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
-O candidato físico mantém a versão interna **0.6.0-dev**, code **6**.
-O [smoke físico de perfis](FINALIZATION-v0.6.md) passou **7/7** no SM-X400 / Android 16;
+Este guia corresponde à v0.7; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
+O candidato físico mantém a versão interna **0.7.0-dev**, code **7**.
+O [smoke físico de lotes/CSV](FINALIZATION-v0.7.md) passou **4/4** no SM-X400 / Android 16;
 isso não é qualificação extensa ou suporte a todos os dispositivos.
 
 ## Instalar e atualizar
@@ -14,7 +14,7 @@ Na página da release, baixe o `.apk` em **Assets**, não os arquivos de código
 A release também fornece `SHA256SUMS` e `app-debug.json` para conferir a integridade.
 
 A instalação usa o nome **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`.
-O candidato é debug, versionCode 6, e tem hooks de teste desativados.
+O candidato é debug, versionCode 7, e tem hooks de teste desativados.
 A assinatura debug não é uma assinatura de produção.
 
 Para atualizar sem perder configurações, o Android exige o mesmo package e um
@@ -67,8 +67,11 @@ estruturado. **Pausar** congela o desenho; a recepção continua. Substituir ou
 remover um reader invalida as séries daquele reader, sem reaproveitar seus pontos
 como se viessem do novo tópico.
 
-O gráfico guarda snapshots recentes, não cada mensagem publicada. Para limites,
-lacunas, NaN/Inf e comportamento de pausa, consulte [gráficos](LIVE-PLOTS.md).
+O gráfico recebe [lotes limitados dos campos selecionados](NUMERIC-BATCHES.md),
+não cada mensagem publicada sem perdas. Até 32 amostras por watch/poll;
+descarte local conhecido aparece no gráfico e no CSV. O ring continua em
+600 pontos/30 s; com mais amostras por segundo, pode reter menos de 30 s.
+Lacunas, NaN/Inf e pausa: [gráficos](LIVE-PLOTS.md).
 
 Em **Logs**, o reader dedicado de `/rosout` continua independente dos quatro
 watches. Os filtros e a pausa são locais à apresentação. O campo `name` da

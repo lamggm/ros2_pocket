@@ -19,6 +19,9 @@ novos resultados de teste.
   gates/limiares do plano correspondente. Um smoke curto não substitui esse plano.
 
 Para os resultados já existentes, veja [versões e histórico](PROJECT-STATUS.md).
+Na v0.7, o [fechamento de lotes](FINALIZATION-v0.7.md) separa 490 testes Java,
+20 CTests, fixtures Fast DDS/Cyclone e replay de lotes reais do smoke físico
+Android/CSV 4/4 com produtor DDS local separado. Não é nova matriz LAN/soak.
 Na v0.4, o [fechamento de sensores](FINALIZATION-v0.4.md) registra host/revisões e
 smoke físico **6/6** com webcam real e LaserScan sintético. Esse smoke não é soak
 nem nova qualificação física de todos os quatro watches.

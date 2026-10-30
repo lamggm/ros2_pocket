@@ -74,3 +74,17 @@ bytes físicos qualificados, metadados e download público verificados.
 Fora: filas infinitas, novos tipos, interpolação, rosbag, persistência de amostras,
 cloud/sync, garantia sem perdas, Humble, rede/robô ou soak automático. A autorização
 termina na entrega v0.7; não iniciar v0.8.
+
+## Implementação e resultado
+
+Contrato implementado e exercitado; [fechamento, APK e limites](FINALIZATION-v0.7.md).
+Envelope adicional `numericBatch` schema1: revisão de seleção, quatro slots
+com geração de reader, paths, sequência/clocks/valores ou null e `droppedLocal`.
+O poll consome pendências. Troca de seleção esvazia as pendências dos watches
+cujos paths mudaram; descarte conhecido não vira contagem de perdas anteriores à tomada.
+
+O CSV de lotes usa formato2/18 colunas; a última é o contador local cumulativo
+do reader no instante da cópia. [Formato e compatibilidade legada](CSV-EXPORT.md).
+Pausa preserva também essa metadata. Sequências diferentes podem ter a mesma
+recepção monotônica; gráfico e CSV conservam a ordem, inclusive o gap NaN/Inf.
+Não inventar nanos para satisfazer validadores históricos de outro contrato.

@@ -67,8 +67,10 @@ explícitos, nunca são inventados zeros. Contrato em [mensagens estruturadas](S
   64KiB da telemetria. Smoke físico webcam JPEG + scan sintético 6/6 em
   Jazzy/Cyclone DDS com peer LAN explícito; não é uma matriz completa.
 - Até **quatro séries numéricas**, com histórico de 30 segundos/600 pontos;
-  Odometry oferece 87 folhas numéricas. O gráfico usa snapshots recentes,
-  não reconstrói cada mensagem da fonte. Pausa congela o desenho, não o intake.
+  Odometry oferece 87 folhas numéricas. Na v0.7, [lotes limitados](NUMERIC-BATCHES.md)
+  transportam até 32 amostras/watch/poll dos quatro campos selecionados globais,
+  com descarte local explícito. Não reconstrói cada mensagem da fonte.
+  Pausa congela o desenho, não o intake; 600 pontos podem encurtar a janela de 30 s.
 - Intake nativo aproximadamente duas vezes por segundo; atualização visível
   aproximadamente a cada 1,5 segundo. Hz recebido não é frequência garantida da fonte.
 - Cache/intake limitado a 64 amostras por watch, 256 no total por poll.

@@ -9,9 +9,10 @@
 **Exportar → levar a bancada pronta → capturar melhor → ampliar compatibilidade → consolidar estabilidade.**
 
 A [v0.5.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.5.0) publicou CSV
-sobre sensores, quatro watches, gráficos, rosout e perfis. A v0.6 acrescenta
-perfis portáteis, com host/revisão e smoke físico direcionado aprovados; promoção
-e publicação são acompanhadas na issue #23. Consulte a [última release](https://github.com/lamggm/ros2_pocket/releases/latest)
+sobre sensores, quatro watches, gráficos, rosout e perfis. A v0.6 publicou
+perfis portáteis. A v0.7 implementa lotes numéricos, com host/revisão e smoke
+físico direcionado 4/4 aprovados; promoção/CI/publicação acompanham a issue #24.
+Consulte a [última release](https://github.com/lamggm/ros2_pocket/releases/latest)
 para distinguir APK disponível de código em desenvolvimento. Este documento
 não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 
@@ -20,9 +21,10 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5 publicada; v0.6 implementada e validada no escopo delimitado; v0.7–v0.9 propostas**.
+**v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado; v0.8/v0.9 propostas**.
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
-[perfis portáteis](FINALIZATION-v0.6.md). Na publicação inicial deste roadmap,
+[perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
+Na publicação inicial deste roadmap,
 todas estavam não iniciadas. Milestones futuros permanecem sem datas.
 Revisar este arquivo ao encerrar cada ciclo, preservando o histórico no Git.
 
@@ -61,7 +63,8 @@ o lifecycle herdado; não há promessa de recepção contínua durante o seletor
 - Salvar pelo seletor Android, I/O limitado fora do worker DDS e tratamento de cancelamento/erro.
 
 **Não entra:** mudança da ingestão/retenção, lotes, gravação contínua, scan/imagens ou rosbag.
-O gráfico atual usa [latest snapshots](LIVE-PLOTS.md), não todas as mensagens.
+Na v0.5, o gráfico usava [latest snapshots](LIVE-PLOTS.md); lotes limitados entraram
+na v0.7, sem promessa de transportar todas as mensagens.
 O CSV é exportação para o usuário, não o dump interno de QA nem gravador sem perdas.
 
 **Pronto quando:** dado DDS real → gráfico → CSV aberto em Python corresponde ao
@@ -73,8 +76,8 @@ smoke Android delimitado quando autorizado.
 
 ## v0.6 — Bancadas completas e portáteis
 
-**Estado:** implementação, host/revisão e smoke físico 7/7 concluídos;
-promoção/release acompanhadas na issue #23. [Evidências e limites](FINALIZATION-v0.6.md).
+**Estado:** entregue, PR #28/main `a365079`, CI da PR/pós-merge e release v0.6.0
+publicados/verificados. [Evidências e limites](FINALIZATION-v0.6.md).
 **Sequência:** depois da v0.5; reutiliza os perfis da v0.3.
 
 **Objetivo:** levar uma configuração pronta entre instalações.
@@ -100,7 +103,9 @@ smoke direcionado quando autorizado.
 
 ## v0.7 — Histórico numérico com lotes limitados
 
-**Estado:** proposto. **Depende de:** histórico/CSV; medir antes de alterar o caminho nativo.
+**Estado:** implementação, host/revisão e smoke físico 4/4 concluídos;
+promoção/CI/release acompanhados na issue #24. [Evidências](FINALIZATION-v0.7.md).
+**Depende de:** histórico/CSV; baseline e budgets medidos antes do caminho nativo.
 
 **Objetivo:** reduzir a decimação entre polls, transportando mais amostras realmente
 tomadas pelo reader até o histórico, em vez de apenas a última.
@@ -193,6 +198,6 @@ Os roadmaps [v0.2](ROADMAP-v0.2.md), [v0.3](ROADMAP-v0.3.md) e
 [v0.4](ROADMAP-v0.4.md) conservam o que cada fase autorizou. O
 [fechamento v0.4](FINALIZATION-v0.4.md) registra o alcance real entregue.
 
-A publicação inicial foi somente planejamento. O fechamento v0.5 posterior está
-registrado na issue #22 e no documento de evidências. A próxima direção proposta
-é v0.6 (issue #23); seu início depende de autorização própria.
+A publicação inicial foi somente planejamento. Os fechamentos v0.5/v0.6 foram
+publicados; v0.7 foi autorizada separadamente até merge/release. A próxima direção
+proposta é v0.8 (issue #18), não iniciada e dependente de autorização própria.
