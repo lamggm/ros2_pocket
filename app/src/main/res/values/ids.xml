@@ -22,4 +22,8 @@
 <item name="watch_editor" type="id"/><item name="watch_remove" type="id"/>
 <item name="plot_panel" type="id"/><item name="plot_pause" type="id"/><item name="plot_chart" type="id"/>
 <item name="plot_export" type="id"/><item name="plot_export_status" type="id"/>
+ <item name="profile_export" type="id"/>
+ <item name="profile_import" type="id"/>
+ <item name="profile_import_name" type="id"/>
+ <item name="profile_transfer_status" type="id"/>
 </resources>

@@ -2,9 +2,9 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este guia descreve a [release v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0),
-cujo APK físico testado mantém a versão interna **0.4.0-dev**.
-O [smoke físico de sensores](FINALIZATION-v0.4.md) passou **6/6** no SM-X400 / Android 16;
+Este guia corresponde à v0.6; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
+O candidato físico mantém a versão interna **0.6.0-dev**, code **6**.
+O [smoke físico de perfis](FINALIZATION-v0.6.md) passou **7/7** no SM-X400 / Android 16;
 isso não é qualificação extensa ou suporte a todos os dispositivos.
 
 ## Instalar e atualizar
@@ -14,7 +14,7 @@ Na página da release, baixe o `.apk` em **Assets**, não os arquivos de código
 A release também fornece `SHA256SUMS` e `app-debug.json` para conferir a integridade.
 
 A instalação usa o nome **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`.
-O candidato é debug, versionCode 4, e tem hooks de teste desativados.
+O candidato é debug, versionCode 6, e tem hooks de teste desativados.
 A assinatura debug não é uma assinatura de produção.
 
 Para atualizar sem perder configurações, o Android exige o mesmo package e um
@@ -78,10 +78,11 @@ Detalhes em [console rosout](ROSOUT-CONSOLE.md).
 ## Perfis locais
 
 Em **Conexão**, abaixo dos diagnósticos, os perfis guardam domínio, peer opcional,
-quatro slots tópico/tipo/QoS e até quatro campos de gráfico. Eles não guardam
+quatro slots tópico/tipo/QoS, até quatro campos de gráfico e as seleções scan/câmera
+com seu modo visual. Eles não guardam
 amostras, contadores live, handles DDS ou identidades de sessão/readers.
 
-1. Configure conexão, watches e campos do gráfico.
+1. Configure conexão, watches, campos do gráfico e sensores visuais desejados.
 2. Escolha **Novo perfil**, dê um nome e toque em **Salvar configuração atual**.
 3. Para reutilizar, desconecte, selecione o perfil e toque em **Aplicar**.
 4. Confira a configuração e toque em **Conectar** separadamente.
@@ -92,6 +93,20 @@ confirmação e não altera uma sessão em execução. Aplicar enquanto conectad
 reconectando é bloqueado. Um tópico ausente ou tipo divergente fica pendente ou
 com erro explícito, sem troca silenciosa por outro tópico. Campos restaurados
 aguardam dados novos de uma fonte compatível e podem ser desmarcados normalmente.
+
+### Levar um perfil para outra instalação
+
+Selecione um perfil **salvo** e toque em **Exportar perfil selecionado (JSON)**.
+Leia o aviso de peer/IP e nomes de tópicos, confirme e escolha o destino no seletor
+Android. Edições ainda não salvas não entram no arquivo. Para CSV de amostras do
+gráfico, use o recurso separado [Exportar gráficos](CSV-EXPORT.md).
+
+Em **Importar perfil (JSON)**, escolha o arquivo e confirme **Adicionar** com um
+nome único. O app valida formato/schema/campos e até 128 KiB, gera outra identidade
+e adiciona sem substituir, aplicar ou conectar. Se o nome já existe, escolha outro;
+cancelamento ou arquivo inválido preservam o catálogo. Aplicar e Conectar seguem
+separados. Perfis schema1 antigos continuam legíveis, com visual vazio, e só são
+reescritos em schema2 por uma operação explícita. [Contrato e limites](PORTABLE-PROFILES.md).
 
 ### Reinício e última aplicação
 

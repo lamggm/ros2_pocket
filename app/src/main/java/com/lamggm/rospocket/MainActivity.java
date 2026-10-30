@@ -507,13 +507,14 @@ public final class MainActivity extends Activity {
   java.util.List<BenchProfiles.Watch> watches=new java.util.ArrayList<>();
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watches.add(new BenchProfiles.Watch(i==0?selectedWire:r.wire,i==0?selectedType:r.type,i==0?reliableValue:r.reliable,i==0?transientValue:r.transientLocal));}
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series);
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile());
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
   profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);
   plots.configureProfile(p);
+  sensorPanel.available(false);sensorPanel.configure(p.visual);
   for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
   BenchProfiles.Watch primary=p.watches.get(0);selectedWire=primary.wire;selectedType=primary.type;reliableValue=primary.reliable;transientValue=primary.transientLocal;chooseWatch(0);
   plotView.refresh();rosoutEpoch++;rosoutConsole.clearNow();
@@ -557,8 +558,9 @@ public final class MainActivity extends Activity {
  @Override protected void onActivityResult(int request,int result,android.content.Intent data){
   super.onActivityResult(request,result,data);
   if(plotExport!=null)plotExport.result(request,result,data);
+  if(profiles!=null)profiles.result(request,result,data);
  }
- @Override protected void onDestroy(){plotExport.dispose();sensorPanel.dispose();super.onDestroy();}
+ @Override protected void onDestroy(){profiles.dispose();plotExport.dispose();sensorPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);

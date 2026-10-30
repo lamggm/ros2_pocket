@@ -31,7 +31,7 @@ public class ProfileStoreTest {
   assertArrayEquals(sample().encode(),Files.readAllBytes(file.toPath()));
  }
  @Test public void corruptOrUnknownSchemaCannotBeSilentlyOverwritten() throws Exception {
-  for(String raw:new String[]{"{broken","{\"schema\":2,\"profiles\":[],\"applied\":null}"}){
+  for(String raw:new String[]{"{broken","{\"schema\":3,\"profiles\":[],\"applied\":null}"}){
    File file=new File(tmp.getRoot(),"invalid-"+raw.length());byte[] old=raw.getBytes(StandardCharsets.UTF_8);Files.write(file.toPath(),old);ProfileStore s=new ProfileStore(file);
    try{s.load();fail("Must expose load failure");}catch(IOException expected){}
    try{s.commit(sample());fail("Must not overwrite unknown/corrupt state");}catch(IOException expected){}

@@ -24,11 +24,13 @@ public class BenchProfilesTest {
   org.json.JSONObject p=profile();BenchProfiles book=BenchProfiles.decode(catalog(p));
   org.json.JSONObject result=new org.json.JSONObject(new String(book.encode(),StandardCharsets.UTF_8));
   assertEquals(1,result.getJSONArray("profiles").length());
+  assertEquals(2,result.getInt("schema"));
+  p.put("visual",new org.json.JSONObject().put("mode","scan").put("scan",org.json.JSONObject.NULL).put("camera",org.json.JSONObject.NULL));
   assertEquals(p.toString(),result.getJSONArray("profiles").getJSONObject(0).toString());
   assertEquals(p.toString(),result.getJSONObject("applied").toString());
  }
  @Test public void unknownSchemaAndWrongPrimitiveTypesAreRejected() throws Exception {
-  reject("{\"schema\":2,\"profiles\":[],\"applied\":null}".getBytes(StandardCharsets.UTF_8));
+  reject("{\"schema\":3,\"profiles\":[],\"applied\":null}".getBytes(StandardCharsets.UTF_8));
   for(Object domain:new Object[]{true,"69",69.5,-1,102}){org.json.JSONObject p=profile().put("domain",domain);reject(catalog(p));}
   reject(catalog(profile().put("wanted",true)));
   org.json.JSONObject p=profile();p.getJSONArray("watches").getJSONObject(0).put("reliable",1);reject(catalog(p));
@@ -66,6 +68,6 @@ public class BenchProfilesTest {
   BenchProfiles book=BenchProfiles.decode(json);
   assertNotNull("Schema v1 must load rather than discard the catalog",book);
   assertTrue(book.profiles.isEmpty());assertNull(book.applied);
-  assertEquals(new String(json,StandardCharsets.UTF_8),new String(book.encode(),StandardCharsets.UTF_8));
+  assertEquals("{\"schema\":2,\"profiles\":[],\"applied\":null}",new String(book.encode(),StandardCharsets.UTF_8));
  }
 }
