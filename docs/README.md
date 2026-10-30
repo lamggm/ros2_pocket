@@ -16,6 +16,8 @@ mantém o nome interno 0.4.0-dev, sem recompilação para alterar a etiqueta.
 
 ## Para quem usa o app
 
+- [Exportação CSV — candidato v0.5](CSV-EXPORT.md): histórico de snapshots, clocks, limites e comportamento do seletor Android; não faz parte do APK público v0.4.
+
 - [Guia de uso](USAGE.md): instalar/atualizar, conectar, ler tópicos, usar gráficos,
   logs e perfis; problemas de descoberta, QoS e VPN.
 - [Compatibilidade e limites](COMPATIBILITY.md): Android, ROS 2, mensagens

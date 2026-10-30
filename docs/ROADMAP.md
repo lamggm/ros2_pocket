@@ -19,7 +19,9 @@ campanhas físicas/rede. A próxima entrega a detalhar é a v0.5.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-Estado inicial: **v0.5 planejada; v0.6–v0.9 propostas; nenhuma em andamento**.
+Nesta branch de desenvolvimento: **v0.5 em andamento; v0.6–v0.9 propostas**.
+Implementação/exportação e contratos em [CSV-EXPORT.md](CSV-EXPORT.md); ainda sem
+novo release ou aceite físico. Na publicação inicial do roadmap, todas estavam não iniciadas.
 Milestones ficam abertos e sem datas até haver estimativas fundamentadas.
 Revisar este arquivo ao encerrar cada ciclo, preservando o histórico no Git.
 
@@ -40,7 +42,7 @@ cada detalhe. Abrir tarefas menores somente quando iniciar o respectivo ciclo.
 
 ## v0.5 — Exportar o histórico dos gráficos em CSV
 
-**Estado:** planejado, não iniciado. **Depende de:** histórico de gráficos já existente.
+**Estado:** em andamento nesta branch; não entregue. **Depende de:** histórico de gráficos já existente.
 
 **Objetivo:** tirar os dados retidos do tablet para análise, sem interromper recepção.
 

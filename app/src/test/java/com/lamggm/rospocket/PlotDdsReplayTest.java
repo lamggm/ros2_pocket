@@ -85,6 +85,11 @@ public class PlotDdsReplayTest {
     finiteFrames++;v.refresh();
     if(finiteFrames==2){
      v.findViewById(R.id.plot_pause).performClick();frozenPixels=PlotQualificationTest.draw(v);frozenSeries=v.displayed();
+     byte[] csv=PlotCsvExporter.encode(v.exportSeries(),v.pausedForExport());
+     assertTrue(new String(csv,java.nio.charset.StandardCharsets.UTF_8).contains("latest_snapshot,paused"));
+     Path output=Paths.get(System.getenv().getOrDefault("POCKET_CSV_OUTPUT","build/csv-host"),rmw);
+     Files.createDirectories(output);Files.write(output.resolve("real-dds-paused.csv"),csv);
+     assertEquals("Original DDS source timestamp retained for export",nativeRow.getJSONArray("watches").getJSONObject(0).getLong("sourceTimestampNs"),frozenSeries.get(0).points.get(frozenSeries.get(0).points.size()-1).source.longValue());
     }
     if(finiteFrames==6){
      assertTrue("Real DDS intake must advance while the Canvas stays frozen",frozenPixels.sameAs(PlotQualificationTest.draw(v)));

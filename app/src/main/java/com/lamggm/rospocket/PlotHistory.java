@@ -6,13 +6,16 @@ import java.util.*;
 final class PlotHistory {
  static final int MAX_SERIES=4;
  static final class Point {
-  final long time; final Double value; final boolean breakBefore;
-  Point(long t,Double v,boolean b){time=t;value=v;breakBefore=b;}
+  final long time; final Double value; final boolean breakBefore; final Long source;
+  Point(long t,Double v,boolean b){this(t,v,b,null);}
+  Point(long t,Double v,boolean b,Long s){time=t;value=v;breakBefore=b;source=s;}
  }
  static final class Source {
   static final Source UNKNOWN=new Source(-1,-1,-1);
   final int slot;final long session,reader;
-  Source(int slot,long session,long reader){this.slot=slot;this.session=session;this.reader=reader;}
+  final String topic,type;
+  Source(int slot,long session,long reader){this(slot,session,reader,"","");}
+  Source(int slot,long session,long reader,String topic,String type){this.slot=slot;this.session=session;this.reader=reader;this.topic=topic;this.type=type;}
   boolean same(Source other){return slot==other.slot&&session==other.session&&reader==other.reader;}
  }
  static final class Series {
@@ -49,7 +52,7 @@ final class PlotHistory {
   if(last!=null&&time==last.time)return;
   boolean gap=last==null||time-last.time>3_000_000_000L||(source!=null&&r.source!=null&&source<r.source);
   if(value!=null&&!Double.isFinite(value))value=null;
-  r.points.addLast(new Point(time,value,gap));r.source=source;
+  r.points.addLast(new Point(time,value,gap,source));r.source=source;
   while(r.points.size()>capacity)r.points.removeFirst();
   for(Ring ring:rings.values())while(!ring.points.isEmpty()&&time-ring.points.peekFirst().time>window)ring.points.removeFirst();
  }

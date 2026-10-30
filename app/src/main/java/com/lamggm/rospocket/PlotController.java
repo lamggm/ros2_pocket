@@ -131,7 +131,7 @@ final class PlotController {
    typed.add(new Field(watch,f.optString("path"),unit instanceof String?(String)unit:null,
     value instanceof Number&&"finite".equals(f.optString("state"))?((Number)value).doubleValue():null));
   }
-  accept(new Frame(watch,epoch,snapshot.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(0,session,reader)));
+  accept(new Frame(watch,epoch,snapshot.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(0,session,reader,snapshot.optString("subscription"),snapshot.optString("type"))));
  }
  static boolean matches(WatchSlots.Request request,JSONObject row){
   String topic=request.wire.startsWith("rt/")?request.wire.substring(2):request.wire;
@@ -188,7 +188,7 @@ final class PlotController {
     typed.add(new Field(watch,f.optString("path"),unit instanceof String?(String)unit:null,
      value instanceof Number&&"finite".equals(f.optString("state"))?((Number)value).doubleValue():null));
    }
-   accept(new Frame(watch,epoch,row.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(slot,session,reader)));
+   accept(new Frame(watch,epoch,row.optLong("count"),((Number)received).longValue(),source instanceof Number?((Number)source).longValue():null,typed,new PlotHistory.Source(slot,session,reader,row.optString("subscription"),row.optString("type"))));
   }
  }
 

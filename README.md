@@ -1,5 +1,8 @@
 # ROS Pocket
 
+> **Branch de desenvolvimento v0.5:** [exportação CSV dos gráficos](docs/CSV-EXPORT.md).
+> O download público abaixo continua na v0.4; não representa aceite físico da v0.5.
+
 > **v0.4 — sensores visuais:** LaserScan 2D e câmera por tópico ROS/DDS,
 > alternados na mesma área, sem bridge/RTSP. [Uso e limites](docs/SENSOR-VIEWS.md) ·
 > [aceite físico curto: 6/6](docs/FINALIZATION-v0.4.md).
