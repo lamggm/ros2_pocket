@@ -1,6 +1,7 @@
 #include "inspector.hpp"
 #include "model.hpp"
 #include "structured.hpp"
+#include "numeric_batch.hpp"
 #include "PocketTypes.h"
 #include <dds/dds.h>
 #include <arpa/inet.h>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <set>
 #include <array>
+#include <limits>
 
 #ifdef POCKET_ENABLE_TEST_HOOKS
 extern "C" __attribute__((used)) const char pocket_test_hook_capability[]="POCKET_TEST_HOOKS=ON";
@@ -135,6 +137,7 @@ struct Watch {
  uint64_t generation=0;
  bool requested_reliable=false,requested_transient=false;
  std::string numeric_fields="[]"; int64_t received_ns=0,source_ns=0;
+ NumericBatch numeric;
  std::string message="null",value_error,selected,type,last,last_error,mode="best_effort / volatile";
  uint64_t count=0; Clock::time_point last_sample{},rate_time{}; uint64_t rate_count=0; double hz=0;
  void stop_reader() {
@@ -142,7 +145,7 @@ struct Watch {
   reader=0;
   if(topic>0)dds_delete(topic);
   topic=0;
-  selected.clear();type.clear();last.clear();message="null";numeric_fields="[]";received_ns=0;source_ns=0;last_error.clear();value_error.clear();count=0;hz=0;rate_count=0;
+  selected.clear();type.clear();last.clear();message="null";numeric_fields="[]";received_ns=0;source_ns=0;last_error.clear();value_error.clear();count=0;hz=0;rate_count=0;numeric.reset_reader();
  }
  void values();
  std::string plot_json() const {
@@ -167,6 +170,8 @@ struct Watch {
 struct Session::Impl : Watch {
  dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,rosout_reader=0,rosout_topic=0;
  std::array<Watch,3> extra;
+ uint64_t numeric_epoch=0;
+ std::vector<std::pair<int,std::string>> numeric_selection;
  Watch& slot(int n){return n==0?static_cast<Watch&>(*this):extra[n-1];}
  int domain_id=0; Registry registry; dds_guid_t own{};
  std::set<std::string> peer_ids;
@@ -304,6 +309,7 @@ struct Session::Impl : Watch {
     ++count;last_sample=Clock::now();
      received_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(last_sample.time_since_epoch()).count();
      source_ns=infos[i].source_timestamp;
+     numeric.push(count,received_ns,source_ns,tree);
    }
    if(n>0)dds_return_loan(reader,samples,n);
    if(n<64)break;
@@ -474,6 +480,20 @@ std::string Session::diagnostic_state() const {
 #endif
  return out.str()+"}";
 }
+std::string Session::select_numeric(uint64_t epoch,const std::vector<std::pair<int,std::string>>& fields) {
+ if(!epoch||epoch>uint64_t(std::numeric_limits<int64_t>::max())||epoch<impl->numeric_epoch||fields.size()>4)return error("Selecao numerica fora do limite/epoca");
+ std::array<std::vector<std::string>,4> paths;std::set<std::pair<int,std::string>> unique;
+ for(const auto& field:fields){
+  const auto& path=field.second;
+  if(field.first<0||field.first>=4||path.empty()||path.size()>256||!unique.insert(field).second||
+     !std::all_of(path.begin(),path.end(),[](char c){return (c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='.'||c=='['||c==']';}))return error("Campo numerico invalido");
+  paths[field.first].push_back(path);
+ }
+ if(epoch==impl->numeric_epoch){if(fields!=impl->numeric_selection)return error("Epoca numerica reutilizada");return "{\"ok\":true}";}
+ impl->numeric_epoch=epoch;impl->numeric_selection=fields;
+ for(int slot=0;slot<4;slot++)impl->slot(slot).numeric.configure(std::move(paths[slot]));
+ return "{\"ok\":true}";
+}
 std::string Session::poll() {
  auto& s=*impl;
  const bool running=s.participant>0;
@@ -509,7 +529,15 @@ std::string Session::poll() {
  out<<"],\"offeredDurability\":[";first_offer=true;for(const auto& row:s.registry.topics())if(row.name=="/rosout"&&row.wire_type=="rcl_interfaces::msg::dds_::Log_")for(const auto& ep:row.endpoints)if(ep.writer){if(!first_offer)out<<',';first_offer=false;out<<json_quote(ep.qos.durability);}
  out<<"],\"entries\":[";bool first_log=true;const auto intake_now=std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
  for(const auto& log:s.rosout.entries_view()){if(!first_log)out<<',';first_log=false;out<<"{\"level\":"<<log.level<<",\"logger\":"<<json_quote(log.logger)<<",\"message\":"<<json_quote(log.message)<<",\"file\":"<<json_quote(log.file)<<",\"function\":"<<json_quote(log.function)<<",\"line\":"<<log.line<<",\"sourceSec\":"<<log.source_sec<<",\"sourceNanosec\":"<<log.source_nanosec<<",\"intakeAgeMs\":"<<(intake_now-log.intake_ms)<<",\"truncated\":"<<(log.truncated?"true":"false")<<"}";}
- out<<"]}}";
+ auto numeric_json=[&s](){
+  std::ostringstream batch;batch<<"{\"schema\":1,\"epoch\":"<<s.numeric_epoch<<",\"slots\":[";
+  for(int slot=0;slot<4;slot++){if(slot)batch<<',';const auto& watch=s.slot(slot);batch<<watch.numeric.json(slot,watch.generation);}
+  return batch.str()+"]}";
+ };
+ auto batch=numeric_json();
+ if(batch.size()+std::string(",\"numericBatch\":").size()>16384){for(int slot=0;slot<4;slot++)s.slot(slot).numeric.discard_pending();batch=numeric_json();}
+ out<<"]},\"numericBatch\":"<<batch<<'}';
+ for(int slot=0;slot<4;slot++)s.slot(slot).numeric.consume();
  return out.str();
 }
 }

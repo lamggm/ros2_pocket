@@ -20,7 +20,7 @@ class PlotRunnerDiagnosticsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ('tests/device_plot_fixture.py', 'tests/device_plot_writer.cpp',
-                         'tests/plot_phase_host.py', 'tests/fixture-loopback.xml',
+                         'tests/plot_phase_host.py', 'tests/plot_batch_selection.py', 'tests/fixture-loopback.xml',
                          'build/plot-stamped-writer', 'build/native-host/multiwatch_wire'):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)

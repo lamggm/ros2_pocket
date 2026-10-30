@@ -12,6 +12,7 @@ import selectors
 import subprocess
 import time
 import uuid
+from plot_batch_selection import BatchSelection
 
 
 def write_phase(control, phase):
@@ -36,6 +37,10 @@ def run(reader, writer, out):
     report = {'kind': 'real_dds_host_not_android', 'rmw': os.environ.get('RMW_IMPLEMENTATION'),
               'namespace': namespace, 'passed': False, 'phaseObservations': {}}
     started = time.monotonic()
+    selection = BatchSelection()
+    selected = False
+    returned = False
+    finite_frames = 0
     def response(command=None):
         if command:
             child.stdin.write(command + '\n'); child.stdin.flush()
@@ -80,9 +85,33 @@ def run(reader, writer, out):
             time.sleep(.5)
         with records.open('w') as stream:
             def capture(phase):
+                nonlocal selected, returned, finite_frames
+                requested = selection.request()
+                if requested['epoch']:
+                    fields = requested['fields']
+                    command = 'numeric '+str(requested['epoch'])+' '+str(len(fields))
+                    for slot, path in fields:
+                        command += f' {slot} {path}'
+                    assert response(command)['ok']
                 snapshot = response('poll')
-                row = {'phase': phase, 'hostMonotonicNs': time.monotonic_ns(), 'snapshot': snapshot}
+                assert snapshot['numericBatch']['epoch'] == requested['epoch']
+                row = {'phase': phase, 'hostMonotonicNs': time.monotonic_ns(), 'snapshot': snapshot,
+                       'numericRequested': requested}
                 stream.write(json.dumps(row) + '\n'); stream.flush()
+                selection.observe(snapshot)
+                if not selected:
+                    for slot in range(3):
+                        selection.select(slot)
+                    selected = True
+                else:
+                    if phase == 'finite':
+                        finite_frames += 1
+                        if finite_frames == 6:
+                            selection.remove(0)
+                        if finite_frames == 8:
+                            selection.select(0)
+                    if phase == 'return_after_gap' and not returned:
+                        selection.select(0); selection.select(2); returned = True
                 return row
             previous = None
             for phase in ('finite', 'nan', 'positive_infinity', 'negative_infinity', 'return', 'gap',
@@ -116,7 +145,7 @@ def run(reader, writer, out):
             stopped = response('stop')
             stream.write(json.dumps({'phase': 'stop', 'snapshot': stopped}) + '\n')
             assert not stopped['running']
-        report.update(passed=True, elapsedSeconds=time.monotonic() - started,
+        report.update(passed=True, numericBatchCapture=True, elapsedSeconds=time.monotonic() - started,
                       sourceClockStimulus='separate real Cyclone dds_write_ts; Jazzy a/b use native RMW source clock')
         return report
     finally:

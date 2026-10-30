@@ -1,8 +1,9 @@
 # ROS Pocket
 
-> **v0.6 — perfis de bancada portáteis:** seleção scan/câmera e importação/exportação JSON.
-> [Uso e limites](docs/PORTABLE-PROFILES.md) · [fechamento e smoke físico 7/7](docs/FINALIZATION-v0.6.md).
-> Inclui a [exportação CSV v0.5](docs/CSV-EXPORT.md).
+> **v0.7 — histórico numérico em lotes:** mais amostras reais entre polls,
+> campos selecionados e descarte local explícito no gráfico/CSV.
+> [Uso e budgets](docs/NUMERIC-BATCHES.md) · [fechamento e smoke físico 4/4](docs/FINALIZATION-v0.7.md).
+> Preserva [perfis portáteis v0.6](docs/PORTABLE-PROFILES.md) e [exportação CSV](docs/CSV-EXPORT.md).
 
 > **v0.4 — sensores visuais:** LaserScan 2D e câmera por tópico ROS/DDS,
 > alternados na mesma área, sem bridge/RTSP. [Uso e limites](docs/SENSOR-VIEWS.md) ·
@@ -17,9 +18,9 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap v0.5–v0.9](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v0.6 é um protótipo de bancada. O candidato físico testado é identificado
-> internamente como **0.6.0-dev**, versionCode **6**, assinatura debug.
-> O [smoke físico de perfis](docs/FINALIZATION-v0.6.md) passou **7/7** no SM-X400 / Android 16.
+> A v0.7 é um protótipo de bancada. O candidato físico testado é identificado
+> internamente como **0.7.0-dev**, versionCode **7**, assinatura debug compatível.
+> O [smoke físico de lotes/CSV](docs/FINALIZATION-v0.7.md) passou **4/4** no SM-X400 / Android 16.
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -42,6 +43,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Encontrar tópicos, filtrar a lista e consultar tipos, endpoints e QoS.
 - Acompanhar até **quatro tópicos** com contadores, idade dos dados e mensagens estruturadas.
 - Plotar até **quatro séries numéricas**, com pausa da visualização.
+- Reter até **32 amostras por watch/poll** dos campos selecionados; ver descarte local conhecido, sem promessa de captura sem perdas.
 - Exportar o histórico retido do gráfico em **CSV**, live ou pausado.
 - Ler e filtrar logs de `/rosout`.
 - Salvar configuração de conexão, watches, gráficos e sensores em **perfis locais**, transportar um perfil em JSON e aplicar antes de conectar.
@@ -89,7 +91,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v0.6 preserva watches, gráficos, logs e CSV. A release deve distribuir os
+A v0.7 preserva watches, sensores, logs e perfis. A release deve distribuir os
 mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
 explica a fonte local testada e a reconciliação documental/CI posterior.
 As releases anteriores permanecem intactas.

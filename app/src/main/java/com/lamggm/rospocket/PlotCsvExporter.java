@@ -16,10 +16,11 @@ final class PlotCsvExporter {
    for(PlotHistory.Point p:s.points)origin=Math.min(origin,p.time);
   }
   if(origin==Long.MAX_VALUE)throw new IOException("Selecione séries com pontos antes de exportar");
+  boolean batches=false;for(PlotHistory.Series s:series)if(s.provenance.knownLocalDiscarded!=null)batches=true;
   ByteArrayOutputStream out=new ByteArrayOutputStream();
-  row(out,"format_version,capture_mode,display_mode,series_id,slot,session_generation,reader_generation,topic,type,field,unit,receive_offset_ns,receive_origin_monotonic_ns,dds_source_timestamp_ns,value,state,break_before");
+  row(out,"format_version,capture_mode,display_mode,series_id,slot,session_generation,reader_generation,topic,type,field,unit,receive_offset_ns,receive_origin_monotonic_ns,dds_source_timestamp_ns,value,state,break_before"+(batches?",watch_local_batch_discarded_total":""));
   for(PlotHistory.Series s:series)for(PlotHistory.Point p:s.points){
-   row(out,"1,latest_snapshot,"+(paused?"paused":"live")+","+text(s.id)+","+s.provenance.slot+","+s.provenance.session+","+s.provenance.reader+","+text(s.provenance.topic)+","+text(s.provenance.type)+","+text(s.path)+","+text(s.unit)+","+(p.time-origin)+","+origin+","+(p.source==null?"":p.source)+","+(p.value==null?"":Double.toString(p.value))+","+(p.value==null?"gap":"finite")+","+p.breakBefore);
+   row(out,(batches?"2,":"1,")+(s.provenance.knownLocalDiscarded==null?"latest_snapshot,":"numeric_batch,")+(paused?"paused":"live")+","+text(s.id)+","+s.provenance.slot+","+s.provenance.session+","+s.provenance.reader+","+text(s.provenance.topic)+","+text(s.provenance.type)+","+text(s.path)+","+text(s.unit)+","+(p.time-origin)+","+origin+","+(p.source==null?"":p.source)+","+(p.value==null?"":Double.toString(p.value))+","+(p.value==null?"gap":"finite")+","+p.breakBefore+(batches?","+(s.provenance.knownLocalDiscarded==null?"":s.provenance.knownLocalDiscarded):""));
   }
   return out.toByteArray();
  }

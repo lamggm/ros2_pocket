@@ -2,6 +2,22 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v0.7 — histórico numérico em lotes
+
+[Contrato/budgets](NUMERIC-BATCHES.md) · [Fechamento](FINALIZATION-v0.7.md).
+Fonte limpa do APK `dc5e772`, **0.7.0-dev/code7**, ARM64/debug compatível/hooks OFF.
+490 testes Java sem falhas/erros, um skip legado; lint zero erros/121 avisos,
+20 CTests e matriz host Fast DDS/Cyclone aprovados. Revisão independente aprovada
+após corrigir a perda de gaps por timestamp coincidente. Quatro watches host a
+50 Hz transportaram 800 amostras sem descarte local na rodada medida.
+
+Smoke físico delimitado **4/4**, com produtor DDS local Android separado;
+CSV live e pausado com 600 pontos/150 gaps cada, pausa/cancel/retomada e cleanup
+verificados. Não é uma nova matriz LAN ou soak. SHA-256 do APK físico:
+`2437dfbd53a55618a17680874e1e9cfa08ecc978e912808db9ac7ee57fba9b88`.
+PR, CI exato/pós-merge e release acompanham a [issue #24](https://github.com/lamggm/ros2_pocket/issues/24).
+Não substituir pelos bytes do CI. v0.8/v0.9 continuam propostas.
+
 ## v0.6 — perfis portáteis
 
 Seleção scan/câmera e modo nos perfis; importação/exportação de um perfil JSON
@@ -15,7 +31,8 @@ independente sem blockers. Smoke físico de configuração/documentos **7/7**,
 sem produtor DDS. Promoção, CI e release acompanhados na issue #23.
 O download da [última release](https://github.com/lamggm/ros2_pocket/releases/latest)
 inclui a identidade exata do APK; não confundir build do CI com candidato físico.
-v0.7–v0.9 continuam propostas, sem início automático.
+A v0.6 foi publicada na [release v0.6.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.6.0),
+PR #28/main `a365079`, CI da PR/pós-merge aprovados e assets baixados/conferidos.
 
 ## v0.5 — fechamento delimitado de CSV
 
@@ -116,7 +133,7 @@ comprovam execução dessa instrumentação no Android físico.
 
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 - A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
-- CSV entrou na v0.5; perfis portáteis e lotes numéricos permanecem propostos no [roadmap](ROADMAP.md).
+- CSV entrou na v0.5, perfis portáteis na v0.6 e lotes numéricos na v0.7; v0.8/v0.9 permanecem propostas no [roadmap](ROADMAP.md).
 - Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual

@@ -332,6 +332,14 @@ public final class MainActivity extends Activity {
    final boolean pendingReader=appliedReaderEpoch!=epoch;
    final String failure=subscriptionFailure;
    final long diagnosticRevision=DeviceTestHooks.revision();
+   final PlotController.NumericSelection numeric=plots.numericSelection();
+   if(numeric.epoch>0){
+    int[] slots=new int[numeric.fields.size()];String[] paths=new String[slots.length];
+    for(int i=0;i<slots.length;i++){slots[i]=numeric.fields.get(i).slot;paths[i]=numeric.fields.get(i).path;}
+    JSONObject selected=NativeBridge.Api.json(bridge.selectNumeric(numeric.epoch,slots,paths));
+    if(!selected.optBoolean("ok"))android.util.Log.w("RosPocket","Numeric filter rejected: "+selected.optString("error","unknown"));
+    if(!connectionCurrent(token,config,epoch))return;
+   }
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
    JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));

@@ -1,5 +1,16 @@
 # Live numeric snapshot plots — increment 07
 
+## v0.7 bounded-batch delta
+
+The version v0.7 is distinct from the historical increment-07 below.
+[Selected numeric batches](NUMERIC-BATCHES.md) now carry up to 32 samples/watch
+and four globally selected fields, with a 16 KiB additional JSON budget.
+Sequence/reader identity deduplicates batches; coincident receive clocks retain
+distinct values and nonfinite gaps. Known local overflow is visible and exported
+in CSV format2; it is not network/DDS-loss accounting. Rendering remains
+decoupled and histories remain 600 points/30 seconds. See the
+[v0.7 closure](FINALIZATION-v0.7.md) for actual host/physical evidence and limits.
+
 ## Integrated scope (04 / 05 / 06 / 07)
 
 The original increment-07 component was based on `e71bdf3` and supported only
@@ -22,7 +33,7 @@ including independent readers of the same topic. Local series selection/removal
 and plot pause do not create readers, change QoS, restart DDS or publish data.
 The dedicated `/rosout` reader remains independent of all four watches.
 
-The native poll drains DDS but returns only each reader's **latest** sample.
+Through v0.6, the native poll drained DDS but returned only each reader's **latest** sample.
 Charts record at most one latest-sample point per reader per approximately
 500 ms poll, not every taken message. Count jumps are not interpolated into
 invented samples. This is a snapshot plot, not a lossless recorder or source-rate

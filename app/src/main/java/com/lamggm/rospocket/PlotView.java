@@ -73,8 +73,11 @@ final class PlotView extends LinearLayout {
    Button remove=new Button(getContext());remove.setText("Remover "+s.id.replace('\n',' '));remove.setTag("plot-remove:"+s.id);
    remove.setOnClickListener(v->{removeSeries(s.id);refresh();});choices.addView(remove);
   }
-  StringBuilder labels=new StringBuilder(paused?"PAUSADO · ingestão continua\n":"Histórico de snapshots recebidos\n");
-  int i=0;for(PlotHistory.Series s:visible){labels.append(++i).append(" · ").append(s.id.replace('\n',' ')).append(s.unit==null?" · unidade desconhecida":" · "+s.unit).append("\n");}
+  StringBuilder labels=new StringBuilder(paused?"PAUSADO · ingestão continua\n":"Histórico de amostras recebidas\n");
+  Set<Integer> counters=new HashSet<>();
+  int i=0;for(PlotHistory.Series s:visible){labels.append(++i).append(" · ").append(s.id.replace('\n',' ')).append(s.unit==null?" · unidade desconhecida":" · "+s.unit).append("\n");
+   if(s.provenance.knownLocalDiscarded!=null&&counters.add(s.provenance.slot))labels.append("Watch ").append(s.provenance.slot+1).append(" · descartes locais do lote: ").append(s.provenance.knownLocalDiscarded).append(" (por reader; não perda DDS/rede)\n");
+  }
   if(visible.isEmpty())labels.append("Sem série selecionada / sem dados numéricos atuais.");
   for(String field:controller.pendingProfileFields())labels.append("\nPERFIL · campo pendente: ").append(field);
   legend.setText(labels);chart.invalidate();

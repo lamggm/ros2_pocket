@@ -5,8 +5,13 @@
 
 Para começar a usar o APK, leia os guias abaixo. As referências técnicas e os
 registros históricos ficam separados para não interromper o passo a passo.
-Os guias correspondem à v0.6; confira a versão disponível na página de release.
-O candidato físico mantém o nome interno 0.6.0-dev, sem rebuild para alterar a etiqueta.
+Os guias correspondem à v0.7; confira a versão disponível na página de release.
+O candidato físico mantém o nome interno 0.7.0-dev, sem rebuild para alterar a etiqueta.
+
+## Lotes numéricos v0.7
+
+- [Contrato e budgets](NUMERIC-BATCHES.md): campos selecionados, relógios, fila e descarte local.
+- [Fechamento v0.7](FINALIZATION-v0.7.md): medições antes/depois, dois RMWs, revisão, smoke físico 4/4 e APK exato.
 
 ## Perfis portáteis v0.6
 
@@ -21,7 +26,7 @@ O candidato físico mantém o nome interno 0.6.0-dev, sem rebuild para alterar a
 
 ## Para quem usa o app
 
-- [Exportação CSV v0.5](CSV-EXPORT.md): histórico de snapshots, clocks, limites e comportamento do seletor Android.
+- [Exportação CSV](CSV-EXPORT.md): snapshots legados/schema1 e lotes numéricos/schema2, clocks e seletor Android.
 - [Fechamento v0.5](FINALIZATION-v0.5.md): host/revisão, CSV físico 4/4, recuperação Jazzy/LAN separada e release publicada/verificada.
 
 - [Guia de uso](USAGE.md): instalar/atualizar, conectar, ler tópicos, usar gráficos,
@@ -70,7 +75,7 @@ ou inglês. Não precisam ser lidos em sequência para instalar ou usar o app.
 ## Planejamento e histórico
 
 - [Roadmap v0.5–v0.9](ROADMAP.md): direção futura, estados, aceite e limites por versão.
-- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; entregas v0.5/v0.6 e propostas v0.7–v0.9.
+- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; entregas v0.5–v0.7 e propostas v0.8/v0.9.
 
 Documentos de uma fase registram o que estava autorizado e validado naquele
 momento. Consulte o [estado atual](PROJECT-STATUS.md) antes de aplicar decisões
