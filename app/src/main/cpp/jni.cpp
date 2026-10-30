@@ -24,6 +24,24 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_poll(JNIEnv* e,jclass) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.poll());
 }
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_selectNumeric(JNIEnv* e,jclass,jlong epoch,jintArray slots,jobjectArray paths) {
+ std::lock_guard<std::mutex> lock(mutex);
+ auto invalid=[e](){return bytes(e,"{\"ok\":false,\"error\":\"Selecao numerica JNI invalida\"}");};
+ if(epoch<=0||!slots||!paths)return invalid();
+ const jsize size=e->GetArrayLength(slots);if(size>4||e->GetArrayLength(paths)!=size)return invalid();
+ jint ids[4]{};if(size)e->GetIntArrayRegion(slots,0,size,ids);if(e->ExceptionCheck())return nullptr;
+ try{
+  std::vector<std::pair<int,std::string>> fields;
+  for(jsize i=0;i<size;i++){
+   auto path=static_cast<jstring>(e->GetObjectArrayElement(paths,i));if(e->ExceptionCheck())return nullptr;
+   if(!path)return invalid();
+   if(e->GetStringUTFLength(path)>256){e->DeleteLocalRef(path);return invalid();}
+   auto value=text(e,path);e->DeleteLocalRef(path);if(e->ExceptionCheck())return nullptr;
+   fields.emplace_back(ids[i],std::move(value));
+  }
+  return bytes(e,session.select_numeric(static_cast<uint64_t>(epoch),fields));
+ }catch(const std::exception&){return invalid();}
+}
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_subscribe(JNIEnv* e,jclass,jstring topic,jstring type,jboolean reliable,jboolean transient) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.subscribe(text(e,topic),text(e,type),reliable,transient));
 }

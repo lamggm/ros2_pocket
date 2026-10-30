@@ -24,6 +24,12 @@ int main() {
     std::cout << "{\"ok\":false,\"error\":\"invalid fixture remove command\"}" << std::endl;
    else
     std::cout << session.remove_watch(slot) << std::endl;
+  } else if(cmd=="numeric") {
+   uint64_t epoch=0;int count=-1;std::vector<std::pair<int,std::string>> fields;
+   bool valid=bool(in>>epoch>>count)&&count>=0&&count<=4;
+   for(int i=0;valid&&i<count;i++){std::string path;valid=bool(in>>slot>>path);if(valid)fields.emplace_back(slot,path);}
+   if(valid)std::cout<<session.select_numeric(epoch,fields)<<std::endl;
+   else std::cout<<"{\"ok\":false,\"error\":\"invalid numeric fixture command\"}"<<std::endl;
   } else if(cmd=="poll") {
    std::cout << session.poll() << std::endl;
   } else if(cmd=="clear_rosout") {

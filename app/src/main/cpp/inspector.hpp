@@ -2,6 +2,8 @@
 #include <memory>
 #include <cstdint>
 #include <string>
+#include <utility>
+#include <vector>
 namespace pocket {
 class Session {
  struct Impl; std::unique_ptr<Impl> impl;
@@ -13,6 +15,7 @@ class Session {
  Session(); ~Session();
  std::string start(int domain, const std::string& address, const std::string& peer);
  std::string poll();
+ std::string select_numeric(uint64_t epoch,const std::vector<std::pair<int,std::string>>& fields);
  std::string diagnostic_state() const;
  std::string subscribe(const std::string& topic, const std::string& type, bool reliable, bool transient);
  // Stable slots 0..3. Slot zero is the legacy subscribe/poll projection.

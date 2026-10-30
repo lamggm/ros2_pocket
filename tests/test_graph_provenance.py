@@ -18,7 +18,7 @@ def exports(source=ROOT):
     with tempfile.TemporaryDirectory(prefix='graph-export-',dir=os.environ.get('TMPDIR')) as out:
         production=source/'app/src/main/java/com/lamggm/rospocket'
         subprocess.run([str(java_home/'bin/javac'),'-cp',str(jars[-1]),'-d',out,
-                        *[str(production/f'{name}.java') for name in ('PlotController','PlotHistory','QaSnapshot','WatchSlots','ConnectionPolicy','BenchProfiles','NetworkRules')],
+                        *[str(production/f'{name}.java') for name in ('PlotController','PlotHistory','QaSnapshot','WatchSlots','ConnectionPolicy','BenchProfiles','ProfileJson','NetworkRules')],
                         str(ROOT/'tests/GraphProvenanceExports.java')],check=True,capture_output=True,text=True)
         run=subprocess.run([str(java_home/'bin/java'),'-cp',out+os.pathsep+str(jars[-1]),'com.lamggm.rospocket.GraphProvenanceExports'],check=True,capture_output=True,text=True)
         return json.loads(run.stdout)

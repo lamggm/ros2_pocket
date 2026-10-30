@@ -74,6 +74,12 @@ public class PlotDdsReplayTest {
   for(String line:Files.readAllLines(dir.resolve("snapshots.jsonl"))){
    JSONObject record=new JSONObject(line),nativeRow=record.getJSONObject("snapshot");String phase=record.getString("phase");
    boolean pending=record.optBoolean("pending",false),newlySelected=false;
+   if(record.has("numericRequested")){
+    JSONObject requested=record.getJSONObject("numericRequested");PlotController.NumericSelection actual=c.numericSelection();
+    assertEquals("Captured native selection must match actual replayed controller",actual.epoch,requested.getLong("epoch"));
+    JSONArray fields=requested.getJSONArray("fields");assertEquals(actual.fields.size(),fields.length());
+    for(int f=0;f<fields.length();f++){assertEquals(actual.fields.get(f).slot,fields.getJSONArray(f).getInt(0));assertEquals(actual.fields.get(f).path,fields.getJSONArray(f).getString(1));}
+   }
    c.acceptNative(nativeRow,1,pending);phases.add(phase);
    if(!selected){
     for(int slot=0;slot<3;slot++){
@@ -86,7 +92,7 @@ public class PlotDdsReplayTest {
     if(finiteFrames==2){
      v.findViewById(R.id.plot_pause).performClick();frozenPixels=PlotQualificationTest.draw(v);frozenSeries=v.displayed();
      byte[] csv=PlotCsvExporter.encode(v.exportSeries(),v.pausedForExport());
-     assertTrue(new String(csv,java.nio.charset.StandardCharsets.UTF_8).contains("latest_snapshot,paused"));
+     assertTrue(new String(csv,java.nio.charset.StandardCharsets.UTF_8).contains(result.optBoolean("numericBatchCapture")?"numeric_batch,paused":"latest_snapshot,paused"));
      Path output=Paths.get(System.getenv().getOrDefault("POCKET_CSV_OUTPUT","build/csv-host"),rmw);
      Files.createDirectories(output);Files.write(output.resolve("real-dds-paused.csv"),csv);
      assertEquals("Original DDS source timestamp retained for export",nativeRow.getJSONArray("watches").getJSONObject(0).getLong("sourceTimestampNs"),frozenSeries.get(0).points.get(frozenSeries.get(0).points.size()-1).source.longValue());
@@ -120,7 +126,9 @@ public class PlotDdsReplayTest {
     assertTrue("Receive-monotonic X never follows backwards source",receive>=lastReceive);
     List<PlotHistory.Point> points=c.history.points(watches.get(2)+"\ndata");
     if(phase.equals("source_reset")&&!priorPhase.equals(phase)){
-     assertTrue(source<previousSource);assertFalse(points.isEmpty());assertTrue(points.get(points.size()-1).breakBefore);resetBreak=true;
+     assertTrue(source<previousSource);assertFalse(points.isEmpty());boolean resetGap=false;
+     for(PlotHistory.Point point:points)if(point.time>=lastReceive&&point.source!=null&&point.source<previousSource&&point.breakBefore)resetGap=true;
+     assertTrue("First retained reset sample must break the trace, not necessarily the last sample of a batch",resetGap);resetBreak=true;
     }
     if(phase.equals("source_jump")&&!priorPhase.equals(phase))assertTrue(source>previousSource);
     lastReceive=receive;previousSource=source;

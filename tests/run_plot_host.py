@@ -19,7 +19,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     args.toolchains = args.toolchains.resolve()
     args.out.mkdir(parents=True, exist_ok=True)
-    inputs = ['tests/device_plot_fixture.py', 'tests/device_plot_writer.cpp', 'tests/plot_phase_host.py',
+    inputs = ['tests/device_plot_fixture.py', 'tests/device_plot_writer.cpp', 'tests/plot_phase_host.py', 'tests/plot_batch_selection.py',
               'tests/fixture-loopback.xml', 'build/plot-stamped-writer', 'build/native-host/multiwatch_wire']
     hashes = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in inputs}
     (args.out / 'inputs.json').write_text(json.dumps(hashes, indent=2))
