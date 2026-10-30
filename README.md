@@ -10,6 +10,7 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 
 [Baixar o app](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0) ·
 [Guia de uso](docs/USAGE.md) · [Documentação](docs/README.md) ·
+[Roadmap v0.5–v0.9](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
 > A release **v0.4.0** é um protótipo de bancada. Reutiliza o APK físico testado,
@@ -81,6 +82,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Compilar o APK](docs/BUILDING.md): requisitos, build online/offline e artefatos.
 - [Entender os testes](docs/VALIDATION.md): o que cada validação comprova e o que está pendente.
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
+- [Planejamento v0.5–v0.9](docs/ROADMAP.md): objetivos, limites, milestones e issues; funções futuras, não presentes no APK atual.
 
 A v0.4 preserva watches, gráficos, logs e perfis da v0.3. A release distribui os
 mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
