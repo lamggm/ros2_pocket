@@ -1,8 +1,9 @@
-# Exportação CSV — candidato v0.5
+# Exportação CSV — v0.5
 
 [Projeto](../README.md) · [Roadmap](ROADMAP.md#v05)
 
-Este recurso está em desenvolvimento na v0.5. Não pertence ao APK público v0.4.
+Implementado na v0.5, com [fechamento e evidências de bancada](FINALIZATION-v0.5.md).
+Não pertence ao APK público v0.4; a promoção do código não publica uma release.
 
 ## Usar
 
@@ -79,4 +80,6 @@ inválida, recriação e snapshot pausado invalidado antes do resultado.
 O teste de replay de gráficos também exporta dados de capturas reais de DDS e o
 CSV é lido por Python. Replay de registros reais retidos é evidência host, não uma
 nova execução de DDS nem aceite físico do candidato. Build/lint e testes completos
-continuam separados do smoke no tablet, que precisa de transporte ADB disponível.
+continuam separados do smoke no tablet. O [fechamento v0.5](FINALIZATION-v0.5.md)
+registra o smoke CSV físico 4/4 com produtor DDS local Android e, separadamente,
+o reteste curto Jazzy/LAN após reconexão Wi-Fi, sem somar escopos.
