@@ -2,6 +2,19 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v0.5 — fechamento delimitado de CSV
+
+A v0.5 implementa [exportação CSV dos gráficos](CSV-EXPORT.md). O
+[fechamento](FINALIZATION-v0.5.md) registra fonte/APK, revisão independente,
+418 casos Java (zero falhas/erros, 1 skip), build/lint e smoke físico CSV **4/4**
+com produtor DDS local Android. O reteste curto Jazzy/LAN passou separadamente
+após o operador reconectar ambos os dispositivos ao Wi-Fi.
+
+Fechamento e merge foram autorizados; **não há nova release neste passo**. O
+download público continua na v0.4.0. O candidato físico 0.5.0-dev/code5 é
+preservado sem rebuild e não se confunde com APK host/CI. Issue de entrega: #22.
+V0.6–v0.9 permanecem propostas; nenhuma campanha extra é iniciada automaticamente.
+
 ## v0.4 — fechamento de sensores visuais
 
 A [release v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0)
@@ -88,7 +101,7 @@ comprovam execução dessa instrumentação no Android físico.
 
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 - A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
-- Exportação e lotes numéricos continuam backlog; LaserScan entrou na v0.4.
+- CSV entrou na v0.5; perfis portáteis e lotes numéricos permanecem propostos no [roadmap](ROADMAP.md).
 - Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual

@@ -38,6 +38,7 @@ public final class MainActivity extends Activity {
  private final PlotController plots=new PlotController();
  private final QaSnapshot qa=new QaSnapshot();
  private PlotView plotView;
+ private PlotExportPanel plotExport;
  private SensorPanel sensorPanel;
  private ScheduledFuture<?> sensorTicker;
  // Applied state is confined to the same process-wide DDS queue as telemetry.
@@ -181,6 +182,7 @@ public final class MainActivity extends Activity {
   sections[2].addView(echo);
   sensorPanel=new SensorPanel(this);sections[2].addView(sensorPanel);
   plotView=new PlotView(this,plots);sections[2].addView(plotView);
+  plotExport=new PlotExportPanel(this,plotView);sections[2].addView(plotExport);
   LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);sections[3].addView(logCard);
   showSection(0);
   setContentView(root);
@@ -552,7 +554,11 @@ public final class MainActivity extends Activity {
   rosoutEpoch++;rosoutConsole.clearNow();
   super.onStop();
  }
- @Override protected void onDestroy(){sensorPanel.dispose();super.onDestroy();}
+ @Override protected void onActivityResult(int request,int result,android.content.Intent data){
+  super.onActivityResult(request,result,data);
+  if(plotExport!=null)plotExport.result(request,result,data);
+ }
+ @Override protected void onDestroy(){plotExport.dispose();sensorPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);

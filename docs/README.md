@@ -16,6 +16,9 @@ mantém o nome interno 0.4.0-dev, sem recompilação para alterar a etiqueta.
 
 ## Para quem usa o app
 
+- [Exportação CSV v0.5](CSV-EXPORT.md): histórico de snapshots, clocks, limites e comportamento do seletor Android; não faz parte do APK público v0.4.
+- [Fechamento v0.5](FINALIZATION-v0.5.md): host/revisão, CSV físico 4/4, recuperação Jazzy/LAN separada e identidade do APK testado; sem release nova.
+
 - [Guia de uso](USAGE.md): instalar/atualizar, conectar, ler tópicos, usar gráficos,
   logs e perfis; problemas de descoberta, QoS e VPN.
 - [Compatibilidade e limites](COMPATIBILITY.md): Android, ROS 2, mensagens
@@ -62,7 +65,7 @@ ou inglês. Não precisam ser lidos em sequência para instalar ou usar o app.
 ## Planejamento e histórico
 
 - [Roadmap v0.5–v0.9](ROADMAP.md): direção futura, estados, aceite e limites por versão.
-- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; v0.5 planejada e v0.6–v0.9 propostas.
+- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; fechamento v0.5 e v0.6–v0.9 propostas.
 
 Documentos de uma fase registram o que estava autorizado e validado naquele
 momento. Consulte o [estado atual](PROJECT-STATUS.md) antes de aplicar decisões

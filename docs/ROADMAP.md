@@ -10,17 +10,21 @@
 
 A base publicada é a [v0.4.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.4.0),
 com LaserScan 2D e câmera ROS alternados, quatro watches, gráficos, rosout e perfis.
-Este roadmap registra o planejamento futuro, não recursos já presentes no APK.
-A publicação deste documento não inicia implementação, instala APKs ou autoriza
-campanhas físicas/rede. A próxima entrega a detalhar é a v0.5.
+Este roadmap separa recursos fechados no código de recursos presentes no APK
+público: a v0.5 foi implementada e validada em bancada, mas não publicada como
+release neste fechamento. A publicação deste documento não inicia o próximo
+ciclo, instala APKs ou autoriza campanhas físicas/rede.
 
 - **Proposto:** direção futura, revisável antes de iniciar o ciclo.
 - **Planejado:** prioridade/escopo definidos; implementação ainda não iniciada.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-Estado inicial: **v0.5 planejada; v0.6–v0.9 propostas; nenhuma em andamento**.
-Milestones ficam abertos e sem datas até haver estimativas fundamentadas.
+**v0.5 fechada como entrega delimitada de bancada; v0.6–v0.9 propostas**.
+Contrato em [CSV-EXPORT.md](CSV-EXPORT.md) e evidências/limites em
+[FINALIZATION-v0.5.md](FINALIZATION-v0.5.md); sem release nova. Na publicação
+inicial do roadmap, todas estavam não iniciadas. Milestones futuros permanecem
+sem datas; o milestone v0.5 acompanha o fechamento da issue #22.
 Revisar este arquivo ao encerrar cada ciclo, preservando o histórico no Git.
 
 ## Acompanhamento
@@ -40,9 +44,12 @@ cada detalhe. Abrir tarefas menores somente quando iniciar o respectivo ciclo.
 
 ## v0.5 — Exportar o histórico dos gráficos em CSV
 
-**Estado:** planejado, não iniciado. **Depende de:** histórico de gráficos já existente.
+**Estado:** entrega delimitada de bancada concluída; merge autorizado, sem release nova.
+[Evidências e limites](FINALIZATION-v0.5.md). **Depende de:** histórico de gráficos já existente.
 
-**Objetivo:** tirar os dados retidos do tablet para análise, sem interromper recepção.
+**Objetivo:** tirar os dados retidos do tablet para análise sem bloquear o worker DDS.
+O seletor externo pode suspender DDS ao tirar o app do primeiro plano, conforme
+o lifecycle herdado; não há promessa de recepção contínua durante o seletor.
 
 **Entra:**
 - Botão Exportar gráficos com uma cópia consistente das séries selecionadas.
@@ -185,5 +192,6 @@ Os roadmaps [v0.2](ROADMAP-v0.2.md), [v0.3](ROADMAP-v0.3.md) e
 [v0.4](ROADMAP-v0.4.md) conservam o que cada fase autorizou. O
 [fechamento v0.4](FINALIZATION-v0.4.md) registra o alcance real entregue.
 
-Depois do merge documental, a próxima etapa é definir o contrato e primeiro
-incremento v0.5 na issue #22. A implementação não faz parte desta publicação.
+A publicação inicial foi somente planejamento. O fechamento v0.5 posterior está
+registrado na issue #22 e no documento de evidências. A próxima direção proposta
+é v0.6 (issue #23); seu início depende de autorização própria.

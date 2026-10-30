@@ -1,5 +1,9 @@
 # ROS Pocket
 
+> **v0.5 — exportação CSV implementada e validada em bancada:**
+> [uso e limites](docs/CSV-EXPORT.md) · [fechamento e evidências](docs/FINALIZATION-v0.5.md).
+> O download público abaixo continua na v0.4; merge não publica uma nova release.
+
 > **v0.4 — sensores visuais:** LaserScan 2D e câmera por tópico ROS/DDS,
 > alternados na mesma área, sem bridge/RTSP. [Uso e limites](docs/SENSOR-VIEWS.md) ·
 > [aceite físico curto: 6/6](docs/FINALIZATION-v0.4.md).

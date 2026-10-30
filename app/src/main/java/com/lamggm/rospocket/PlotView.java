@@ -30,6 +30,8 @@ final class PlotView extends LinearLayout {
   chart=new Chart(context);chart.setId(R.id.plot_chart);chart.setContentDescription("Gráfico numérico: tempo de recepção monotônico, valores brutos");addView(chart,new LayoutParams(-1,(int)(240*getResources().getDisplayMetrics().density)));
  }
  List<PlotHistory.Series> displayed(){return visible;}
+ List<PlotHistory.Series> exportSeries(){synchronized(controller){refresh();return visible;}}
+ boolean pausedForExport(){return paused;}
  org.json.JSONObject qaState(long now) throws org.json.JSONException {
   android.graphics.Rect rect=new android.graphics.Rect();
   boolean fullyVisible=chart.isShown()&&chart.hasWindowFocus()&&chart.getWidth()>0&&chart.getHeight()>0
