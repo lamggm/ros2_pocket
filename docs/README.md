@@ -8,6 +8,12 @@ registros históricos ficam separados para não interromper o passo a passo.
 Os guias correspondem à v0.7; confira a versão disponível na página de release.
 O candidato físico mantém o nome interno 0.7.0-dev, sem rebuild para alterar a etiqueta.
 
+## Compatibilidade Humble/Jazzy v0.8 — candidato em validação
+
+- [Contrato e matriz Humble/Jazzy](HUMBLE-JAZZY.md): seletor manual de grafo,
+  perfis schema3, resultados host e limites. Não substitui a releasev0.7 nem
+  declara aceite Android físico antes da validação do novo APK.
+
 ## Lotes numéricos v0.7
 
 - [Contrato e budgets](NUMERIC-BATCHES.md): campos selecionados, relógios, fila e descarte local.

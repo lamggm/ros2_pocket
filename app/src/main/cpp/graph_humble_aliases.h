@@ -1,0 +1,11 @@
+#pragma once
+// Rename C/C++ identifiers ONLY, not DDS type-name strings or TypeObjects.
+// GID16 and GID24 must not share C++ types/template instantiations (ODR).
+#define rmw_dds_common_msg_dds__Gid_ pocket_humble24_Gid
+#define rmw_dds_common_msg_dds__NodeEntitiesInfo_ pocket_humble24_Node
+#define rmw_dds_common_msg_dds__ParticipantEntitiesInfo_ pocket_humble24_Participant
+#define dds_sequence_rmw_dds_common_msg_dds__Gid_ pocket_humble24_GidSequence
+#define dds_sequence_rmw_dds_common_msg_dds__NodeEntitiesInfo_ pocket_humble24_NodeSequence
+#define rmw_dds_common_msg_dds__Gid__desc pocket_humble24_Gid_desc
+#define rmw_dds_common_msg_dds__NodeEntitiesInfo__desc pocket_humble24_Node_desc
+#define rmw_dds_common_msg_dds__ParticipantEntitiesInfo__desc pocket_humble24_Participant_desc

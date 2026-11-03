@@ -21,6 +21,12 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  try{return bytes(e,session.start(d,text(e,address),text(e,peer)));}
  catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
 }
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startWithGraphFormat(JNIEnv* e,jclass,jint d,jstring address,jstring peer,jstring format) {
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!format||e->GetStringUTFLength(format)>6){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Formato de grafo nao suportado\"}");}
+ try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format)));}
+ catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
+}
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_poll(JNIEnv* e,jclass) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.poll());
 }
