@@ -1,0 +1,6 @@
+ROS Pocket
+Copyright 2026 ROS Pocket contributors
+
+The original application code and artwork are licensed under Apache-2.0.
+Bundled third-party components retain their own licenses. See third_party and
+docs/DEPENDENCIES.md for Cyclone DDS, generated middleware types and notices.

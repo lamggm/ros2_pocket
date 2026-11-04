@@ -8,6 +8,13 @@ registros históricos ficam separados para não interromper o passo a passo.
 Os guias continuam aplicáveis à v0.9; confira a versão disponível na página de release.
 O APK físico mantém o nome interno 0.9.0-dev, sem rebuild para alterar a etiqueta.
 
+## v1.0 — empacotamento autorizado
+
+- [Escopo, identidades e gates](RELEASE-v1.0.md): ícone original, produção/DEV
+  separados, licença Apache-2.0 e distribuição; não antecipa aceite/publicação.
+- [Receita e submissão F-Droid](../fdroid/README.md): build de fonte, metadados e
+  limites externos; catálogo oficial não é um repositório próprio.
+
 ## Estabilidade v0.9 — aceite de bancada
 
 - [Fechamento e limites](FINALIZATION-v0.9.md): soak físico oficial30min, lifecycle2/2,

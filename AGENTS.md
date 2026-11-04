@@ -2,6 +2,13 @@
 
 ## Fonte de verdade
 
+Trabalho atual autorizado: fechar v1.0 com ícone original e distribuição F-Droid,
+conforme docs/RELEASE-v1.0.md. Produção e DEV separados, sem novas features,
+sem diagrama ROS (issue33/v2) nem interrupção RF/IP (issue31). O principal executa;
+revisões menores independentes. A v0.9 publicada permanece imutável. Catálogo
+F-Droid requer aprovação externa: não declarar disponível só por preparar metadados.
+As referências de ciclos anteriores abaixo são históricas, não o destino desta entrega.
+
 Trabalho atual autorizado: `docs/ROADMAP-v0.4.md`, integração `integration/v0.4`, feature `feat/v0.4-01-sensor-views`. As instruções específicas v0.3 abaixo são históricas, não destino das novas features. Leia o README e o roadmap do ciclo: [`docs/ROADMAP-v0.4.md`](docs/ROADMAP-v0.4.md) para o desenvolvimento atual; os roadmaps e finalizações anteriores preservam o histórico e os contratos herdados. Se uma instrução explícita do operador mudar o plano, atualize a documentação correspondente.
 
 O projeto é um inspetor Android ROS 2/DDS **somente leitura**. Preserve DDS direto, o núcleo C++/Cyclone DDS e a ponte JNI; não faça migração de stack ou adicione bridge/servidor sem decisão explícita.
