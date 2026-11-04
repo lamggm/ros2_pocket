@@ -178,9 +178,10 @@ comprovam execução dessa instrumentação no Android físico.
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 - A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
 - CSV entrou na v0.5, perfis portáteis na v0.6 e lotes numéricos na v0.7;
-  v0.8 foi publicada no escopo declarado e v0.9 está iniciada, não concluída,
-  conforme o [roadmap](ROADMAP.md).
-- Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
+  v0.8 foi publicada no escopo declarado; v0.9 passou soak local/lifecycle,
+  com promoção/CI/release acompanhados na issue25 e no [fechamento](FINALIZATION-v0.9.md).
+- Rede real RF/IP permanece não validada na issue31; dispositivos adicionais
+  e novos cenários de endurance exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual
 quando necessário. Features vão para a integração do ciclo. Não iniciar

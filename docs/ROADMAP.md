@@ -216,5 +216,7 @@ A publicação inicial foi somente planejamento. Os fechamentos v0.5/v0.6 foram
 publicados; v0.7 foi autorizada separadamente até merge/release. A v0.8 foi
 iniciada pelo operador após a v0.7 publicada: o seletor manual escolhido passou
 host/revisão, smoke Android direcionado, CI PR/pós-merge e releasev0.8.0.
-O mesmo pedido autorizou iniciar v0.9 depois dessa publicação; primeiro recorte
-host testado/revisado, sem nova campanha de rede/soak ou APKv0.9 aprovado.
+O mesmo pedido autorizou iniciar v0.9 depois dessa publicação. O primeiro recorte
+foi apenas host; depois, o candidato0.9 passou soak local oficial e lifecycle.
+O fechamento até merge/release foi autorizado separadamente, com RF/IP não
+executado e preservado na issue31. [Alcance atual](FINALIZATION-v0.9.md).
