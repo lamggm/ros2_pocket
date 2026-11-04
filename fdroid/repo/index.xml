@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<fdroid>
+	<repo icon="icon.png" name="ROS Pocket — upstream" pubkey="308204fe308202e6a003020102020900c8a37570b9cf9793300d06092a864886f70d01010b0500302c3110300e060355040b1307462d44726f6964311830160603550403130f726f732d706f636b65742d7265706f3020170d3236313130343232333132315a180f32303534303332323232333132315a302c3110300e060355040b1307462d44726f6964311830160603550403130f726f732d706f636b65742d7265706f30820222300d06092a864886f70d01010105000382020f003082020a028202010094e10e718499bc57ea9fe3231a6d2b580a44955c651990e670935864208adf93da807eff46b20679bd642586d3af759f1388ad130911c4e4fd35da8392c938afd2b2ee18d5b29475fcce929632bf1f1d82a67ad166a8ddf03a761fc74d3f257f3cd56a05f035161712389a09eb4ee04f9e873aa8c203932dac262b402b11c2cb8dc75a5e18257bc1f4bb1f5a63a138c16afef5fee2eeba85092eeef88c85537f7350e3f5d4da7bb3a7b2f4f979a6b048fbdaac3e86ae6b7b372985f5d951ff2247d1a06d076c91adba9ca2d61a0f047a2230bcb04ef3988616c8483efd41ff95de6a5087368c6214157e13361ec01405d86730b168b3f56aab46cd4ad318ab64c7a6c4f6e88a009f8cbffb3de67e112115e715bb7135f4eb0f04e2ca7d2d6ef0520b089692b5a5d8f9a69ec0b062c6791f05c1599018f1cd706063f79f347e07b0f75eac193f071e5d5bf90f3f809175c071821ecb6d25e54977ac511c95506131622c1d448b2e41344858f296d3c5084d92b6506e93931abc0c9c313cbb9920ba69fdf991ee80e176db2b5fff4f48b330e45ba5d7c9fa64039d99edc4d1bde23ff266f8dfcc2e1b998c3114b48c753afae448ab4765cae4906f3aad8b8fbc5e003c7d10c1734827167caccb179b9feaffca8b45b808235f6a7e57f9fd31af6d1adfb3132665ce03da8de280358aa9eff4f2df4a29f02ff7b5ceaea8b9e069bb0203010001a321301f301d0603551d0e04160414ec6573f61703e42aec495bcb6730fb38619c52bb300d06092a864886f70d01010b0500038202010040f575578314d497c93e8ebcf0b29aa56e2bb89bc5217265337e820bfb56c29768bf27c0c0c5284d142ca38a5c74b5168dfe83123fe3db752c318daf76d788362c812043aa070f8e882023dbe3302a2149b82209289e56af8569fc164b9c3cf85f96160aefe4c70b0f3cd114d354422d2b698c4daf71838722ada8c1e6393388d34ff3c91d3ca6b120ecaeb484199c082fa963e4d1f4376ae8f52aa69f30203a92ab5b44d8a9f91edd3af5d06a52fb1643564c4f043dbfd125b901e6e80f0af9f6ac3ea51dbe195f9853f717b912ed343a4cd9bfcdeffcfe47f50ffea739f44eeed6860f38d33d3108f0506ed85335cbad87a40be3c8bb1597564a1b27d76d86b3d63c6d9dc62f75410789ffa0199f89ac012170326a064c5b7ea3f835e283bbd96186237e14cbb18ca6d6c13dc5faa0ae0490bb6407506b12fc318d606d7bfc7dfa83878bb3736d8eea68c462a8be9a5003a543aef01f74221134b6c62f592f220317d256993be6c6272cabed78dd8f215de6877ca755235ca9cfe4b3d4328cc4f0b1f9caa769af6e44cc321ccdddf86ea97d2f2d16f58abd2f38895eacdf4709b9a8012a592669e5e073688953ce12e73531b833b0836c846c8410b220a0225eea0bfcdaf9c4462a55f548c48a60b9aac633679a15af96dc13f74680509c06fb3ed405894287c8d95ea91cb0a420ee8781c830f05a24abafad574cb1b56b98" timestamp="1793831539" url="https://lamggm.github.io/ros2_pocket/fdroid/repo" version="20002">
+		<description>Independent upstream F-Droid repository for ROS Pocket. Not the official f-droid.org catalogue. Direct DDS ROS 2 inspector, read-only. APKs signed by the ROS Pocket upstream production key.</description>
+	</repo>
+	<application id="com.lamggm.rospocket">
+		<id>com.lamggm.rospocket</id>
+		<added>2026-11-04</added>
+		<lastupdated>2026-11-04</lastupdated>
+		<name>ROS Pocket</name>
+		<summary>Read-only ROS 2 and DDS inspection on Android</summary>
+		<desc>ROS Pocket is a read-only Android inspector using direct DDS and Cyclone DDS.
+Inspect discovered topics, supported telemetry types and sensor views, monitor
+numeric histories and export CSV, and manage portable local bench profiles.
+
+ARM64 devices, Android 9 (API 28) or later. Network discovery depends on your
+ROS domain, peers and network setup. RF/IP recovery is not qualified; a node
+topology diagram is deferred to v2.
+
+This is the independent upstream repository, not the official f-droid.org
+catalogue. APKs keep the upstream production signature used by GitHub releases.</desc>
+		<license>Apache-2.0</license>
+		<categories>Development</categories>
+		<category>Development</category>
+		<web>https://github.com/lamggm/ros2_pocket</web>
+		<source>https://github.com/lamggm/ros2_pocket</source>
+		<tracker>https://github.com/lamggm/ros2_pocket/issues</tracker>
+		<author>lamggm</author>
+		<marketversion>1.0.0</marketversion>
+		<marketvercode>10</marketvercode>
+		<package>
+			<version>1.0.0</version>
+			<versioncode>10</versioncode>
+			<apkname>com.lamggm.rospocket_10.apk</apkname>
+			<hash type="sha256">8fa81ab6b128eba46a69fd97c8fd4797d519152cd1a3b2a81961b5eeb35fa8d1</hash>
+			<size>4879521</size>
+			<sdkver>28</sdkver>
+			<targetSdkVersion>35</targetSdkVersion>
+			<added>2026-11-04</added>
+			<sig>b01074dd040eba37554119c6e1b293b2</sig>
+			<permissions>ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,CHANGE_WIFI_MULTICAST_STATE,INTERNET</permissions>
+			<nativecode>arm64-v8a</nativecode>
+			<features>android.hardware.wifi</features>
+		</package>
+	</application>
+</fdroid>

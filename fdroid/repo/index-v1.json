@@ -1,0 +1,90 @@
+{
+  "repo": {
+    "timestamp": 1793831539000,
+    "version": 20002,
+    "name": "ROS Pocket \u2014 upstream",
+    "icon": "icon.png",
+    "address": "https://lamggm.github.io/ros2_pocket/fdroid/repo",
+    "description": "Independent upstream F-Droid repository for ROS Pocket. Not the official f-droid.org catalogue. Direct DDS ROS 2 inspector, read-only. APKs signed by the ROS Pocket upstream production key."
+  },
+  "requests": {
+    "install": [],
+    "uninstall": []
+  },
+  "apps": [
+    {
+      "authorName": "lamggm",
+      "categories": [
+        "Development"
+      ],
+      "suggestedVersionName": "1.0.0",
+      "suggestedVersionCode": "10",
+      "description": "ROS Pocket is a read-only Android inspector using direct DDS and Cyclone DDS.\nInspect discovered topics, supported telemetry types and sensor views, monitor\nnumeric histories and export CSV, and manage portable local bench profiles.\n\nARM64 devices, Android 9 (API 28) or later. Network discovery depends on your\nROS domain, peers and network setup. RF/IP recovery is not qualified; a node\ntopology diagram is deferred to v2.\n\nThis is the independent upstream repository, not the official f-droid.org\ncatalogue. APKs keep the upstream production signature used by GitHub releases.",
+      "issueTracker": "https://github.com/lamggm/ros2_pocket/issues",
+      "license": "Apache-2.0",
+      "sourceCode": "https://github.com/lamggm/ros2_pocket",
+      "summary": "Read-only ROS 2 and DDS inspection on Android",
+      "webSite": "https://github.com/lamggm/ros2_pocket",
+      "added": 1793831517000,
+      "packageName": "com.lamggm.rospocket",
+      "lastUpdated": 1793831517000,
+      "localized": {
+        "en-US": {
+          "description": "ROS Pocket is a read-only ROS 2/DDS inspector for Android phones and tablets.\n\nConnect on the same IPv4 Wi-Fi/LAN, select the ROS domain and the manual Humble or Jazzy graph format, then inspect:\n\u2022 Topic types, publishers, subscribers, endpoint QoS and announced ROS nodes.\n\u2022 Up to four live topic watches with counters, received rate and data age.\n\u2022 Numeric plots with pause and CSV export of retained real samples.\n\u2022 A dedicated rosout console and structured standard messages.\n\u2022 Bounded LaserScan and Image/CompressedImage views.\n\u2022 Saved connection/watch/plot/sensor profiles with JSON import/export.\n\nThe application speaks DDS directly; it does not require rosbridge or a cloud account. It sends no robot commands, parameter writes, service requests or teleoperation commands. Internet permission is needed for local network sockets; there are no ads or analytics.\n\nLimitations: ARM64, Android 9 or newer, same-subnet IPv4 networking and a defined set of standard message types. Graph format selection is manual; mixed distributions and all RMW/network/device combinations are not guaranteed. The node/topic diagram is deferred to v2. Physical Wi-Fi/IP disruption/recovery remains unqualified. Numeric retention is bounded and is not a lossless recorder or rosbag replacement.\n\nThis is a bench engineering tool, not a safety instrument. The production package installs separately from ROS Pocket DEV; their signatures and private data are not interchangeable.\n",
+          "icon": "icon_SswnonhCOG5W27ITmD6hbl4Qsh5XqjukWGz3MPo0m_8=.png",
+          "name": "ROS Pocket",
+          "summary": "Inspect ROS 2 topics, telemetry, plots and logs directly over DDS",
+          "whatsNew": "First stable-version packaging of the read-only bench inspector: original adaptive/themed icon, Apache-2.0 licensing, separate production and DEV identities, and source-only native build metadata for F-Droid. Preserves the v0.9 functionality; no topology diagram is added.\n"
+        },
+        "pt-BR": {
+          "description": "ROS Pocket \u00e9 um inspetor ROS 2/DDS somente leitura para celulares e tablets Android.\n\nConecte na mesma rede IPv4 Wi-Fi/LAN, selecione o dom\u00ednio ROS e o formato manual de grafo Humble ou Jazzy. Inspecione t\u00f3picos, tipos, publicadores/assinantes, QoS e n\u00f3s anunciados; acompanhe quatro watches, gr\u00e1ficos num\u00e9ricos com pausa e CSV, rosout, mensagens estruturadas e visualiza\u00e7\u00f5es limitadas de LaserScan ou Image/CompressedImage. Salve e transporte configura\u00e7\u00f5es por perfis JSON.\n\nDDS direto, sem rosbridge, conta na nuvem, an\u00fancios ou analytics. A permiss\u00e3o de Internet permite sockets de rede local. O app n\u00e3o envia comandos ao rob\u00f4 nem escreve par\u00e2metros ou invoca servi\u00e7os/teleop.\n\nLimites: ARM64, Android 9+, IPv4 na mesma sub-rede e tipos padr\u00e3o definidos. Formato do grafo \u00e9 manual; n\u00e3o h\u00e1 garantia de todas as combina\u00e7\u00f5es ROS/RMW/rede/dispositivo. Diagrama n\u00f3\u2192t\u00f3pico\u2192n\u00f3 fica para a v2. Interrup\u00e7\u00e3o e recupera\u00e7\u00e3o f\u00edsica de Wi-Fi/IP continuam n\u00e3o qualificadas. Reten\u00e7\u00e3o num\u00e9rica \u00e9 limitada, n\u00e3o grava\u00e7\u00e3o sem perdas nem rosbag.\n\nFerramenta de bancada, n\u00e3o instrumento de seguran\u00e7a. O pacote de produ\u00e7\u00e3o instala ao lado do ROS Pocket DEV, sem compartilhar assinatura ou dados privados.\n",
+          "name": "ROS Pocket",
+          "summary": "Inspecione t\u00f3picos ROS 2, telemetria, gr\u00e1ficos e logs diretamente por DDS",
+          "whatsNew": "Empacotamento da primeira vers\u00e3o est\u00e1vel do inspetor somente leitura: \u00edcone original adaptativo/monocrom\u00e1tico, Apache-2.0, identidades produ\u00e7\u00e3o/DEV separadas e receita nativa inteiramente de fonte para F-Droid. Preserva as fun\u00e7\u00f5es da v0.9; sem diagrama de topologia nesta vers\u00e3o.\n"
+        }
+      }
+    }
+  ],
+  "packages": {
+    "com.lamggm.rospocket": [
+      {
+        "added": 1793831517000,
+        "apkName": "com.lamggm.rospocket_10.apk",
+        "features": [
+          "android.hardware.wifi"
+        ],
+        "hash": "8fa81ab6b128eba46a69fd97c8fd4797d519152cd1a3b2a81961b5eeb35fa8d1",
+        "hashType": "sha256",
+        "minSdkVersion": 28,
+        "nativecode": [
+          "arm64-v8a"
+        ],
+        "packageName": "com.lamggm.rospocket",
+        "sig": "b01074dd040eba37554119c6e1b293b2",
+        "signer": "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4",
+        "size": 4879521,
+        "targetSdkVersion": 35,
+        "uses-permission": [
+          [
+            "android.permission.INTERNET",
+            null
+          ],
+          [
+            "android.permission.ACCESS_NETWORK_STATE",
+            null
+          ],
+          [
+            "android.permission.ACCESS_WIFI_STATE",
+            null
+          ],
+          [
+            "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+            null
+          ]
+        ],
+        "versionCode": 10,
+        "versionName": "1.0.0"
+      }
+    ]
+  }
+}

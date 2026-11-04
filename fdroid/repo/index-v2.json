@@ -1,0 +1,115 @@
+{
+  "repo": {
+    "name": {
+      "en-US": "ROS Pocket — upstream"
+    },
+    "description": {
+      "en-US": "Independent upstream F-Droid repository for ROS Pocket. Not the official f-droid.org catalogue. Direct DDS ROS 2 inspector, read-only. APKs signed by the ROS Pocket upstream production key."
+    },
+    "icon": {
+      "en-US": {
+        "name": "/icons/icon.png",
+        "sha256": "a0e7585620f251aa28a096b44e56453236f7ef436d3861198bc569175faac882",
+        "size": 13763
+      }
+    },
+    "address": "https://lamggm.github.io/ros2_pocket/fdroid/repo",
+    "timestamp": 1793831539000,
+    "categories": {
+      "Development": {
+        "icon": {
+          "en-US": {
+            "name": "/icons/category_development.png",
+            "sha256": "2b6616bbb2c161c10e4128f3f6ccebc4a77387589ff24607ccd3c5d4ab3d185c",
+            "size": 7518
+          }
+        },
+        "name": {
+          "en-US": "Development"
+        },
+        "description": {
+          "en-US": "Coding, programming, IDE, terminal, and developer tools"
+        }
+      }
+    }
+  },
+  "packages": {
+    "com.lamggm.rospocket": {
+      "metadata": {
+        "added": 1793831517000,
+        "categories": [
+          "Development"
+        ],
+        "issueTracker": "https://github.com/lamggm/ros2_pocket/issues",
+        "lastUpdated": 1793831517000,
+        "license": "Apache-2.0",
+        "sourceCode": "https://github.com/lamggm/ros2_pocket",
+        "webSite": "https://github.com/lamggm/ros2_pocket",
+        "authorName": "lamggm",
+        "name": {
+          "en-US": "ROS Pocket",
+          "pt-BR": "ROS Pocket"
+        },
+        "summary": {
+          "en-US": "Read-only ROS 2 and DDS inspection on Android"
+        },
+        "description": {
+          "en-US": "ROS Pocket is a read-only Android inspector using direct DDS and Cyclone DDS.\nInspect discovered topics, supported telemetry types and sensor views, monitor\nnumeric histories and export CSV, and manage portable local bench profiles.\n\nARM64 devices, Android 9 (API 28) or later. Network discovery depends on your\nROS domain, peers and network setup. RF/IP recovery is not qualified; a node\ntopology diagram is deferred to v2.\n\nThis is the independent upstream repository, not the official f-droid.org\ncatalogue. APKs keep the upstream production signature used by GitHub releases."
+        },
+        "icon": {
+          "en-US": {
+            "name": "/com.lamggm.rospocket/en-US/icon_SswnonhCOG5W27ITmD6hbl4Qsh5XqjukWGz3MPo0m_8=.png",
+            "sha256": "4acc27a27842386e56dbb213983ea16e5e10b21e57aa3ba4586cf730fa349bff",
+            "size": 12879
+          }
+        },
+        "preferredSigner": "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
+      },
+      "versions": {
+        "8fa81ab6b128eba46a69fd97c8fd4797d519152cd1a3b2a81961b5eeb35fa8d1": {
+          "added": 1793831517000,
+          "file": {
+            "name": "/com.lamggm.rospocket_10.apk",
+            "sha256": "8fa81ab6b128eba46a69fd97c8fd4797d519152cd1a3b2a81961b5eeb35fa8d1",
+            "size": 4879521
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a"
+            ],
+            "versionName": "1.0.0",
+            "versionCode": 10,
+            "features": [
+              {
+                "name": "android.hardware.wifi"
+              }
+            ],
+            "usesSdk": {
+              "minSdkVersion": 28,
+              "targetSdkVersion": 35
+            },
+            "signer": {
+              "sha256": [
+                "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              },
+              {
+                "name": "android.permission.ACCESS_WIFI_STATE"
+              },
+              {
+                "name": "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
