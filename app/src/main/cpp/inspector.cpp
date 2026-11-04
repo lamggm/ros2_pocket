@@ -2,6 +2,7 @@
 #include "model.hpp"
 #include "structured.hpp"
 #include "numeric_batch.hpp"
+#include "graph_humble.hpp"
 #include "PocketTypes.h"
 #include <dds/dds.h>
 #include <arpa/inet.h>
@@ -179,6 +180,7 @@ struct Session::Impl : Watch {
  // ros_discovery_info is unkeyed: instance_handle is shared by all writers.
  std::map<dds_instance_handle_t,GraphSource> graph_sources;
  std::map<std::string,std::string> graph_owners;
+ std::string graph_format="jazzy",graph_error;
 #ifdef POCKET_ENABLE_TEST_HOOKS
  struct FailureHook { int slot=-1; std::string stage; uint64_t session=0,generation=0,request=0,lease=0,nonce=0; } failure_hook;
  std::string failure_receipt;
@@ -237,33 +239,20 @@ struct Session::Impl : Watch {
     auto it=graph_sources.find(infos[i].publication_handle);
     if(it!=graph_sources.end()){const auto writer=it->second.writer;drop_graph_writer(writer);}continue;
    }
-   auto* p=static_cast<rmw_dds_common_msg_dds__ParticipantEntitiesInfo_*>(samples[i]);
-   if(!p)continue;
+   if(!samples[i])continue;
    auto* source=dds_get_matched_publication_data(graph,infos[i].publication_handle);
    if(!source)continue; // A sample from an already-dead writer must not resurrect a graph.
-   const auto id=key(p->gid.data),participant_id=key(source->participant_key),writer_id=key(source->key);
+   const auto participant_id=key(source->participant_key),writer_id=key(source->key);
    dds_builtintopic_free_endpoint(source);
-   if(id!=participant_id || id==key(own))continue;
+   if(participant_id==key(own))continue;
    if((graph_sources.size()>=4096 && !graph_sources.count(infos[i].publication_handle)) ||
-      (graph_owners.size()>=256 && !graph_owners.count(id)))continue;
-   std::vector<GraphNode> graph_nodes;
-   auto& seq=p->node_entities_info_seq;size_t references=0;
-   for(uint32_t j=0;seq._buffer && j<std::min(seq._length,128u);j++) {
-    const auto& entry=seq._buffer[j];
-    std::string ns=entry.node_namespace,name=entry.node_name;
-    if(name.empty())continue;
-    if(ns.empty()||ns.front()!='/')ns='/'+ns;
-    if(ns.back()!='/')ns+='/';
-    GraphNode node;node.name=ns+name;
-    for(bool writer:{false,true}) {
-     const auto& gids=writer?entry.writer_gid_seq:entry.reader_gid_seq;
-     for(uint32_t k=0;gids._buffer && k<gids._length && references<1024;k++,references++)
-      (writer?node.writers:node.readers).push_back(key(gids._buffer[k].data));
-    }
-    graph_nodes.push_back(std::move(node));
+      (graph_owners.size()>=256 && !graph_owners.count(participant_id)))continue;
+   auto decoded=graph_format=="humble"?decode_humble_graph(samples[i]):decode_graph(static_cast<const rmw_dds_common_msg_dds__ParticipantEntitiesInfo_*>(samples[i]));
+   if(!decoded.valid || decoded.participant!=participant_id){
+    drop_graph_writer(writer_id);graph_error="Formato/GID do grafo nao suportado ou participante divergente";continue;
    }
-   registry.set_graph(id,graph_nodes);
-   graph_sources[infos[i].publication_handle]={writer_id,id};graph_owners[id]=writer_id;
+   registry.set_graph(participant_id,decoded.nodes);
+   graph_sources[infos[i].publication_handle]={writer_id,participant_id};graph_owners[participant_id]=writer_id;graph_error.clear();
   }
   if(n>0)dds_return_loan(graph,samples,n);
  }
@@ -327,13 +316,14 @@ void Session::stop() {
  if(s.domain>0)dds_delete(s.domain);
  impl.reset(new Impl);
 }
-std::string Session::start(int domain,const std::string& address,const std::string& peer) {
+std::string Session::start(int domain,const std::string& address,const std::string& peer,const std::string& graph_format) {
  stop();
  auto failed=[this](const std::string& message){stop();impl->last_error=message;return error(message);};
+ if(graph_format!="jazzy"&&graph_format!="humble")return failed("Formato de grafo nao suportado; selecione jazzy ou humble.");
  if(!valid_domain(domain))return failed("Domain ID deve ser inteiro de 0 a 101 nesta versao.");
  if(!ipv4(address))return failed("Nenhum IPv4 Wi-Fi/LAN valido. Conecte a mesma rede do ROS 2.");
  if(!peer.empty()&&!ipv4(peer))return failed("Peer opcional deve ser um IPv4, sem porta.");
- auto& s=*impl;s.domain_id=domain;
+ auto& s=*impl;s.domain_id=domain;s.graph_format=graph_format;
  std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast><DontRoute>true</DontRoute></General><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
  // Cyclone 0.10.5 checks this serialized-size ceiling before RTPS fragment
@@ -347,7 +337,8 @@ std::string Session::start(int domain,const std::string& address,const std::stri
  s.pubs=dds_create_reader(s.participant,DDS_BUILTIN_TOPIC_DCPSPUBLICATION,nullptr,nullptr);
  s.subs=dds_create_reader(s.participant,DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION,nullptr,nullptr);
  s.participants=dds_create_reader(s.participant,DDS_BUILTIN_TOPIC_DCPSPARTICIPANT,nullptr,nullptr);
- auto graph_topic=dds_create_topic(s.participant,&rmw_dds_common_msg_dds__ParticipantEntitiesInfo__desc,"ros_discovery_info",nullptr,nullptr);
+ const auto* graph_descriptor=graph_format=="humble"?humble_graph_descriptor():&rmw_dds_common_msg_dds__ParticipantEntitiesInfo__desc;
+ auto graph_topic=dds_create_topic(s.participant,graph_descriptor,"ros_discovery_info",nullptr,nullptr);
  auto* q=dds_create_qos();dds_qset_reliability(q,DDS_RELIABILITY_RELIABLE,DDS_MSECS(100));dds_qset_durability(q,DDS_DURABILITY_TRANSIENT_LOCAL);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,32);
  s.graph=dds_create_reader(s.participant,graph_topic,q,nullptr);dds_delete_qos(q);
  if(s.pubs<0||s.subs<0||s.participants<0||graph_topic<0||s.graph<0)return failed("Falha ao criar leitores de descoberta DDS.");
@@ -518,6 +509,7 @@ std::string Session::poll() {
     <<",\"connectionState\":"<<json_quote(connection_state(running,s.peer_ids.size(),s.seen_peer,running?s.discovery_error:failure))
     <<",\"subscriptionState\":"<<json_quote(state)<<",\"readerActive\":"<<(s.reader>0?"true":"false")
     <<",\"fresh\":"<<(state=="receiving"?"true":"false")<<",\"rosNodes\":"<<names.size();
+ out<<",\"graph\":{\"format\":"<<json_quote(s.graph_format)<<",\"selection\":\"manual\",\"state\":"<<json_quote(!s.graph_error.empty()?"unsupported":!running?"inactive":names.empty()?"unconfirmed":"received")<<",\"error\":"<<json_quote(s.graph_error)<<'}';
   out<<s.plot_json();
  out<<",\"watches\":[";for(int i=0;i<4;i++){if(i)out<<',';out<<s.slot(i).json(i);}out<<']';
  out<<",\"ddsPeers\":"<<s.peer_ids.size()<<",\"subscription\":"<<json_quote(s.selected)<<",\"last\":"<<json_quote(s.last)<<",\"message\":"<<s.message<<",\"count\":"<<s.count<<",\"hz\":"<<s.hz<<",\"age\":"<<age<<",\"matched\":"<<matched.current_count<<",\"qos\":"<<json_quote(s.mode)<<",\"error\":"<<json_quote(failure);

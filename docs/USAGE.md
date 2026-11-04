@@ -42,7 +42,9 @@ O app não publica comandos, altera parâmetros ou movimenta o robô.
 2. Em **Conexão**, informe o mesmo Domain ID. O intervalo aceito é **0–101**.
 3. Deixe o peer IPv4 vazio para descoberta automática. Use um peer explícito
    somente quando souber o endereço correto; isso não comprova que multicast funciona.
-4. Toque em **Conectar**.
+4. Escolha o **formato do grafo**: Humble (GID24) ou Jazzy (GID16). É manual,
+   não uma detecção da distribuição. Toque em **Conectar**. Durante conexão ou
+   reconexão desejada, o seletor fica bloqueado; desconecte para trocar.
 5. Em **Monitor**, escolha **Watch 1–4**. Em **Tópicos**, toque em **Ler** em um
    tópico de tipo suportado. Volte ao Monitor para ver os valores e a árvore de campos.
 
@@ -82,7 +84,7 @@ Detalhes em [console rosout](ROSOUT-CONSOLE.md).
 
 Em **Conexão**, abaixo dos diagnósticos, os perfis guardam domínio, peer opcional,
 quatro slots tópico/tipo/QoS, até quatro campos de gráfico e as seleções scan/câmera
-com seu modo visual. Eles não guardam
+com seu modo visual e o formato manual de grafo Humble/Jazzy. Eles não guardam
 amostras, contadores live, handles DDS ou identidades de sessão/readers.
 
 1. Configure conexão, watches, campos do gráfico e sensores visuais desejados.
@@ -108,8 +110,10 @@ Em **Importar perfil (JSON)**, escolha o arquivo e confirme **Adicionar** com um
 nome único. O app valida formato/schema/campos e até 128 KiB, gera outra identidade
 e adiciona sem substituir, aplicar ou conectar. Se o nome já existe, escolha outro;
 cancelamento ou arquivo inválido preservam o catálogo. Aplicar e Conectar seguem
-separados. Perfis schema1 antigos continuam legíveis, com visual vazio, e só são
-reescritos em schema2 por uma operação explícita. [Contrato e limites](PORTABLE-PROFILES.md).
+separados. Catálogos schema1/2 continuam legíveis, com default Jazzy em memória;
+schema1 também assume visual vazio. Uma operação explícita escreve schema3.
+Envelopes portáteis schema2/3 são aceitos; formatos de grafo desconhecidos são
+rejeitados. [Contrato portátil](PORTABLE-PROFILES.md) · [Formato do grafo](HUMBLE-JAZZY.md).
 
 ### Reinício e última aplicação
 

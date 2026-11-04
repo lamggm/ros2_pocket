@@ -29,6 +29,7 @@ public final class MainActivity extends Activity {
  private static final int BG=0xff0d1117,CARD=0xff161d27,FG=0xffe6edf3,MUTED=0xff9aa9bc,ACCENT=0xff48d7bb;
  NativeBridge.Api bridge=new NativeBridge.JniApi();
  private EditText domain,peer;
+ private Spinner graphFormat;
  private Button connect;
  private CheckBox reliable,transientLocal;
  private TextView status,diagnostics,nodes,message,counts,topicTitle,selectedTitle;
@@ -79,7 +80,11 @@ public final class MainActivity extends Activity {
  private int activeWatch=0;
  private boolean switchingWatch=false;
  private TextView watchEditorTitle;
- private static final class Config { final int domain;final String peer;Config(int d,String p){domain=d;peer=p;} }
+ private static final class Config {
+  final int domain;final String peer,graphFormat;
+  Config(int d,String p){this(d,p,"jazzy");}
+  Config(int d,String p,String format){domain=d;peer=p;graphFormat=format;}
+ }
 
  @Override public void onCreate(Bundle saved) {
   super.onCreate(saved);
@@ -143,6 +148,11 @@ public final class MainActivity extends Activity {
   connect=new Button(this);connect.setId(R.id.connect);connect.setText("Conectar");connect.setTextColor(BG);connect.setBackgroundTintList(ColorStateList.valueOf(ACCENT));row.addView(connect,new LinearLayout.LayoutParams(dp(154),dp(52)));
   connect.setOnClickListener(v->{if(connectWanted)disconnect();else requestConnection(true);});connection.addView(row);
   peer=input("Peer IPv4 opcional — deixe vazio para descoberta automática",prefs.getString("peer",""),R.id.peer,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);peer.setTextSize(14);connection.addView(peer,new LinearLayout.LayoutParams(-1,dp(48)));
+  connection.addView(label("Formato do grafo · manual, sem detectar distribuição",13,MUTED));
+  graphFormat=new Spinner(this);graphFormat.setId(R.id.graph_format);graphFormat.setContentDescription("Formato manual do grafo ROS");
+  ArrayAdapter<String> formats=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,new String[]{"Jazzy (GID16)","Humble (GID24)","Não suportado — selecione o formato"});formats.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);graphFormat.setAdapter(formats);
+  String savedFormat=prefs.getString("graphFormat","jazzy");graphFormat.setSelection("jazzy".equals(savedFormat)?0:"humble".equals(savedFormat)?1:2);
+  connection.addView(graphFormat,new LinearLayout.LayoutParams(-1,dp(48)));
   status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));connection.addView(status);
   LinearLayout diagnosticCard=card();diagnosticCard.addView(label("CONEXÃO",14,ACCENT));
   diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);connection.addView(diagnosticCard);
@@ -199,7 +209,7 @@ public final class MainActivity extends Activity {
  private void requestConnection(boolean resetSelection){
   DeviceTestHooks.invalidate();
   try{
-   int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();
+   int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();String format=selectedGraphFormat();
    if(!NetworkRules.validPeer(p))throw new IllegalArgumentException("Peer opcional: IPv4 sem porta.");
    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(domain.getWindowToken(),0);
    domain.clearFocus();peer.clearFocus();
@@ -207,12 +217,12 @@ public final class MainActivity extends Activity {
    qa.invalidate();
    if(resetSelection&&!profileConfigured){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
    else watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);
-   requested=new Config(d,p);connectWanted=true;plots.reset(policy.generation());
+   requested=new Config(d,p,format);connectWanted=true;plots.reset(policy.generation());
    sensorPanel.available(true);
    inactive("RECONECTANDO · aguardando dados desta sessão");
    extrasInactive("RECONECTANDO · aguardando dados desta sessão");
-   prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putBoolean("wanted",true).apply();
-   domain.setEnabled(false);peer.setEnabled(false);connect.setText("Desconectar");
+   prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putString("graphFormat",format).putBoolean("wanted",true).apply();
+   domain.setEnabled(false);peer.setEnabled(false);graphFormat.setEnabled(false);connect.setText("Desconectar");
    status.setText("Iniciando DDS no domínio "+d+"…");status.setTextColor(MUTED);
   }catch(Exception ex){
    disconnect();status.setText(String.valueOf(ex.getMessage()));status.setTextColor(WARNING);
@@ -307,7 +317,7 @@ public final class MainActivity extends Activity {
     // Some VPNs refuse physical-network binding. Preserve the existing LAN-routing fallback.
     if(!bound)manager.bindProcessToNetwork(null);
     workerNetwork=network;
-    JSONObject result=NativeBridge.Api.json(bridge.start(config.domain,address,config.peer));
+    JSONObject result=NativeBridge.Api.json(bridge.startWithGraphFormat(config.domain,address,config.peer,config.graphFormat));
     if(!result.optBoolean("ok"))throw new IllegalStateException(result.optString("error","Falha no DDS"));
     workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
     if(!connectionCurrent(token,config,epoch)){stopSession();return;}
@@ -447,12 +457,16 @@ public final class MainActivity extends Activity {
   String connectionLabel="connected".equals(connection)?"CONECTADO":("reconnecting".equals(connection)?"RECONECTANDO":("discovering".equals(connection)?"DESCOBERTA":"ERRO/OFFLINE"));
   status.setText(connectionLabel+" · domínio "+config.domain+" · Wi-Fi "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; mesma rede não garante multicast.":""));
   status.setTextColor("connected".equals(connection)?ACCENT:MUTED);
-  diagnostics.setText(networkDisplay+"\nDDS peers: "+snapshot.optInt("ddsPeers")+" · Nós ROS: "+snapshot.optInt("rosNodes")+"\nDescoberta DDS não garante assinatura compatível ou mensagens.");
-  JSONArray ns=snapshot.optJSONArray("nodes");String nodeSignature=ns==null?"[]":ns.toString();
+  JSONObject graph=snapshot.optJSONObject("graph");String graphState=graph==null?"unconfirmed":graph.optString("state","unconfirmed"),graphError=graph==null?"":graph.optString("error");
+  if(graph!=null&&!config.graphFormat.equals(graph.optString("format"))){graphState="unsupported";graphError="Resposta diverge do formato de grafo selecionado";}
+  String graphLabel="humble".equals(config.graphFormat)?"Humble (GID24)":"Jazzy (GID16)";
+  diagnostics.setText(networkDisplay+"\nDDS peers: "+snapshot.optInt("ddsPeers")+" · Nós ROS: "+snapshot.optInt("rosNodes")+"\nGrafo manual: "+graphLabel+" · "+graphState+"\nDescoberta DDS não garante assinatura compatível ou mensagens.");
+  JSONArray ns=snapshot.optJSONArray("nodes");String nodeSignature=(ns==null?"[]":ns.toString())+"|"+graphState+"|"+graphError+"|"+config.graphFormat;
   if(!nodeSignature.equals(lastNodes)){
    lastNodes=nodeSignature;StringBuilder text=new StringBuilder();
    if(ns!=null)for(int i=0;i<ns.length();i++)text.append(ns.optString(i)).append('\n');
-   nodes.setText(text.length()==0?"Sem nós anunciados em ros_discovery_info.\nDescoberta de tópicos e grafo de nós são mecanismos distintos.":text.toString().trim());
+   if("unsupported".equals(graphState)||!graphError.isEmpty())nodes.setText("Grafo não suportado no formato "+graphLabel+": "+graphError);
+   else nodes.setText(text.length()==0?"Grafo não confirmado · "+graphLabel+" (manual).\nSem nós anunciados em ros_discovery_info; confira o formato selecionado.\nDescoberta de tópicos e grafo de nós são mecanismos distintos.":text.toString().trim());
   }
   plotView.refresh();
   String failure=pendingError.isEmpty()?snapshot.optString("error"):pendingError;
@@ -509,18 +523,24 @@ public final class MainActivity extends Activity {
   });
   return ticket;
  }
+ private String selectedGraphFormat(){
+  int selected=graphFormat.getSelectedItemPosition();
+  if(selected==0)return "jazzy";if(selected==1)return "humble";
+  throw new IllegalArgumentException("Formato do grafo não suportado. Selecione Humble ou Jazzy.");
+ }
  private BenchProfiles.Profile captureProfile(String id,String name){
   int d=connectWanted&&requested!=null?requested.domain:InputRules.domain(domain.getText().toString());
   String p=connectWanted&&requested!=null?requested.peer:peer.getText().toString().trim();
   java.util.List<BenchProfiles.Watch> watches=new java.util.ArrayList<>();
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watches.add(new BenchProfiles.Watch(i==0?selectedWire:r.wire,i==0?selectedType:r.type,i==0?reliableValue:r.reliable,i==0?transientValue:r.transientLocal));}
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile());
+  String format=connectWanted&&requested!=null?requested.graphFormat:selectedGraphFormat();
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format);
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
-  profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);
+  profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);graphFormat.setSelection("humble".equals(p.graphFormat)?1:0);graphFormat.setEnabled(true);
   plots.configureProfile(p);
   sensorPanel.available(false);sensorPanel.configure(p.visual);
   for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
@@ -542,7 +562,7 @@ public final class MainActivity extends Activity {
   // A poll already holding policy/slots may publish after the early invalidation.
   // policy.reset() fences that poll; clear once more before returning to the UI.
   qa.invalidate();
-  connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
+  connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);graphFormat.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";
   if(!profileConfigured){selectedWire="";selectedType="";}
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"selecione um tópico em Tópicos":selectedWire+" · desconectado"));counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);

@@ -5,7 +5,7 @@ import java.nio.charset.*;
 import java.util.*;
 import org.json.*;
 
-/** Schema 2 writes, schema 1 reads: configuration, never telemetry/native identities. */
+/** Schema 3 writes, schema 1/2 reads: configuration, never telemetry/native identities. */
 final class BenchProfiles {
  static final int MAX_PROFILES=16,MAX_BYTES=131072,MAX_NAME_CHARS=48,MAX_NAME_BYTES=128;
  static final class Watch {
@@ -39,21 +39,25 @@ final class BenchProfiles {
   }
  }
  static final class Profile {
-  final String id,name,peer;final int domain;final List<Watch> watches;final List<Series> plots;final Visual visual;
+  final String id,name,peer,graphFormat;final int domain;final List<Watch> watches;final List<Series> plots;final Visual visual;
   Profile(String id,String name,int domain,String peer,List<Watch> watches,List<Series> plots){
    this(id,name,domain,peer,watches,plots,new Visual());
   }
   Profile(String id,String name,int domain,String peer,List<Watch> watches,List<Series> plots,Visual visual){
+   this(id,name,domain,peer,watches,plots,visual,"jazzy");
+  }
+  Profile(String id,String name,int domain,String peer,List<Watch> watches,List<Series> plots,Visual visual,String graphFormat){
    if(id==null||!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw invalid("Identidade de perfil inválida");
    validateName(name);
+   if(!"jazzy".equals(graphFormat)&&!"humble".equals(graphFormat))throw invalid("Formato de grafo desconhecido");
    if(domain<0||domain>101||peer==null||peer.length()>15||!NetworkRules.validPeer(peer))throw invalid("Domínio/peer inválido");
    if(watches==null||watches.size()!=4||plots==null||plots.size()>4)throw invalid("Limite: quatro watches e quatro séries");
    for(Watch w:watches)Objects.requireNonNull(w,"Watch inválido");
    Set<String> fields=new HashSet<>();
    for(Series s:plots)if(s==null||!numeric(watches.get(s.slot).type,s.path)||!fields.add(s.key()))throw invalid("Campo não numérico, duplicado ou de watch vazio");
-   this.id=id;this.name=name;this.domain=domain;this.peer=peer;this.watches=Collections.unmodifiableList(new ArrayList<>(watches));this.plots=Collections.unmodifiableList(new ArrayList<>(plots));this.visual=Objects.requireNonNull(visual);
+   this.id=id;this.name=name;this.domain=domain;this.peer=peer;this.graphFormat=graphFormat;this.watches=Collections.unmodifiableList(new ArrayList<>(watches));this.plots=Collections.unmodifiableList(new ArrayList<>(plots));this.visual=Objects.requireNonNull(visual);
   }
-  Profile rename(String name){return new Profile(id,name,domain,peer,watches,plots,visual);}
+  Profile rename(String name){return new Profile(id,name,domain,peer,watches,plots,visual,graphFormat);}
  }
  final List<Profile> profiles;final Profile applied;
  BenchProfiles(){this(Collections.emptyList(),null);}
@@ -95,16 +99,18 @@ final class BenchProfiles {
   keys(j,"mode","scan","camera");return new Visual(string(j,"mode"),j.isNull("scan")?null:sensor(j.getJSONObject("scan"),true),j.isNull("camera")?null:sensor(j.getJSONObject("camera"),false));
  }
  private static Profile profile(JSONObject j,int schema)throws JSONException{
-  if(schema==1)keys(j,"id","name","domain","peer","watches","plots");else keys(j,"id","name","domain","peer","watches","plots","visual");
+  if(schema==1)keys(j,"id","name","domain","peer","watches","plots");
+  else if(schema==2)keys(j,"id","name","domain","peer","watches","plots","visual");
+  else keys(j,"id","name","domain","peer","watches","plots","visual","graphFormat");
   JSONArray ws=j.getJSONArray("watches"),ps=j.getJSONArray("plots");if(ws.length()!=4||ps.length()>4)throw invalid("Limite: quatro watches e quatro séries");
   List<Watch> watches=new ArrayList<>();List<Series> plots=new ArrayList<>();
   for(int i=0;i<ws.length();i++){JSONObject w=ws.getJSONObject(i);keys(w,"wire","type","reliable","transientLocal");watches.add(new Watch(string(w,"wire"),string(w,"type"),bool(w,"reliable"),bool(w,"transientLocal")));}
   for(int i=0;i<ps.length();i++){JSONObject s=ps.getJSONObject(i);keys(s,"slot","path");plots.add(new Series(integer(s,"slot"),string(s,"path")));}
-  return new Profile(string(j,"id"),string(j,"name"),integer(j,"domain"),string(j,"peer"),watches,plots,schema==1?new Visual():visual(j.getJSONObject("visual")));
+  return new Profile(string(j,"id"),string(j,"name"),integer(j,"domain"),string(j,"peer"),watches,plots,schema==1?new Visual():visual(j.getJSONObject("visual")),schema<3?"jazzy":string(j,"graphFormat"));
  }
  static BenchProfiles decode(byte[] bytes)throws JSONException{
   JSONObject j=ProfileJson.parse(bytes);
-  keys(j,"schema","profiles","applied");int schema=integer(j,"schema");if(schema!=1&&schema!=2)throw invalid("Schema de perfis desconhecido");
+  keys(j,"schema","profiles","applied");int schema=integer(j,"schema");if(schema!=1&&schema!=2&&schema!=3)throw invalid("Schema de perfis desconhecido");
   JSONArray rows=j.getJSONArray("profiles");if(rows.length()>MAX_PROFILES)throw invalid("Limite: 16 perfis locais");List<Profile> profiles=new ArrayList<>();
   for(int i=0;i<rows.length();i++)profiles.add(profile(rows.getJSONObject(i),schema));
   return new BenchProfiles(profiles,j.isNull("applied")?null:profile(j.getJSONObject("applied"),schema));
@@ -115,21 +121,22 @@ final class BenchProfiles {
   for(Watch w:p.watches)watches.put(new JSONObject().put("wire",w.wire).put("type",w.type).put("reliable",w.reliable).put("transientLocal",w.transientLocal));
   for(Series s:p.plots)plots.put(new JSONObject().put("slot",s.slot).put("path",s.path));
   JSONObject visual=new JSONObject().put("mode",p.visual.mode).put("scan",sensorJson(p.visual.scan)).put("camera",sensorJson(p.visual.camera));
-  return new JSONObject().put("id",p.id).put("name",p.name).put("domain",p.domain).put("peer",p.peer).put("watches",watches).put("plots",plots).put("visual",visual);
+  return new JSONObject().put("id",p.id).put("name",p.name).put("domain",p.domain).put("peer",p.peer).put("watches",watches).put("plots",plots).put("visual",visual).put("graphFormat",p.graphFormat);
  }
  static Profile importProfile(byte[] bytes)throws JSONException{
   JSONObject envelope=ProfileJson.parse(bytes);keys(envelope,"format","schema","profile");
-  if(!"ros-pocket-profile".equals(string(envelope,"format"))||integer(envelope,"schema")!=2)throw invalid("Formato/schema portátil desconhecido");
-  Profile p=profile(envelope.getJSONObject("profile"),2);
-  return new Profile(UUID.randomUUID().toString(),p.name,p.domain,p.peer,p.watches,p.plots,p.visual);
+  int schema=integer(envelope,"schema");
+  if(!"ros-pocket-profile".equals(string(envelope,"format"))||(schema!=2&&schema!=3))throw invalid("Formato/schema portátil desconhecido");
+  Profile p=profile(envelope.getJSONObject("profile"),schema);
+  return new Profile(UUID.randomUUID().toString(),p.name,p.domain,p.peer,p.watches,p.plots,p.visual,p.graphFormat);
  }
  static byte[] exportProfile(Profile profile)throws JSONException{
-  byte[] bytes=utf8(new JSONObject().put("format","ros-pocket-profile").put("schema",2).put("profile",json(profile)).toString());
+  byte[] bytes=utf8(new JSONObject().put("format","ros-pocket-profile").put("schema",3).put("profile",json(profile)).toString());
   if(bytes.length>MAX_BYTES)throw invalid("Perfil excede 128 KiB");return bytes;
  }
  byte[] encode()throws JSONException{
   JSONArray rows=new JSONArray();for(Profile p:profiles)rows.put(json(p));
-  byte[] out=utf8(new JSONObject().put("schema",2).put("profiles",rows).put("applied",applied==null?JSONObject.NULL:json(applied)).toString());
+  byte[] out=utf8(new JSONObject().put("schema",3).put("profiles",rows).put("applied",applied==null?JSONObject.NULL:json(applied)).toString());
   if(out.length>MAX_BYTES)throw invalid("Arquivo de perfis excede 128 KiB");return out;
  }
 }

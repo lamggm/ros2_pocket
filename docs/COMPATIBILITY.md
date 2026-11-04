@@ -2,7 +2,7 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este documento descreve a v0.4 (APK físico **0.4.0-dev**, code4). Descobrir um endpoint,
+Este documento descreve a v0.8 (APK físico **0.8.0-dev**, code8). Descobrir um endpoint,
 decodificar mensagens e reconstruir o grafo de nós são capacidades distintas.
 Um tópico aparecer na lista não comprova as outras duas.
 
@@ -27,11 +27,22 @@ O [smoke físico curto](SMOKE-v0.3.md) dos perfis/candidato passou **8/8** no
 SM-X400 / Android 16 com produtor Jazzy/Fast DDS e peer explícito. Não é uma
 matriz física completa de distribuições, RMWs ou descoberta automática.
 
-**Humble ainda não tem suporte validado.** A descoberta DDS e tipos padrão podem
-interoperar, mas isso precisa ser demonstrado por capacidade. O grafo atual usa
-`rmw_dds_common/Gid` de 16 bytes, do Jazzy; a branch upstream Humble usa 24 bytes.
-O decoder do grafo Humble não está implementado. Nomes de nós vêm de
-`ros_discovery_info`, não de nomes de participantes adivinhados.
+Na v0.8, a matriz **Humble/Jazzy × Fast DDS/Cyclone DDS** passou com produtores
+ROS reais em contêineres privados: endpoints, String/Float64, `/rosout`, nomes de
+nós e associações de endpoints. Humble também passou remoção/reinício do produtor
+nos dois RMWs. [Versões e resultados por capacidade](HUMBLE-JAZZY.md).
+
+O formato é **manual**: Jazzy/GID16 ou Humble/GID24, persistido no perfil;
+somente o leitor escolhido é criado. Humble valida a cauda zero do GID do grafo,
+sem converter handles RMW genéricos. Perfis antigos assumem Jazzy em memória,
+sem regravar o catálogo no load. Formato desconhecido é rejeitado; uma escolha
+incompatível não dispara fallback nem inventa nós. Sem grafo recebido, o estado
+permanece não confirmado, enquanto a recepção tipada pode continuar independente.
+
+O smoke físico v0.8 passou 4/4 com DDS sintético local Android, incluindo ambos
+os grafos e recepção Float64. Não é matriz ROS real Humble/Jazzy pela LAN,
+suporte a domínios mistos ou soak. Nomes vêm de `ros_discovery_info`, não de
+nomes de participantes adivinhados.
 
 A [issue #18](https://github.com/lamggm/ros2_pocket/issues/18) acompanha a matriz
 multidistribuição. Outras versões não herdam suporte por analogia. Os campos
@@ -87,8 +98,8 @@ comprovam recepção. Veja também [lifecycle e perfis](USAGE.md#reinício-e-úl
 
 O app não publica comandos nem oferece teleop, edição de parâmetros,
 serviços/actions, gravação rosbag/vídeo, RTSP, mapas/TF ou um RViz completo.
-Exportação para o usuário, lotes numéricos e decodificação dinâmica de tipos
-customizados ficam fora deste ciclo.
+CSV do histórico e lotes numéricos limitados já existem, conforme seus contratos.
+Decodificação dinâmica de tipos customizados permanece fora deste ciclo.
 
 Qualificação física gráfica completa, recuperação real de Wi-Fi/IP, high-rate,
 endurance/soak e dispositivos adicionais permanecem não comprovados para este

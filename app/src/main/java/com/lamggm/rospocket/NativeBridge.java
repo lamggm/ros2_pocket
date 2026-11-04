@@ -8,6 +8,10 @@ final class NativeBridge {
  // use a JNI double and this parser, without loading an incompatible host .so.
  interface Api {
   byte[] start(int domain,String address,String peer);
+  default byte[] startWithGraphFormat(int domain,String address,String peer,String format){
+   if("jazzy".equals(format))return start(domain,address,peer);
+   return "{\"ok\":false,\"error\":\"Formato de grafo indisponível nesta ponte\"}".getBytes(StandardCharsets.UTF_8);
+  }
   byte[] poll();
   // Legacy host doubles can keep latest-snapshot intake; production JNI overrides this.
   default byte[] selectNumeric(long epoch,int[] slots,String[] paths){return "{\"ok\":true,\"legacy\":true}".getBytes(StandardCharsets.UTF_8);}
@@ -24,6 +28,7 @@ final class NativeBridge {
  }
  static final class JniApi implements Api {
   public byte[] start(int d,String a,String p){return NativeBridge.start(d,a,p);}
+  public byte[] startWithGraphFormat(int d,String a,String p,String format){return NativeBridge.startWithGraphFormat(d,a,p,format);}
   public byte[] poll(){return NativeBridge.poll();}
   public byte[] selectNumeric(long epoch,int[] slots,String[] paths){return NativeBridge.selectNumeric(epoch,slots,paths);}
   public byte[] diagnosticState(){return NativeBridge.diagnosticState();}
@@ -37,6 +42,7 @@ final class NativeBridge {
   public void stopSensor(){NativeBridge.stopSensor();}
  }
  static native byte[] start(int domain,String address,String peer);
+ static native byte[] startWithGraphFormat(int domain,String address,String peer,String format);
  static native byte[] poll();
  static native byte[] selectNumeric(long epoch,int[] slots,String[] paths);
  static native byte[] diagnosticState();

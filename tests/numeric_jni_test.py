@@ -48,7 +48,7 @@ def main():
                        '-o', out / 'librospocket.so'])
     run('compile-java', [jdk / 'bin/javac', '-encoding', 'UTF-8', '-cp', android_jar,
                         '-d', out, 'app/src/main/java/com/lamggm/rospocket/NativeBridge.java',
-                        'tests/NumericJniBridgeTest.java'])
+                        'tests/NumericJniBridgeTest.java', 'tests/GraphFormatJniBridgeTest.java'])
     raw = run('real-jni', [jdk / 'bin/java', '-Djava.library.path=' + str(out),
                           '-cp', str(out) + os.pathsep + str(android_jar),
                           'com.lamggm.rospocket.NumericJniBridgeTest'])
@@ -61,8 +61,21 @@ def main():
     assert rows[9]['numericBatch'] == rows[1]['numericBatch']
     assert rows[10]['ok'] is True and rows[11]['numericBatch']['epoch'] == 2
     assert all(not slot['paths'] and not slot['samples'] for slot in rows[11]['numericBatch']['slots'])
+    graph_raw = run('real-graph-jni', [jdk / 'bin/java', '-Djava.library.path=' + str(out),
+                                     '-cp', str(out) + os.pathsep + str(android_jar),
+                                     'com.lamggm.rospocket.GraphFormatJniBridgeTest'])
+    graph_rows = [json.loads(line) for line in graph_raw.splitlines()]
+    assert len(graph_rows) == 12
+    for index, mode in enumerate(['humble', 'jazzy']):
+        assert graph_rows[index * 2]['ok'] is True
+        assert graph_rows[index * 2 + 1]['running'] is True
+        assert graph_rows[index * 2 + 1]['graph']['format'] == mode
+    for index in range(2, 6):
+        assert graph_rows[index * 2]['ok'] is False
+        assert graph_rows[index * 2 + 1]['running'] is False
     result = {'classification': 'real Linux JNI boundary; no DDS producer or Android execution',
-              'passed': True, 'invalid_requests_rejected': 7,
+              'passed': True, 'invalid_requests_rejected': 7, 'graph_modes_started': ['humble', 'jazzy'],
+              'invalid_graph_modes_rejected': 4,
               'core_sha256': hashlib.sha256(core.read_bytes()).hexdigest(),
               'jni_sha256': hashlib.sha256((out / 'librospocket.so').read_bytes()).hexdigest()}
     (out / 'result.json').write_text(json.dumps(result, indent=2))
