@@ -15,6 +15,11 @@ def main():
   try:
    native=subprocess.run([str(a.probe),a.mode],env=native_env,capture_output=True,text=True,timeout=20)
    (out/'native.jsonl').write_text(native.stdout);(out/'native.err').write_text(native.stderr);alive=producer.poll() is None
+  except subprocess.TimeoutExpired as error:
+   # TimeoutExpired may expose bytes even when subprocess.run(text=True).
+   for name,body in [('native.jsonl',error.stdout),('native.err',error.stderr)]:
+    (out/name).write_bytes(body if isinstance(body,bytes) else (body or '').encode('utf-8'))
+   raise
   finally:
    if producer.poll() is None:producer.terminate()
    try:producer.wait(timeout=5)

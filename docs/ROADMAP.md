@@ -21,9 +21,8 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado;
-v0.8 implementada com host/revisão e smoke Android 4/4 aprovados, promoção autorizada;
-v0.9 proposta**.
+**v0.5–v0.8 publicadas/verificadas; v0.9 iniciada sobre a main publicada, com
+primeiro reparo host testado e revisado**. [Escopo e budgets v0.9](STABILITY-v0.9.md).
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
 [perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
 Na publicação inicial deste roadmap,
@@ -130,9 +129,9 @@ revisão e smoke Android direcionado quando autorizado.
 
 ## v0.8 — Compatibilidade Humble/Jazzy com alcance declarado
 
-**Estado:** em andamento; seletor manual implementado, matriz host/revisão e
-smoke Android delimitado 4/4 aprovados. Promoção/CI/merge/release acompanhados na
-issue #18, autorizados após o smoke. [Fechamento](FINALIZATION-v0.8.md).
+**Estado:** entregue no alcance declarado, PR#30/main `d3096b8`, CI PR/pós-merge
+e releasev0.8.0 verificados. APK físico preservado, cinco assets baixados e
+conferidos; issue#18/milestonev0.8 fechadas. [Fechamento](FINALIZATION-v0.8.md).
 [Contrato e evidências](HUMBLE-JAZZY.md). **Acompanhamento:** issue #18, preservada,
 sem duplicação.
 **Sequência:** após os ciclos anteriores; não depende tecnicamente dos lotes.
@@ -156,7 +155,9 @@ limitações claras. Distinguir host de eventual validação Android física aut
 
 ## v0.9 — Consolidação para uso prolongado em bancada
 
-**Estado:** proposto. **Depende de:** candidato integrado e preflight físico viável.
+**Estado:** iniciado por autorização do operador após a v0.8 publicada;
+[escopo, budgets e primeiro recorte](STABILITY-v0.9.md). Não concluído.
+**Depende de:** candidato integrado e preflight físico viável.
 
 **Objetivo:** tratar pendências reais de rede/reinício e uso prolongado, sem grande
 feature nova nem alegação automática de maturidade de produção.
@@ -207,5 +208,6 @@ Os roadmaps [v0.2](ROADMAP-v0.2.md), [v0.3](ROADMAP-v0.3.md) e
 A publicação inicial foi somente planejamento. Os fechamentos v0.5/v0.6 foram
 publicados; v0.7 foi autorizada separadamente até merge/release. A v0.8 foi
 iniciada pelo operador após a v0.7 publicada: o seletor manual escolhido passou
-host/revisão e smoke Android direcionado. A promoção permanece etapa separada;
-v0.9 não foi iniciada.
+host/revisão, smoke Android direcionado, CI PR/pós-merge e releasev0.8.0.
+O mesmo pedido autorizou iniciar v0.9 depois dessa publicação; primeiro recorte
+host testado/revisado, sem nova campanha de rede/soak ou APKv0.9 aprovado.

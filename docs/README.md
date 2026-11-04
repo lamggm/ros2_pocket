@@ -8,6 +8,11 @@ registros históricos ficam separados para não interromper o passo a passo.
 Os guias correspondem à v0.8; confira a versão disponível na página de release.
 O candidato físico mantém o nome interno 0.8.0-dev, sem rebuild para alterar a etiqueta.
 
+## Estabilidade v0.9 — trabalho iniciado
+
+- [Escopo e budgets](STABILITY-v0.9.md): base publicada, matriz herdada e primeiro
+  reparo host; não é releasev0.9, nova campanha física nem soak aprovado.
+
 ## Compatibilidade Humble/Jazzy v0.8
 
 - [Contrato e matriz Humble/Jazzy](HUMBLE-JAZZY.md): seletor manual de grafo,
