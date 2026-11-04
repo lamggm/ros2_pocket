@@ -83,9 +83,57 @@ O código do app Android/nativo, versionCode e APK físico não foram alterados
 neste primeiro recorte. Uma nova build/campanha terá identidade/evidência própria;
 este reparo não transfere o aceite v0.8 para uma suposta release v0.9.
 
-## Fora deste primeiro recorte
+## Fora do primeiro recorte (histórico)
 
-Sem build/install novo, produtor real no tablet, soak30min, RF/IP, sensor físico,
-serviços/actions, parâmetros, teleop, bridge ou publicação de release v0.9.
-Preservar falhas/rodadas incompletas, dados privados, PIN e configuração de energia
-explicitamente autorizada pelo operador.
+Naquele recorte não houve build/install novo, produtor real no tablet,
+soak30min, RF/IP, sensor físico, serviços/actions, parâmetros, teleop, bridge
+ou publicação de release v0.9. O preflight físico posterior está separado abaixo.
+
+## Segundo recorte: preflight físico no baseline publicado
+
+Após o operador pedir continuidade, a bancada reutilizou **exatamente o APK
+v0.8.0 publicado**, sem instalar/recompilar ou editar seus metadados. Um checkout
+isolado do commit de build `096a7d5` conferiu o snapshot original; o coletor e os
+validadores permaneceram inalterados. Isso é baseline para preparar v0.9, **não
+aceite de um APKv0.9 ainda inexistente**.
+
+- Dispositivo real: API36; identidade de processo/UID/starttime/CLK_TCK e parser
+  Android16 conferidos. Nenhuma instrumentação ativa observada no alvo naquele
+  instante; não é um controle positivo/negativo de instrumentação nem prova de
+  ausência contínua entre observações.
+- Quatro escritores DDS Float64 reais no próprio Android, separados do app,
+  com binário/IDL/fonte preservados e a biblioteca ddsc idêntica à do APK.
+  Alimentação solicitada de2Hz por writer via stdin; os timestamps DDS foram
+  fornecidos explicitamente pelo relógio civil do driver. Cadência do envio ao
+  stdin não é frequência comprovada de recepção no rádio ou ausência de perdas.
+- Perfil temporário de bancada schema3/applied, com namespace único, quatro
+  watches best-effort/volatile e um campo numérico no gráfico. Preparação de
+  carga por catálogo privado temporário, **não teste de importação/UI de perfis**.
+- Os quatro contadores reais avançaram5→7; a observação admitida pelo coletor
+  tinha **136 em cada watch**, gráfico inteiro/despausado e **61 pontos finitos**
+  na série desenhada do slot0. Screenshot real inspecionada.
+- A CLI oficial `collect_soak.py preflight` registrou `preflight-observation` e
+  retornou **1/incomplete**, com `preflight only; no measured 30-minute soak`.
+  Zero pontos de soak. Não foi convertido em PASS de endurance/CPU/PSS/bateria.
+- Readback independente comprovou APK/UID, sete caminhos de configuração
+  restaurados por bytes/existência, settings preservados, app parado e remoção
+  dos quatro escritores/feeder/diretório de fixture. **78 arquivos privados**
+  recolhidos e verificados por tamanho/hash.
+
+A primeira tentativa de pré-requisitos ficou **incompleta** porque o observador
+externo consultou `dumpsys window windows`, que não expõe `mCurrentFocus` nesse
+firmware. O comando default `dumpsys window` expôs o campo; a segunda tentativa
+passou os pré-requisitos. As duas foram preservadas, sem somar passes ou alterar
+app/validador. Configuração/settings foram restaurados em ambas.
+
+**Bloqueio físico atual para um soak:** o readback final encontrou AC conectado
+(status2). A alimentação precisa ser fisicamente retirada antes de uma campanha
+oficial; o preflight de observabilidade não prova bateria desplugada ao longo de
+30 minutos. O stay-on persistente pedido pelo operador ficou efetivamente ativo
+na alimentação, com PIN preservado. Nenhuma bateria foi simulada.
+
+Continuam faltando congelar o candidato v0.9 e executar os gates relevantes nesse
+mesmo artefato. Preservar falhas/rodadas incompletas, dados privados, PIN e a
+configuração de energia explicitamente autorizada. RF/IP permanece condicionado
+à recuperação independente e aprovação de interrupção; não houve alteração de
+rede, VPN ou firewall.

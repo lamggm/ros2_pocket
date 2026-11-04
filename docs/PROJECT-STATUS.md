@@ -11,6 +11,13 @@ falha e cleanup. TDD RED/GREEN, 2 testes focados e 298Python sem falhas/skips;
 revisão independente aprovada sem bloqueadores. Sem mudança no APK/app, nova instalação,
 RF/IP ou soak físico; não é aceite da versão inteira.
 
+Preflight físico posterior no mesmo APKv0.8 publicado: quatro contadores reais
+admitidos pelo coletor (136cada), gráfico inteiro/despausado com61pontos finitos,
+cleanup/configuração conferidos e78arquivos privados verificados. A CLI oficial
+permaneceu **1/incomplete**, somente preflight, zero pontos de soak. Não houve
+novo APKv0.9; o readback final encontrou AC conectado, incompatível com um soak
+oficial desplugado. [Detalhes e limites](STABILITY-v0.9.md).
+
 ## v0.8 — Humble/Jazzy com formato manual
 
 [Contrato e resultados](HUMBLE-JAZZY.md). Fonte do APK `096a7d5`,
