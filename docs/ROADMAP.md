@@ -21,9 +21,9 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado;
-v0.8 implementada com host/revisão e smoke Android 4/4 aprovados, promoção autorizada;
-v0.9 proposta**.
+**v0.5–v0.8 publicadas/verificadas; v0.9 com aceite técnico de bancada aprovado**,
+promoção/CI/publicação acompanhados na issue25. [Fechamento](FINALIZATION-v0.9.md).
+[Escopo, budgets e histórico](STABILITY-v0.9.md).
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
 [perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
 Na publicação inicial deste roadmap,
@@ -130,9 +130,9 @@ revisão e smoke Android direcionado quando autorizado.
 
 ## v0.8 — Compatibilidade Humble/Jazzy com alcance declarado
 
-**Estado:** em andamento; seletor manual implementado, matriz host/revisão e
-smoke Android delimitado 4/4 aprovados. Promoção/CI/merge/release acompanhados na
-issue #18, autorizados após o smoke. [Fechamento](FINALIZATION-v0.8.md).
+**Estado:** entregue no alcance declarado, PR#30/main `d3096b8`, CI PR/pós-merge
+e releasev0.8.0 verificados. APK físico preservado, cinco assets baixados e
+conferidos; issue#18/milestonev0.8 fechadas. [Fechamento](FINALIZATION-v0.8.md).
 [Contrato e evidências](HUMBLE-JAZZY.md). **Acompanhamento:** issue #18, preservada,
 sem duplicação.
 **Sequência:** após os ciclos anteriores; não depende tecnicamente dos lotes.
@@ -156,7 +156,14 @@ limitações claras. Distinguir host de eventual validação Android física aut
 
 ## v0.9 — Consolidação para uso prolongado em bancada
 
-**Estado:** proposto. **Depende de:** candidato integrado e preflight físico viável.
+**Estado:** soak físico oficial30min e lifecycle2/2 aprovados no mesmo APK;
+[fechamento técnico](FINALIZATION-v0.9.md), promoção/CI/release na issue25.
+**Reconciliação explícita do aceite:** protótipo de bancada com regressões/revisão,
+soak local e lifecycle. Interrupção RF/IP permanece condicionada e **não executada**;
+pré-requisitos ausentes e trabalho aberto na [issue31](https://github.com/lamggm/ros2_pocket/issues/31).
+Não se trata de ready=true da qualificação extensa nem dispensa de seus gates.
+O planejamento original abaixo fica preservado como histórico de requisitos.
+**Depende de:** candidato integrado e preflight físico viável.
 
 **Objetivo:** tratar pendências reais de rede/reinício e uso prolongado, sem grande
 feature nova nem alegação automática de maturidade de produção.
@@ -186,8 +193,9 @@ Redução de escopo exige decisão explícita, nunca reescrita de resultado anti
   host não equivalem a aceite físico; documentação não transfere aprovação de APK.
 - Nenhuma data fictícia. Milestone planejado/proposto não é autorização de release,
   instalação, rede/soak ou execução automática de todos os ciclos.
-- Humble, RF/Wi-Fi/IP e soak são pendências herdadas não validadas; entrar neste
-  calendário não as torna funções novas nem PASS. Ver [validação](VALIDATION.md).
+- Pendências herdadas não ganham PASS pelo calendário: Humble foi tratado no
+  alcance v0.8 e o soak local no alcance v0.9; RF/Wi-Fi/IP permanece aberto.
+  Consultar [fechamento v0.9](FINALIZATION-v0.9.md) e [validação](VALIDATION.md).
 - Escolher identidade interna antes do build a qualificar e preservar os bytes
   aprovados. Não alterar tags/releases antigas ou publicar APK reconstruído como testado.
 
@@ -207,5 +215,8 @@ Os roadmaps [v0.2](ROADMAP-v0.2.md), [v0.3](ROADMAP-v0.3.md) e
 A publicação inicial foi somente planejamento. Os fechamentos v0.5/v0.6 foram
 publicados; v0.7 foi autorizada separadamente até merge/release. A v0.8 foi
 iniciada pelo operador após a v0.7 publicada: o seletor manual escolhido passou
-host/revisão e smoke Android direcionado. A promoção permanece etapa separada;
-v0.9 não foi iniciada.
+host/revisão, smoke Android direcionado, CI PR/pós-merge e releasev0.8.0.
+O mesmo pedido autorizou iniciar v0.9 depois dessa publicação. O primeiro recorte
+foi apenas host; depois, o candidato0.9 passou soak local oficial e lifecycle.
+O fechamento até merge/release foi autorizado separadamente, com RF/IP não
+executado e preservado na issue31. [Alcance atual](FINALIZATION-v0.9.md).

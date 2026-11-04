@@ -2,6 +2,28 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v0.9 — estabilidade de bancada, aceite técnico aprovado
+
+[Fechamento, identidade e limites](FINALIZATION-v0.9.md) · [Histórico](STABILITY-v0.9.md).
+Fonte do app073821c, harnessca69285, **0.9.0-dev/code9/ARM64/debug/hooks OFF**.
+Correções de timeout, primeira janelaCPU e observação de desenho pendente,
+reproduzidas e revisadas sem relaxar aceitação. Python303 testes frescos sem
+falhas/skips; wrapper offline aprovado e Java497/1skip retidos como UP-TO-DATE.
+
+**Soak físico oficial PASS:**121 amostras/1800,694606s, quatro watches Float64
+DDS nativos locais Android e gráfico visível, desplugado, dentro dos budgets.
+**Lifecycle2/2 PASS:** Home/retorno65→115 e restart real115→175, configuração
+preservada, conexão explícita após restart. Mesmo APK, cleanup/readback e cópias
+de evidência verificados; tentativas incompletas preservadas, sem somar rodadas.
+
+SHA-256 do APK físico:
+`fce2b53d6842e5ba13ac51de47a7a2d346c49b150d8ba3e51bb6d05f7c4cbed0`.
+Promoção, CI do head/pós-merge e releasev0.9.0 são registrados na
+[issue25](https://github.com/lamggm/ros2_pocket/issues/25) e manifesto público,
+sem substituir pelos bytes do CI. **RF/IP não executado**, separado do aceite
+proporcional e aberto na [issue31](https://github.com/lamggm/ros2_pocket/issues/31).
+Sem nova matriz Android/ROS real pela LAN ou certificação de produção.
+
 ## v0.8 — Humble/Jazzy com formato manual
 
 [Contrato e resultados](HUMBLE-JAZZY.md). Fonte do APK `096a7d5`,
@@ -17,9 +39,10 @@ conexão e perfil Humble restaurado desconectado após reinício. Instalação
 in-place, configurações originais restauradas e APK/UID/cleanup conferidos por
 readback separado. Não é ROS real pela LAN nem soak. APK físico:
 `66d1f97ef0a6a7eb08fc367981e37aa1717b6fd09e1eb36d4eb17c6b79ab8958`.
-O operador autorizou a promoção completa após esse smoke. PR, CI exato/pós-merge
-e publicação acompanham a [issue #18](https://github.com/lamggm/ros2_pocket/issues/18)
-e a [release v0.8.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.8.0).
+Promoção concluída: PR#30/main `d3096b8`, CI PR41823327092 e main41826471322
+success com logs/artefatos/árvores conferidos. [Releasev0.8.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.8.0)
+Latest com cinco assets baixados anonimamente/hash comparados; seis releases
+anteriores preservadas, issue#18 e milestonev0.8 fechadas.
 [Fechamento e identidade do artefato](FINALIZATION-v0.8.md). O APK publicado deve
 ser o mesmo físico, nunca a recompilação do CI.
 
@@ -37,7 +60,7 @@ CSV live e pausado com 600 pontos/150 gaps cada, pausa/cancel/retomada e cleanup
 verificados. Não é uma nova matriz LAN ou soak. SHA-256 do APK físico:
 `2437dfbd53a55618a17680874e1e9cfa08ecc978e912808db9ac7ee57fba9b88`.
 PR, CI exato/pós-merge e release acompanham a [issue #24](https://github.com/lamggm/ros2_pocket/issues/24).
-Não substituir pelos bytes do CI. A v0.8 está descrita acima; v0.9 continua proposta.
+Não substituir pelos bytes do CI. A v0.8 e o início da v0.9 estão descritos acima.
 
 ## v0.6 — perfis portáteis
 
@@ -155,9 +178,10 @@ comprovam execução dessa instrumentação no Android físico.
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 - A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
 - CSV entrou na v0.5, perfis portáteis na v0.6 e lotes numéricos na v0.7;
-  v0.8 tem candidato validado no escopo declarado, ainda não promovido, e v0.9
-  permanece proposta no [roadmap](ROADMAP.md).
-- Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
+  v0.8 foi publicada no escopo declarado; v0.9 passou soak local/lifecycle,
+  com promoção/CI/release acompanhados na issue25 e no [fechamento](FINALIZATION-v0.9.md).
+- Rede real RF/IP permanece não validada na issue31; dispositivos adicionais
+  e novos cenários de endurance exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual
 quando necessário. Features vão para a integração do ciclo. Não iniciar

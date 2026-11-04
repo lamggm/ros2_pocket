@@ -1,5 +1,9 @@
 # ROS Pocket
 
+> **v0.9 — estabilidade de bancada:** soak físico oficial de30min e lifecycle
+> Home/retorno + reinício aprovados no mesmo APK. RF/IP continua não validado.
+> [Resultados, identidade e limites](docs/FINALIZATION-v0.9.md).
+
 > **v0.8 — grafo Humble/Jazzy com seleção manual:** formato persistido no perfil,
 > matriz ROS real no host e smoke Android direcionado 4/4.
 > [Uso, matriz e limites](docs/HUMBLE-JAZZY.md) · [fechamento](docs/FINALIZATION-v0.8.md).
@@ -22,10 +26,10 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap v0.5–v0.9](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v0.8 é um protótipo de bancada. O candidato físico testado é identificado
-> internamente como **0.8.0-dev**, versionCode **8**, assinatura debug compatível.
-> O [smoke físico de formato/perfis](docs/FINALIZATION-v0.8.md) passou **4/4** no SM-X400 / Android 16,
-> com DDS sintético local; não é matriz ROS real pela LAN nem soak.
+> A v0.9 é um protótipo de bancada. O APK físico é identificado internamente
+> como **0.9.0-dev**, versionCode **9**, assinatura debug compatível/hooks OFF.
+> [Soak oficial30min e lifecycle2/2](docs/FINALIZATION-v0.9.md) passaram no SM-X400 / Android16,
+> com DDS nativo sintético local; não é matriz ROS real pela LAN nem teste RF/IP.
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -101,7 +105,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v0.8 preserva watches, sensores, logs e perfis. A release deve distribuir os
+A v0.9 preserva watches, sensores, logs e perfis. A release deve distribuir os
 mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
 explica a fonte local testada e a reconciliação documental/CI posterior.
 As releases anteriores permanecem intactas.

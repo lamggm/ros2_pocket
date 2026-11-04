@@ -5,8 +5,17 @@
 
 Para começar a usar o APK, leia os guias abaixo. As referências técnicas e os
 registros históricos ficam separados para não interromper o passo a passo.
-Os guias correspondem à v0.8; confira a versão disponível na página de release.
-O candidato físico mantém o nome interno 0.8.0-dev, sem rebuild para alterar a etiqueta.
+Os guias continuam aplicáveis à v0.9; confira a versão disponível na página de release.
+O APK físico mantém o nome interno 0.9.0-dev, sem rebuild para alterar a etiqueta.
+
+## Estabilidade v0.9 — aceite de bancada
+
+- [Fechamento e limites](FINALIZATION-v0.9.md): soak físico oficial30min, lifecycle2/2,
+  mesmo APK e promoção/CI/release acompanhados na issue25; RF/IP não validado.
+- [Escopo, budgets e histórico](STABILITY-v0.9.md): reparos, tentativas incompletas e
+  reconciliação explícita do aceite.
+- [Congelamento do candidato](CANDIDATE-v0.9.md): plano original preservado,
+  atualização in-place e separação entre fonte do app/harness/publicação.
 
 ## Compatibilidade Humble/Jazzy v0.8
 
@@ -82,7 +91,7 @@ ou inglês. Não precisam ser lidos em sequência para instalar ou usar o app.
 ## Planejamento e histórico
 
 - [Roadmap v0.5–v0.9](ROADMAP.md): direção futura, estados, aceite e limites por versão.
-- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; entregas v0.5–v0.7 e propostas v0.8/v0.9.
+- [Milestones](https://github.com/lamggm/ros2_pocket/milestones): acompanhamento sem datas prometidas; entregas v0.5–v0.9 e pendências registradas nas issues.
 
 Documentos de uma fase registram o que estava autorizado e validado naquele
 momento. Consulte o [estado atual](PROJECT-STATUS.md) antes de aplicar decisões

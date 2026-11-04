@@ -262,6 +262,89 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(calls[0],3)
         self.assertGreater(sample['diagnostic_proof']['qa']['capturedMonotonicNs'], sample['diagnostic_proof']['export_fence_ns'])
 
+    def test_pending_draw_is_resampled_but_only_completed_draw_enters_sample(self):
+        """Synthetic pending -> completed through the real parser and Collector."""
+        import collect_soak as c
+        import device_snapshot as qa
+        for pending_read in (1, 2):
+            clock=Clock(); meta=diagnostic_metadata(); t=SyntheticTransport(clock,meta)
+            collector=c.Collector(t,meta,meta['apk'],clock.now,clock.sleep)
+            collector.preflight(); baseline=collector.process_metrics(clock.now()+5_000_000_000); clock.sleep(15)
+            calls=[0]; retained=[]
+            def mutate(args,raw):
+                if '--pocket-qa-v1' not in args: return raw
+                calls[0]+=1
+                if calls[0]==pending_read:
+                    data=json.loads(raw.decode().splitlines()[2])
+                    data['plotDisplay'].update(drawPending=True,preparedRevision=2)
+                    retained.append(frame(data))
+                    return retained[-1]
+                return raw
+            t.mutate=mutate
+            with self.subTest(pending_read=pending_read):
+                sample=collector.sample(baseline)
+                accepted=sample['diagnostic_proof']['qa']
+                self.assertIs(accepted['plotDisplay']['drawPending'],False)
+                qa.validate_snapshot(accepted,meta)
+                self.assertEqual(calls[0],2 if pending_read==1 else 3)
+                with self.assertRaisesRegex(ValueError,'graph'):
+                    qa.parse_snapshot(retained[0],meta)
+
+    def test_permanent_pending_draw_and_deadline_exhaustion_never_accept_a_sample(self):
+        import collect_soak as c
+        for read_latency in (0,0.3):
+            clock=Clock(); meta=diagnostic_metadata(); t=SyntheticTransport(clock,meta)
+            collector=c.Collector(t,meta,meta['apk'],clock.now,clock.sleep)
+            collector.preflight(); baseline=collector.process_metrics(clock.now()+5_000_000_000); clock.sleep(15)
+            calls=[0]
+            def mutate(args,raw):
+                if '--pocket-qa-v1' not in args: return raw
+                calls[0]+=1; clock.sleep(read_latency)
+                data=json.loads(raw.decode().splitlines()[2])
+                data['plotDisplay'].update(drawPending=True,preparedRevision=2)
+                return frame(data)
+            t.mutate=mutate; started=clock.now()
+            with self.subTest(read_latency=read_latency),self.assertRaisesRegex(ValueError,'bounded attempts|deadline'):
+                collector.sample(baseline)
+            self.assertIsNone(collector.previous_qa)
+            self.assertLessEqual(calls[0],61)
+            self.assertLess(clock.now()-started,5_400_000_000)
+
+    def test_pending_draw_never_hides_invalid_input_or_intermediate_identity_change(self):
+        import collect_soak as c
+        changes=[
+            lambda d: (d.update(policyGeneration=d['policyGeneration']+1),d['testHooks'].update(policy=d['testHooks']['policy']+1)),
+            lambda d: (d.update(pid=124),d['testHooks'].update(pid=124)),
+            lambda d: d['testHooks'].update(startTimeTicks=999),
+            lambda d: d['watches'][1].update(readerGeneration=999),
+            lambda d: d['testHooks'].update(armed=True),
+            lambda d: d['testHooks'].update(captureSequence=True),
+            lambda d: d['plotDisplay'].update(drawPending=1),
+            lambda d: d['plotDisplay'].update(preparedRevision=True),
+            lambda d: d['plotDisplay'].update(preparedRevision=1),
+            lambda d: d['plotDisplay']['series'][0].update(finitePoints=True),
+            lambda d: d['plotIntake'].update(capacityPerSeries=601),
+            lambda d: d['plotDisplay'].update(chartFullyVisible=False),
+        ]
+        for change in changes:
+            clock=Clock(); meta=diagnostic_metadata(); t=SyntheticTransport(clock,meta)
+            collector=c.Collector(t,meta,meta['apk'],clock.now,clock.sleep)
+            collector.preflight(); baseline=collector.process_metrics(clock.now()+5_000_000_000); clock.sleep(15)
+            calls=[0]
+            def mutate(args,raw):
+                if '--pocket-qa-v1' not in args: return raw
+                calls[0]+=1
+                if calls[0]==2:
+                    data=json.loads(raw.decode().splitlines()[2])
+                    data['plotDisplay'].update(drawPending=True,preparedRevision=2)
+                    change(data)
+                    return frame(data)
+                return raw
+            t.mutate=mutate
+            with self.subTest(change=change),self.assertRaises(ValueError): collector.sample(baseline)
+            self.assertEqual(calls[0],2,'must reject intermediate input, not wait for a later good frame')
+            self.assertIsNone(collector.previous_qa)
+
     def test_pending_capture_cannot_hide_an_intermediate_policy_change(self):
         import collect_soak as c
         clock=Clock(); meta=diagnostic_metadata(); t=SyntheticTransport(clock,meta)
@@ -344,13 +427,16 @@ class CollectorTests(unittest.TestCase):
         import collect_soak as c
         root=Path(__file__).resolve().parents[1]
         clock=Clock(); meta=metadata(); t=SyntheticTransport(clock,meta); delayed=[False]
+        collector=c.Collector(t,meta,meta['apk'],clock.now,clock.sleep)
         def mutate(args,raw):
-            if '--pocket-qa-v1' in args and not delayed[0]:
+            # Delay the first measured capture, not the unmeasured priming.
+            if '--pocket-qa-v1' in args and collector.previous_qa is not None and not delayed[0]:
                 delayed[0]=True; clock.sleep(1)
             return raw
         t.mutate=mutate
         with tempfile.TemporaryDirectory(dir=root/'build') as directory:
-            result=c.run_campaign(c.Collector(t,meta,meta['apk'],clock.now,clock.sleep),c.Journal(Path(directory)/'run',root))
+            result=c.run_campaign(collector,c.Journal(Path(directory)/'run',root))
+            self.assertTrue(delayed[0])
             self.assertEqual(result['points'],122)
             self.assertEqual(result['analysis']['status'],'passed')
 

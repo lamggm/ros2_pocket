@@ -162,7 +162,8 @@ class Collector:
 
     def read_qa(self, deadline):
         start = self.now()
-        data = qa.parse_snapshot(self.shell(['dumpsys','activity',COMPONENT,'--pocket-qa-v1'], deadline, qa.MAX_BYTES), self.metadata)
+        data = qa.parse_snapshot(self.shell(['dumpsys','activity',COMPONENT,'--pocket-qa-v1'], deadline, qa.MAX_BYTES),
+                                 self.metadata, pending_observation=True)
         ai.require(data['pid'] == self.identity['pid'] and data['testHooks']['startTimeTicks'] == self.identity['start_time_ticks'],
                    'QA/OS process identity mismatch')
         return data, dict(host_start_ns=start,host_end_ns=self.now())
@@ -193,10 +194,16 @@ class Collector:
         if self.previous_qa is not None:
             qa.continuity(self.previous_qa,fence)
         export_fence = fence['exportedMonotonicNs']
+        previous_capture = fence
         for attempt in range(60):
             current, capture_read = self.read_qa(deadline)
-            if current['capturedMonotonicNs'] > export_fence:
+            # Validate every intermediate observation; no broad ValueError retry
+            # can hide malformed input, changed ownership or diagnostic work.
+            qa.continuity(previous_capture,current,advancing=False)
+            previous_capture = current
+            if current['capturedMonotonicNs'] > export_fence and current['plotDisplay']['drawPending'] is False:
                 qa.continuity(fence,current)
+                qa.validate_snapshot(current,self.metadata)
                 break
             qa.continuity(fence,current,advancing=False)
             ai.require(current['capturedMonotonicNs'] >= fence['capturedMonotonicNs']
@@ -216,7 +223,7 @@ class Collector:
         self.process_identity(deadline)
         ai.require(self.now() <= deadline, 'sample absolute five-second deadline')
         sample = dict(package=PACKAGE,pid=self.identity['pid'],monotonic_s=(capture_read['host_start_ns']+capture_read['host_end_ns'])/2e9,
-                      pss_kib=pss,cpu_percent=cpu_percent(previous_metrics,metrics,self.hz),battery_percent=battery,
+                      pss_kib=pss,cpu_percent=None if previous_metrics is None else cpu_percent(previous_metrics,metrics,self.hz),battery_percent=battery,
                       charging=False,received_counts=[w['count'] for w in current['watches']],
                       process_metrics=metrics,clk_tck=self.hz,
                       collection_read=dict(host_start_ns=started,host_end_ns=self.now()),
@@ -401,6 +408,12 @@ def run_campaign(collector, journal, transport_validation=None, preflight_only=F
             failure = 'preflight only; no measured 30-minute soak'
         else:
             start = collector.now()+15_000_000_000  # first CPU window is measured, never zero-filled
+            # Prime the same post-OS/QA metric phase as timed samples. This
+            # unmeasured observation is journaled, never appended to samples.
+            priming = collector.sample(None)
+            baseline = collector.last_metrics
+            data['cpu_baseline'] = baseline
+            journal.event('cpu-priming',observation=priming)
             previous = baseline
             for index in range(122):
                 due = start+index*15_000_000_000

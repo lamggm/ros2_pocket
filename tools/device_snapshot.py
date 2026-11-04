@@ -16,7 +16,7 @@ BEGIN = 'ROS_POCKET_QA_V1_BEGIN'
 END = 'ROS_POCKET_QA_V1_END'
 
 
-def parse_snapshot(raw, metadata):
+def parse_snapshot(raw, metadata, *, pending_observation=False):
     """Return exact integers and immutable-by-ownership decoded worker metadata."""
     require(isinstance(raw, bytes) and len(raw) <= MAX_BYTES, 'QA transport byte limit')
     try:
@@ -40,13 +40,13 @@ def parse_snapshot(raw, metadata):
             raise ValueError('nonfinite QA JSON constant')
         data = json.loads(payload, object_pairs_hook=unique, parse_float=number, parse_constant=constant)
         q.validate_json_depth(data)
-        validate_snapshot(data, metadata)
+        validate_snapshot(data, metadata, pending_observation=pending_observation)
         return data
     except (UnicodeError, KeyError, TypeError, AttributeError, IndexError, RecursionError, OverflowError) as error:
         raise ValueError('invalid QA snapshot structure') from error
 
 
-def validate_snapshot(data, metadata):
+def validate_snapshot(data, metadata, *, pending_observation=False):
     q.validate_metadata(metadata)
     require(type(data['schemaVersion']) is int and data['schemaVersion'] == 1, 'unknown QA schema')
     require(all(data[k] is True for k in ('valid', 'foreground', 'debuggable')), 'invalid/background QA')
@@ -75,7 +75,10 @@ def validate_snapshot(data, metadata):
         require(w['sampleAgeAtCaptureSeconds'] + (export-capture)/1e9 <= 3,
                 'stale QA source sample')
         require(all(type(w[k]) is bool for k in ('requestedReliable', 'requestedTransientLocal')), 'invalid QA QoS')
-    validate_graph(data['plotDisplay'], export, watches, data['plotIntake'], data['sessionGeneration'])
+    # Observation-only mode validates both real copies independently, never
+    # promotes a pending frame to rendering evidence. Acceptance stays strict.
+    validate_graph(data['plotDisplay'], export, watches, data['plotIntake'], data['sessionGeneration'],
+                   pending_observation=pending_observation)
     d = data['testHooks']
     require(type(d['schemaVersion']) is int and d['schemaVersion'] == 2 and d['valid'] is True,
             'diagnostic capability unknown')
