@@ -24,11 +24,17 @@ public class BuildIdentityActivityTest {
   }
   return matches;
  }
- @Test public void candidateBuildUsesV09DevIdentity() {
-  assertEquals("0.9.0-dev",BuildConfig.VERSION_NAME);
-  assertEquals(9,BuildConfig.VERSION_CODE);
+ @Test public void v1DebugBuildRetainsSeparateDevIdentity() {
+  assertEquals("1.0.0-dev",BuildConfig.VERSION_NAME);
+  assertEquals(10,BuildConfig.VERSION_CODE);
   assertEquals("com.lamggm.rospocket.dev",BuildConfig.APPLICATION_ID);
   assertTrue("Preparation stays debug; no release signer or package migration",BuildConfig.DEBUG);
+ }
+ @Test public void launcherHasRealAdaptiveIconAndDevLabel() {
+  MainActivity activity=Robolectric.buildActivity(MainActivity.class).create().get();
+  assertEquals("ROS Pocket DEV",activity.getApplicationInfo().loadLabel(activity.getPackageManager()).toString());
+  assertNotEquals("Launcher icon must not fall back to the generic Android icon",0,activity.getApplicationInfo().icon);
+  assertTrue(activity.getApplicationInfo().loadIcon(activity.getPackageManager()) instanceof android.graphics.drawable.AdaptiveIconDrawable);
  }
  @Test public void subtitleUsesActualBuildVersionAndPreservesReadOnlyIdentity() {
   MainActivity activity=Robolectric.buildActivity(MainActivity.class).create().get();

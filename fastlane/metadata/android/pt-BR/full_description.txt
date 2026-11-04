@@ -1,0 +1,9 @@
+ROS Pocket é um inspetor ROS 2/DDS somente leitura para celulares e tablets Android.
+
+Conecte na mesma rede IPv4 Wi-Fi/LAN, selecione o domínio ROS e o formato manual de grafo Humble ou Jazzy. Inspecione tópicos, tipos, publicadores/assinantes, QoS e nós anunciados; acompanhe quatro watches, gráficos numéricos com pausa e CSV, rosout, mensagens estruturadas e visualizações limitadas de LaserScan ou Image/CompressedImage. Salve e transporte configurações por perfis JSON.
+
+DDS direto, sem rosbridge, conta na nuvem, anúncios ou analytics. A permissão de Internet permite sockets de rede local. O app não envia comandos ao robô nem escreve parâmetros ou invoca serviços/teleop.
+
+Limites: ARM64, Android 9+, IPv4 na mesma sub-rede e tipos padrão definidos. Formato do grafo é manual; não há garantia de todas as combinações ROS/RMW/rede/dispositivo. Diagrama nó→tópico→nó fica para a v2. Interrupção e recuperação física de Wi-Fi/IP continuam não qualificadas. Retenção numérica é limitada, não gravação sem perdas nem rosbag.
+
+Ferramenta de bancada, não instrumento de segurança. O pacote de produção instala ao lado do ROS Pocket DEV, sem compartilhar assinatura ou dados privados.

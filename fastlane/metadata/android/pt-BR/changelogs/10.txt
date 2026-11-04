@@ -1,0 +1,1 @@
+Empacotamento da primeira versão estável do inspetor somente leitura: ícone original adaptativo/monocromático, Apache-2.0, identidades produção/DEV separadas e receita nativa inteiramente de fonte para F-Droid. Preserva as funções da v0.9; sem diagrama de topologia nesta versão.

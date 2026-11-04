@@ -1,0 +1,1 @@
+First stable-version packaging of the read-only bench inspector: original adaptive/themed icon, Apache-2.0 licensing, separate production and DEV identities, and source-only native build metadata for F-Droid. Preserves the v0.9 functionality; no topology diagram is added.
