@@ -21,8 +21,9 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5–v0.8 publicadas/verificadas; v0.9 iniciada sobre a main publicada, com
-primeiro reparo host testado e revisado**. [Escopo e budgets v0.9](STABILITY-v0.9.md).
+**v0.5–v0.8 publicadas/verificadas; v0.9 com aceite técnico de bancada aprovado**,
+promoção/CI/publicação acompanhados na issue25. [Fechamento](FINALIZATION-v0.9.md).
+[Escopo, budgets e histórico](STABILITY-v0.9.md).
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
 [perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
 Na publicação inicial deste roadmap,
@@ -155,8 +156,13 @@ limitações claras. Distinguir host de eventual validação Android física aut
 
 ## v0.9 — Consolidação para uso prolongado em bancada
 
-**Estado:** iniciado por autorização do operador após a v0.8 publicada;
-[escopo, budgets e primeiro recorte](STABILITY-v0.9.md). Não concluído.
+**Estado:** soak físico oficial30min e lifecycle2/2 aprovados no mesmo APK;
+[fechamento técnico](FINALIZATION-v0.9.md), promoção/CI/release na issue25.
+**Reconciliação explícita do aceite:** protótipo de bancada com regressões/revisão,
+soak local e lifecycle. Interrupção RF/IP permanece condicionada e **não executada**;
+pré-requisitos ausentes e trabalho aberto na [issue31](https://github.com/lamggm/ros2_pocket/issues/31).
+Não se trata de ready=true da qualificação extensa nem dispensa de seus gates.
+O planejamento original abaixo fica preservado como histórico de requisitos.
 **Depende de:** candidato integrado e preflight físico viável.
 
 **Objetivo:** tratar pendências reais de rede/reinício e uso prolongado, sem grande
@@ -187,8 +193,9 @@ Redução de escopo exige decisão explícita, nunca reescrita de resultado anti
   host não equivalem a aceite físico; documentação não transfere aprovação de APK.
 - Nenhuma data fictícia. Milestone planejado/proposto não é autorização de release,
   instalação, rede/soak ou execução automática de todos os ciclos.
-- Humble, RF/Wi-Fi/IP e soak são pendências herdadas não validadas; entrar neste
-  calendário não as torna funções novas nem PASS. Ver [validação](VALIDATION.md).
+- Pendências herdadas não ganham PASS pelo calendário: Humble foi tratado no
+  alcance v0.8 e o soak local no alcance v0.9; RF/Wi-Fi/IP permanece aberto.
+  Consultar [fechamento v0.9](FINALIZATION-v0.9.md) e [validação](VALIDATION.md).
 - Escolher identidade interna antes do build a qualificar e preservar os bytes
   aprovados. Não alterar tags/releases antigas ou publicar APK reconstruído como testado.
 

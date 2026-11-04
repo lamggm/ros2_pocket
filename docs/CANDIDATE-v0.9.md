@@ -1,5 +1,22 @@
 # Candidato v0.9 — congelamento antes da campanha
 
+## Estado atual — resultados físicos aprovados, promoção rastreada
+
+O [fechamento v0.9](FINALIZATION-v0.9.md) supersede os estados provisórios abaixo:
+candidato073821c/APKfce2b53d… atualizado in-place, harnessca69285, soak oficial
+**121 amostras/1800,694606s PASS** e **Home/retorno + restart2/2 PASS** no mesmo APK.
+Configuração/APK/UID e cleanup foram conferidos por readback independente.
+Não há bloqueio atual de carregador; as rodadas incompletas continuam históricas.
+
+O operador autorizou concluir até merge/release. Aceite proporcional: protótipo de
+bancada, com host/revisão/CI, soak local e lifecycle; RF/IP condicionado continua
+**não executado**, aberto na [issue31](https://github.com/lamggm/ros2_pocket/issues/31).
+A issue25 e o manifesto registram o CI e a publicação efetivos. Não reinterpretar
+este fechamento como aprovação da qualificação extensa ou matriz LAN/RF.
+
+## Histórico preservado — plano e estados anteriores
+
+
 [Estabilidade e budgets](STABILITY-v0.9.md) · [Issue #25](https://github.com/lamggm/ros2_pocket/issues/25)
 
 ## Autorização e escopo

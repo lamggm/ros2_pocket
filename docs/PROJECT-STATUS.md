@@ -2,21 +2,27 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## v0.9 — estabilidade, iniciada e não concluída
+## v0.9 — estabilidade de bancada, aceite técnico aprovado
 
-[Escopo/budgets e primeiro recorte](STABILITY-v0.9.md), issue#25.
-Base main publicada `d3096b8`, branch `feat/v0.9-stability`. Primeiro reparo host:
-preservar stdout/stderr parcial quando o probe de grafo expira, mantendo timeout,
-falha e cleanup. TDD RED/GREEN, 2 testes focados e 298Python sem falhas/skips;
-revisão independente aprovada sem bloqueadores. Sem mudança no APK/app, nova instalação,
-RF/IP ou soak físico; não é aceite da versão inteira.
+[Fechamento, identidade e limites](FINALIZATION-v0.9.md) · [Histórico](STABILITY-v0.9.md).
+Fonte do app073821c, harnessca69285, **0.9.0-dev/code9/ARM64/debug/hooks OFF**.
+Correções de timeout, primeira janelaCPU e observação de desenho pendente,
+reproduzidas e revisadas sem relaxar aceitação. Python303 testes frescos sem
+falhas/skips; wrapper offline aprovado e Java497/1skip retidos como UP-TO-DATE.
 
-Preflight físico posterior no mesmo APKv0.8 publicado: quatro contadores reais
-admitidos pelo coletor (136cada), gráfico inteiro/despausado com61pontos finitos,
-cleanup/configuração conferidos e78arquivos privados verificados. A CLI oficial
-permaneceu **1/incomplete**, somente preflight, zero pontos de soak. Não houve
-novo APKv0.9; o readback final encontrou AC conectado, incompatível com um soak
-oficial desplugado. [Detalhes e limites](STABILITY-v0.9.md).
+**Soak físico oficial PASS:**121 amostras/1800,694606s, quatro watches Float64
+DDS nativos locais Android e gráfico visível, desplugado, dentro dos budgets.
+**Lifecycle2/2 PASS:** Home/retorno65→115 e restart real115→175, configuração
+preservada, conexão explícita após restart. Mesmo APK, cleanup/readback e cópias
+de evidência verificados; tentativas incompletas preservadas, sem somar rodadas.
+
+SHA-256 do APK físico:
+`fce2b53d6842e5ba13ac51de47a7a2d346c49b150d8ba3e51bb6d05f7c4cbed0`.
+Promoção, CI do head/pós-merge e releasev0.9.0 são registrados na
+[issue25](https://github.com/lamggm/ros2_pocket/issues/25) e manifesto público,
+sem substituir pelos bytes do CI. **RF/IP não executado**, separado do aceite
+proporcional e aberto na [issue31](https://github.com/lamggm/ros2_pocket/issues/31).
+Sem nova matriz Android/ROS real pela LAN ou certificação de produção.
 
 ## v0.8 — Humble/Jazzy com formato manual
 
