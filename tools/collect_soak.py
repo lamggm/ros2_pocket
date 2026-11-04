@@ -162,7 +162,8 @@ class Collector:
 
     def read_qa(self, deadline):
         start = self.now()
-        data = qa.parse_snapshot(self.shell(['dumpsys','activity',COMPONENT,'--pocket-qa-v1'], deadline, qa.MAX_BYTES), self.metadata)
+        data = qa.parse_snapshot(self.shell(['dumpsys','activity',COMPONENT,'--pocket-qa-v1'], deadline, qa.MAX_BYTES),
+                                 self.metadata, pending_observation=True)
         ai.require(data['pid'] == self.identity['pid'] and data['testHooks']['startTimeTicks'] == self.identity['start_time_ticks'],
                    'QA/OS process identity mismatch')
         return data, dict(host_start_ns=start,host_end_ns=self.now())
@@ -193,10 +194,16 @@ class Collector:
         if self.previous_qa is not None:
             qa.continuity(self.previous_qa,fence)
         export_fence = fence['exportedMonotonicNs']
+        previous_capture = fence
         for attempt in range(60):
             current, capture_read = self.read_qa(deadline)
-            if current['capturedMonotonicNs'] > export_fence:
+            # Validate every intermediate observation; no broad ValueError retry
+            # can hide malformed input, changed ownership or diagnostic work.
+            qa.continuity(previous_capture,current,advancing=False)
+            previous_capture = current
+            if current['capturedMonotonicNs'] > export_fence and current['plotDisplay']['drawPending'] is False:
                 qa.continuity(fence,current)
+                qa.validate_snapshot(current,self.metadata)
                 break
             qa.continuity(fence,current,advancing=False)
             ai.require(current['capturedMonotonicNs'] >= fence['capturedMonotonicNs']

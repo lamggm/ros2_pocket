@@ -248,7 +248,7 @@ def validate_observation(record,package,active,build):
     require(all(type(p[k]) is int and p[k]==record[k] for p in (before,after) for k in ('pid','uid','start_time_ticks')),'OS PID/starttime/UID changed')
     return identity+(record['process_instance'],)
 
-def validate_graph(graph, exported, watches, intake=None, session=None):
+def validate_graph(graph, exported, watches, intake=None, session=None, *, pending_observation=False):
     """Bind the complete completed-draw copy to preparation, intake and native QA.
 
     Draw/prepared statistics must be identical at one revision. The worker intake
@@ -257,12 +257,15 @@ def validate_graph(graph, exported, watches, intake=None, session=None):
     """
     try:
         observed=graph['observedMonotonicNs'];draw=graph['lastDrawMonotonicNs'];age=graph['drawAgeNs']
-        require(graph['chartFullyVisible'] is True and graph['paused'] is False and graph['drawPending'] is False,
+        pending = pending_observation and graph['drawPending'] is True
+        require(graph['chartFullyVisible'] is True and graph['paused'] is False
+                and (pending or graph['drawPending'] is False),
                 'graph workload not freshly drawn/visible')
         require(integer(observed,1) and observed==exported and integer(draw,1) and draw<=observed
                 and integer(age) and age==observed-draw and age<=2_000_000_000,'graph draw/observation age incoherent')
-        require(integer(graph['preparedRevision'],1) and type(graph['drawnRevision']) is int
-                and graph['drawnRevision']==graph['preparedRevision'],'graph prepared/drawn revision mismatch')
+        require(integer(graph['preparedRevision'],1) and integer(graph['drawnRevision'],1)
+                and (graph['drawnRevision'] < graph['preparedRevision'] if pending else
+                     graph['drawnRevision']==graph['preparedRevision']),'graph prepared/drawn revision mismatch')
         drawn,prepared=graph['drawnSeries'],graph['series']
         require(isinstance(drawn,list) and 1<=len(drawn)<=4 and isinstance(prepared,list)
                 and len(drawn)==len(prepared),'graph finite drawn/prepared series absent')
@@ -303,8 +306,8 @@ def validate_graph(graph, exported, watches, intake=None, session=None):
             require(len(set(identities))==len(rows) and len({s['seriesId'] for s in rows})==len(rows),
                     'graph duplicate selected series identity')
             return identities
-        a=validate(drawn,draw);b=validate(prepared,draw);c=validate(rows,observed)
-        require(drawn==prepared and a==b==c,'graph drawn/prepared/intake association mismatch')
+        a=validate(drawn,draw);b=validate(prepared,observed if pending else draw);c=validate(rows,observed)
+        require((pending or drawn==prepared) and a==b==c,'graph drawn/prepared/intake association mismatch')
         require(all(current['newestReceiveNs']>=old['newestReceiveNs'] for old,current in zip(drawn,rows)),
                 'graph draw newer than native intake')
     except (KeyError,TypeError,AttributeError,IndexError) as error:
