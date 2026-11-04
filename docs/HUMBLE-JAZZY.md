@@ -94,9 +94,55 @@ Evidência executada sobre a fonte candidata, separada do baseline anterior:
   inválidas; não é prova de carregamento NDK ou execução Android.
 - Revisão independente estática aprovada sem bloqueadores; scan de fonte sem leaks.
 
-**Android/APK ainda pendentes nesta etapa.** Nenhum resultado host acima é smoke
-físico, LAN, RF, soak ou suporte universal. Build, assinatura compatível e aceite
-direcionado no tablet são gates separados antes de uma eventual promoção.
+## Android: build e smoke físico direcionado
+
+O mesmo candidato **0.8.0-dev/code8**, ARM64, assinatura debug compatível e
+capacidade diagnóstica OFF foi buildado pelo wrapper offline. O APK instalado e
+puxado novamente do tablet tem SHA-256:
+
+```text
+66d1f97ef0a6a7eb08fc367981e37aa1717b6fd09e1eb36d4eb17c6b79ab8958
+```
+
+Fonte do build: `096a7d575a3f53a466b18b6ed36e77d01e3073af`. Mudanças documentais
+posteriores não recompilam nem substituem esses bytes.
+
+Em **2026-11-04**, a rodada física completa `attempt-02` passou **4/4**, com
+produtores DDS nativos sintéticos locais no próprio Android, no domínio da
+bancada:
+
+1. Humble/GID24: nó do produtor observado, recepção Float64 avançando no mesmo
+   reader (68→78) e perfil schema3 salvo com o formato Humble.
+2. Durante conexão: seletor de formato desabilitado e Apply rejeitado, sem
+   interromper a recepção.
+3. Jazzy/GID16: novo nó/sessão, recepção Float64 avançando no mesmo reader
+   (67→77) e perfil salvo com o formato Jazzy.
+4. Apply do perfil Humble desconectado e reinício real do processo: formato
+   Humble restaurado, botão Conectar e nenhuma conexão automática.
+
+Instalação somente in-place, sem uninstall/clear data e com UID preservado.
+Readback independente confirmou o APK instalado, restauração exata dos sete
+caminhos de configuração (incluindo ausências), app parado e remoção do produtor
+e dos arquivos de fixture. Foram recolhidos e verificados por tamanho/hash
+267 arquivos privados de evidência; três screenshots foram inspecionadas.
+O catálogo original estava ausente: migração de catálogo legado continua
+coberta pelos testes host, **não exercitada fisicamente** nesta rodada.
+
+A tentativa01 permanece incompleta: keyguard bloqueou o preflight antes de
+backup/install, com zero casos funcionais. Ela não foi somada ao resultado 4/4.
+O operador autorizou separadamente a política persistente de inatividade:
+timeout máximo de 2147483647 ms na bateria (aproximadamente 24,9 dias), stay-on
+configurado para AC/USB/wireless e PIN/bloqueio manual preservados. O timeout
+efetivo foi conferido; o stay-on alimentado não foi exercitado porque o tablet
+estava na bateria. Essa política permanece aplicada por pedido explícito, sem
+ser desfeita pelo cleanup do smoke.
+
+**Alcance:** Android físico/JNI/Views e DDS sintético local PASS; matriz ROS real
+Humble/Jazzy×FastDDS/Cyclone e lifecycle Humble PASS em contêineres host privados,
+conforme seção anterior. São provas distintas. Não houve qualificação Android
+com ROS real pela LAN, interrupção RF/VPN, soak ou suporte a domínios mistos.
+Nenhum push/PR/CI remoto/merge/release v0.8 integra este checkpoint; promoção é
+uma etapa separada.
 
 ## Limites
 

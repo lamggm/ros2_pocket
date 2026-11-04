@@ -2,6 +2,23 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v0.8 — candidato Humble/Jazzy, promoção pendente
+
+[Contrato e resultados](HUMBLE-JAZZY.md). Fonte do APK `096a7d5`,
+**0.8.0-dev/code8**, ARM64/debug compatível/hooks OFF. Seletor manual de formato
+persistido no perfil, schemas antigos legíveis e aplicação apenas desconectada.
+Matriz ROS real Humble/Jazzy × Fast DDS/Cyclone e lifecycle Humble aprovados
+em contêineres privados; 497 testes Java, zero falhas/erros e um skip legado,
+21 CTests e revisão independente aprovados, lint zero erros/123 avisos.
+
+Smoke físico direcionado **4/4** em 2026-11-04: ambos os grafos com DDS nativo
+sintético local Android e contadores avançando, bloqueio de alteração durante
+conexão e perfil Humble restaurado desconectado após reinício. Instalação
+in-place, configurações originais restauradas e APK/UID/cleanup conferidos por
+readback separado. Não é ROS real pela LAN nem soak. APK físico:
+`66d1f97ef0a6a7eb08fc367981e37aa1717b6fd09e1eb36d4eb17c6b79ab8958`.
+Nenhum push/PR/CI remoto/merge/release v0.8 faz parte deste checkpoint.
+
 ## v0.7 — histórico numérico em lotes
 
 [Contrato/budgets](NUMERIC-BATCHES.md) · [Fechamento](FINALIZATION-v0.7.md).
@@ -16,7 +33,7 @@ CSV live e pausado com 600 pontos/150 gaps cada, pausa/cancel/retomada e cleanup
 verificados. Não é uma nova matriz LAN ou soak. SHA-256 do APK físico:
 `2437dfbd53a55618a17680874e1e9cfa08ecc978e912808db9ac7ee57fba9b88`.
 PR, CI exato/pós-merge e release acompanham a [issue #24](https://github.com/lamggm/ros2_pocket/issues/24).
-Não substituir pelos bytes do CI. v0.8/v0.9 continuam propostas.
+Não substituir pelos bytes do CI. A v0.8 está descrita acima; v0.9 continua proposta.
 
 ## v0.6 — perfis portáteis
 
@@ -133,7 +150,9 @@ comprovam execução dessa instrumentação no Android físico.
 
 - Compatibilidade Humble/Jazzy e matriz multidistribuição: [issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
 - A publicação v0.4.0 reutiliza o APK físico já testado, sem renomear seus bytes como build novo.
-- CSV entrou na v0.5, perfis portáteis na v0.6 e lotes numéricos na v0.7; v0.8/v0.9 permanecem propostas no [roadmap](ROADMAP.md).
+- CSV entrou na v0.5, perfis portáteis na v0.6 e lotes numéricos na v0.7;
+  v0.8 tem candidato validado no escopo declarado, ainda não promovido, e v0.9
+  permanece proposta no [roadmap](ROADMAP.md).
 - Rede real, endurance/soak e dispositivos adicionais exigem tarefas próprias.
 
 O fluxo é uma entrega pequena por vez, principal no chat e revisão/probe pontual

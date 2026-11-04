@@ -21,7 +21,9 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Em andamento:** trabalho explicitamente iniciado, com issue/PR vinculadas.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
-**v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado; v0.8/v0.9 propostas**.
+**v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado;
+v0.8 implementada com host/revisão e smoke Android 4/4 aprovados, promoção pendente;
+v0.9 proposta**.
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
 [perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
 Na publicação inicial deste roadmap,
@@ -128,7 +130,10 @@ revisão e smoke Android direcionado quando autorizado.
 
 ## v0.8 — Compatibilidade Humble/Jazzy com alcance declarado
 
-**Estado:** proposto. **Acompanhamento:** issue #18, preservada, sem duplicação.
+**Estado:** em andamento; seletor manual implementado, matriz host/revisão e
+smoke Android delimitado 4/4 aprovados. Promoção/CI remoto/merge/release pendentes.
+[Contrato e evidências](HUMBLE-JAZZY.md). **Acompanhamento:** issue #18, preservada,
+sem duplicação.
 **Sequência:** após os ciclos anteriores; não depende tecnicamente dos lotes.
 
 **Objetivo:** resolver a pendência herdada de compatibilidade multidistribuição.
@@ -199,5 +204,7 @@ Os roadmaps [v0.2](ROADMAP-v0.2.md), [v0.3](ROADMAP-v0.3.md) e
 [fechamento v0.4](FINALIZATION-v0.4.md) registra o alcance real entregue.
 
 A publicação inicial foi somente planejamento. Os fechamentos v0.5/v0.6 foram
-publicados; v0.7 foi autorizada separadamente até merge/release. A próxima direção
-proposta é v0.8 (issue #18), não iniciada e dependente de autorização própria.
+publicados; v0.7 foi autorizada separadamente até merge/release. A v0.8 foi
+iniciada pelo operador após a v0.7 publicada: o seletor manual escolhido passou
+host/revisão e smoke Android direcionado. A promoção permanece etapa separada;
+v0.9 não foi iniciada.
