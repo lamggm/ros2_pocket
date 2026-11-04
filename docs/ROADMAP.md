@@ -22,7 +22,7 @@ não inicia outro ciclo, instala APKs ou autoriza campanhas físicas/rede.
 - **Entregue:** critérios verificados e fechamento identificado; merge documental não basta.
 
 **v0.5/v0.6 publicadas; v0.7 implementada e validada no escopo delimitado;
-v0.8 implementada com host/revisão e smoke Android 4/4 aprovados, promoção pendente;
+v0.8 implementada com host/revisão e smoke Android 4/4 aprovados, promoção autorizada;
 v0.9 proposta**.
 Contratos e evidências: [CSV](FINALIZATION-v0.5.md) e
 [perfis portáteis](FINALIZATION-v0.6.md) e [lotes numéricos](FINALIZATION-v0.7.md).
@@ -131,7 +131,8 @@ revisão e smoke Android direcionado quando autorizado.
 ## v0.8 — Compatibilidade Humble/Jazzy com alcance declarado
 
 **Estado:** em andamento; seletor manual implementado, matriz host/revisão e
-smoke Android delimitado 4/4 aprovados. Promoção/CI remoto/merge/release pendentes.
+smoke Android delimitado 4/4 aprovados. Promoção/CI/merge/release acompanhados na
+issue #18, autorizados após o smoke. [Fechamento](FINALIZATION-v0.8.md).
 [Contrato e evidências](HUMBLE-JAZZY.md). **Acompanhamento:** issue #18, preservada,
 sem duplicação.
 **Sequência:** após os ciclos anteriores; não depende tecnicamente dos lotes.

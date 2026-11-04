@@ -141,8 +141,9 @@ ser desfeita pelo cleanup do smoke.
 Humble/Jazzy×FastDDS/Cyclone e lifecycle Humble PASS em contêineres host privados,
 conforme seção anterior. São provas distintas. Não houve qualificação Android
 com ROS real pela LAN, interrupção RF/VPN, soak ou suporte a domínios mistos.
-Nenhum push/PR/CI remoto/merge/release v0.8 integra este checkpoint; promoção é
-uma etapa separada.
+Esse checkpoint físico não incluía push/PR/CI remoto/merge/release. O operador
+autorizou depois a promoção completa e o início posterior da v0.9;
+[fechamento](FINALIZATION-v0.8.md) e issue #18 distinguem os checks/publicação.
 
 ## Limites
 

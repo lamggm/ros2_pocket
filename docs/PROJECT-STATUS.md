@@ -2,7 +2,7 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## v0.8 — candidato Humble/Jazzy, promoção pendente
+## v0.8 — Humble/Jazzy com formato manual
 
 [Contrato e resultados](HUMBLE-JAZZY.md). Fonte do APK `096a7d5`,
 **0.8.0-dev/code8**, ARM64/debug compatível/hooks OFF. Seletor manual de formato
@@ -17,7 +17,11 @@ conexão e perfil Humble restaurado desconectado após reinício. Instalação
 in-place, configurações originais restauradas e APK/UID/cleanup conferidos por
 readback separado. Não é ROS real pela LAN nem soak. APK físico:
 `66d1f97ef0a6a7eb08fc367981e37aa1717b6fd09e1eb36d4eb17c6b79ab8958`.
-Nenhum push/PR/CI remoto/merge/release v0.8 faz parte deste checkpoint.
+O operador autorizou a promoção completa após esse smoke. PR, CI exato/pós-merge
+e publicação acompanham a [issue #18](https://github.com/lamggm/ros2_pocket/issues/18)
+e a [release v0.8.0](https://github.com/lamggm/ros2_pocket/releases/tag/v0.8.0).
+[Fechamento e identidade do artefato](FINALIZATION-v0.8.md). O APK publicado deve
+ser o mesmo físico, nunca a recompilação do CI.
 
 ## v0.7 — histórico numérico em lotes
 

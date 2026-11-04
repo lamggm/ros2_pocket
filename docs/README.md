@@ -5,14 +5,15 @@
 
 Para começar a usar o APK, leia os guias abaixo. As referências técnicas e os
 registros históricos ficam separados para não interromper o passo a passo.
-Os guias correspondem à v0.7; confira a versão disponível na página de release.
-O candidato físico mantém o nome interno 0.7.0-dev, sem rebuild para alterar a etiqueta.
+Os guias correspondem à v0.8; confira a versão disponível na página de release.
+O candidato físico mantém o nome interno 0.8.0-dev, sem rebuild para alterar a etiqueta.
 
-## Compatibilidade Humble/Jazzy v0.8 — candidato em validação
+## Compatibilidade Humble/Jazzy v0.8
 
 - [Contrato e matriz Humble/Jazzy](HUMBLE-JAZZY.md): seletor manual de grafo,
-  perfis schema3, resultados host e limites. Não substitui a releasev0.7 nem
-  declara aceite Android físico antes da validação do novo APK.
+  perfis schema3, matriz ROS real no host, smoke Android delimitado e limites.
+- [Fechamento v0.8](FINALIZATION-v0.8.md): APK físico exato, revisão e resultados;
+  promoção/CI/publicação acompanhados na issue #18.
 
 ## Lotes numéricos v0.7
 

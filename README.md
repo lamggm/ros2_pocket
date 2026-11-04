@@ -1,5 +1,9 @@
 # ROS Pocket
 
+> **v0.8 — grafo Humble/Jazzy com seleção manual:** formato persistido no perfil,
+> matriz ROS real no host e smoke Android direcionado 4/4.
+> [Uso, matriz e limites](docs/HUMBLE-JAZZY.md) · [fechamento](docs/FINALIZATION-v0.8.md).
+>
 > **v0.7 — histórico numérico em lotes:** mais amostras reais entre polls,
 > campos selecionados e descarte local explícito no gráfico/CSV.
 > [Uso e budgets](docs/NUMERIC-BATCHES.md) · [fechamento e smoke físico 4/4](docs/FINALIZATION-v0.7.md).
@@ -18,9 +22,10 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap v0.5–v0.9](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v0.7 é um protótipo de bancada. O candidato físico testado é identificado
-> internamente como **0.7.0-dev**, versionCode **7**, assinatura debug compatível.
-> O [smoke físico de lotes/CSV](docs/FINALIZATION-v0.7.md) passou **4/4** no SM-X400 / Android 16.
+> A v0.8 é um protótipo de bancada. O candidato físico testado é identificado
+> internamente como **0.8.0-dev**, versionCode **8**, assinatura debug compatível.
+> O [smoke físico de formato/perfis](docs/FINALIZATION-v0.8.md) passou **4/4** no SM-X400 / Android 16,
+> com DDS sintético local; não é matriz ROS real pela LAN nem soak.
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -47,6 +52,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Exportar o histórico retido do gráfico em **CSV**, live ou pausado.
 - Ler e filtrar logs de `/rosout`.
 - Salvar configuração de conexão, watches, gráficos e sensores em **perfis locais**, transportar um perfil em JSON e aplicar antes de conectar.
+- Escolher manualmente o grafo **Humble (GID24)** ou **Jazzy (GID16)**, persistido no perfil.
 - Visualizar **LaserScan 2D ou câmera ROS**, alternados no Monitor, sem ocupar os watches.
 
 A interface tem quatro seções: **Conexão, Tópicos, Monitor e Logs**.
@@ -58,7 +64,8 @@ O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
 
 1. Coloque o Android e os participantes ROS 2 na mesma rede Wi-Fi/LAN.
 2. Em **Conexão**, informe o mesmo **Domain ID** usado no ROS 2.
-3. Deixe o peer IPv4 vazio para tentar descoberta automática e toque em **Conectar**.
+3. Escolha o formato do grafo: **Humble (GID24)** ou **Jazzy (GID16)**. O app não detecta a distribuição.
+   Deixe o peer IPv4 vazio para tentar descoberta automática e toque em **Conectar**.
 4. Em **Monitor**, escolha um dos watches. Abra **Tópicos** e toque em **Ler** no tópico desejado.
 5. Volte ao **Monitor** para acompanhar os dados ou abra **Logs** para ver `/rosout`.
 
@@ -67,10 +74,13 @@ Se nada aparecer, confira domínio, multicast e QoS no
 
 ## Compatibilidade
 
-O projeto foi exercitado com **ROS 2 Jazzy**, usando Fast DDS e Cyclone DDS.
-**Humble ainda não tem suporte validado**; há uma diferença conhecida no formato
-do grafo de nós. O trabalho de compatibilidade multidistribuição está na
-[issue #18](https://github.com/lamggm/ros2_pocket/issues/18).
+**Humble/Jazzy × Fast DDS/Cyclone DDS** foram exercitados em contêineres host
+privados: endpoints, String/Float64, rosout, nós e associações de endpoints.
+O formato de grafo é manual, sem fallback: Jazzy usa GID16 e Humble usa GID24
+com validação da cauda. Perfis antigos assumem Jazzy sem regravação no load.
+No Android físico, o smoke usa produtores DDS sintéticos locais; não demonstra
+as quatro combinações ROS reais pela LAN. [Matriz, versões e limites](docs/HUMBLE-JAZZY.md).
+Domínios mistos, outras distribuições e tipos não exercitados não herdam suporte.
 
 O APK atual é ARM64, usa IPv4 na mesma LAN e decodifica uma lista definida de
 tipos padrão, incluindo [sensores visuais com limites explícitos](docs/SENSOR-VIEWS.md).
@@ -91,7 +101,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v0.7 preserva watches, sensores, logs e perfis. A release deve distribuir os
+A v0.8 preserva watches, sensores, logs e perfis. A release deve distribuir os
 mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
 explica a fonte local testada e a reconciliação documental/CI posterior.
 As releases anteriores permanecem intactas.
