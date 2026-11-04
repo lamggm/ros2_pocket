@@ -344,13 +344,16 @@ class CollectorTests(unittest.TestCase):
         import collect_soak as c
         root=Path(__file__).resolve().parents[1]
         clock=Clock(); meta=metadata(); t=SyntheticTransport(clock,meta); delayed=[False]
+        collector=c.Collector(t,meta,meta['apk'],clock.now,clock.sleep)
         def mutate(args,raw):
-            if '--pocket-qa-v1' in args and not delayed[0]:
+            # Delay the first measured capture, not the unmeasured priming.
+            if '--pocket-qa-v1' in args and collector.previous_qa is not None and not delayed[0]:
                 delayed[0]=True; clock.sleep(1)
             return raw
         t.mutate=mutate
         with tempfile.TemporaryDirectory(dir=root/'build') as directory:
-            result=c.run_campaign(c.Collector(t,meta,meta['apk'],clock.now,clock.sleep),c.Journal(Path(directory)/'run',root))
+            result=c.run_campaign(collector,c.Journal(Path(directory)/'run',root))
+            self.assertTrue(delayed[0])
             self.assertEqual(result['points'],122)
             self.assertEqual(result['analysis']['status'],'passed')
 

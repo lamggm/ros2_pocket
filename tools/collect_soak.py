@@ -216,7 +216,7 @@ class Collector:
         self.process_identity(deadline)
         ai.require(self.now() <= deadline, 'sample absolute five-second deadline')
         sample = dict(package=PACKAGE,pid=self.identity['pid'],monotonic_s=(capture_read['host_start_ns']+capture_read['host_end_ns'])/2e9,
-                      pss_kib=pss,cpu_percent=cpu_percent(previous_metrics,metrics,self.hz),battery_percent=battery,
+                      pss_kib=pss,cpu_percent=None if previous_metrics is None else cpu_percent(previous_metrics,metrics,self.hz),battery_percent=battery,
                       charging=False,received_counts=[w['count'] for w in current['watches']],
                       process_metrics=metrics,clk_tck=self.hz,
                       collection_read=dict(host_start_ns=started,host_end_ns=self.now()),
@@ -401,6 +401,12 @@ def run_campaign(collector, journal, transport_validation=None, preflight_only=F
             failure = 'preflight only; no measured 30-minute soak'
         else:
             start = collector.now()+15_000_000_000  # first CPU window is measured, never zero-filled
+            # Prime the same post-OS/QA metric phase as timed samples. This
+            # unmeasured observation is journaled, never appended to samples.
+            priming = collector.sample(None)
+            baseline = collector.last_metrics
+            data['cpu_baseline'] = baseline
+            journal.event('cpu-priming',observation=priming)
             previous = baseline
             for index in range(122):
                 due = start+index*15_000_000_000
