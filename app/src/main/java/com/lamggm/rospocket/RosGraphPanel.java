@@ -25,7 +25,7 @@ final class RosGraphPanel extends LinearLayout {
  RosGraphPanel(Context c){
   super(c);setOrientation(VERTICAL);setTag("ros-graph-panel");
   text("ROS GRAPH",22,PUB);
-  text("Toque em um nó ou tópico para destacar sua conversa. Arraste para mover; pinça para zoom.",13,MUTED);
+  text("Toque para destacar conexões · arraste para mover · pinça para zoom.\nSetas saindo do nó = publica; entrando = assina.",13,MUTED);
   search=new EditText(c);search.setId(R.id.graph_search);search.setSingleLine(true);search.setTextColor(FG);search.setHintTextColor(MUTED);search.setTextSize(15);search.setHint("Buscar nó ou tópico · Enter para enquadrar");addView(search,new LayoutParams(-1,dp(48)));
   stage=new Stage(c);
   LinearLayout actions=new LinearLayout(c);addView(actions);
@@ -120,13 +120,13 @@ final class RosGraphPanel extends LinearLayout {
    c.save();c.translate(tx,ty);c.scale(scale,scale);
    for(JSONObject e:edges.values())if(edgeVisible(e,visible)){
     boolean lit=selected.isEmpty()||focusedEdges.contains(e.optString("id"));int color="Publica".equals(e.optString("role"))?PUB:SUB;
-    PointF[] ends=ends(e);PointF a=ends[0],b=ends[1];pen.setColor(lit?color:0xff29313d);pen.setStyle(Paint.Style.STROKE);pen.setStrokeWidth(e.optString("id").equals(selected)?4:2);
+    PointF[] ends=ends(e);PointF a=ends[0],b=ends[1];pen.setColor(lit?color:0xff435063);pen.setStyle(Paint.Style.STROKE);pen.setStrokeWidth(e.optString("id").equals(selected)?4:2);
     c.drawLine(a.x,a.y,b.x,b.y,pen);float angle=(float)Math.atan2(b.y-a.y,b.x-a.x);Path arrow=new Path();arrow.moveTo(b.x,b.y);arrow.lineTo(b.x-12*(float)Math.cos(angle-.45),b.y-12*(float)Math.sin(angle-.45));arrow.moveTo(b.x,b.y);arrow.lineTo(b.x-12*(float)Math.cos(angle+.45),b.y-12*(float)Math.sin(angle+.45));c.drawPath(arrow,pen);
-    if(lit){pen.setStyle(Paint.Style.FILL);pen.setTextSize(12);c.drawText(e.optString("role"),(a.x+b.x)/2-18,(a.y+b.y)/2-7,pen);}
+    if(e.optString("id").equals(selected)){pen.setStyle(Paint.Style.FILL);pen.setTextSize(12);c.drawText(e.optString("role"),(a.x+b.x)/2-18,(a.y+b.y)/2-7,pen);}
    }
    for(String id:visible){JSONObject v=vertices.get(id);RectF r=positions.get(id);boolean lit=selected.isEmpty()||focused.contains(id);boolean topic="topic".equals(v.optString("kind"));int color=topic?TOPIC:"unknown".equals(v.optString("kind"))?MUTED:PUB;
-    pen.setStyle(Paint.Style.FILL);pen.setColor(lit?(selected.equals(id)?0xff274752:0xff18232e):0xff111820);c.drawRoundRect(r,topic?5:28,topic?5:28,pen);pen.setStyle(Paint.Style.STROKE);pen.setStrokeWidth(selected.equals(id)?3:1.5f);pen.setColor(lit?color:0xff29313d);c.drawRoundRect(r,topic?5:28,topic?5:28,pen);
-    pen.setStyle(Paint.Style.FILL);pen.setTextSize(11);pen.setColor(lit?color:0xff47515f);c.drawText(kind(v).toUpperCase(Locale.ROOT),r.left+14,r.top+21,pen);pen.setTextSize(16);pen.setTypeface(Typeface.create(Typeface.MONOSPACE,Typeface.NORMAL));String title=v.optString("label");title=TextUtils.ellipsize(title,new android.text.TextPaint(pen),r.width()-28,TextUtils.TruncateAt.MIDDLE).toString();c.drawText(title,r.left+14,r.top+46,pen);pen.setTypeface(Typeface.DEFAULT);
+    pen.setStyle(Paint.Style.FILL);pen.setColor(lit?(selected.equals(id)?0xff274752:0xff18232e):0xff111820);c.drawRoundRect(r,topic?5:28,topic?5:28,pen);pen.setStyle(Paint.Style.STROKE);pen.setStrokeWidth(selected.equals(id)?3:1.5f);pen.setColor(lit?color:0xff435063);c.drawRoundRect(r,topic?5:28,topic?5:28,pen);
+    pen.setStyle(Paint.Style.FILL);pen.setTextSize(11);pen.setColor(lit?color:0xff6a788b);c.drawText(kind(v).toUpperCase(Locale.ROOT),r.left+14,r.top+21,pen);pen.setTextSize(16);pen.setTypeface(Typeface.create(Typeface.MONOSPACE,Typeface.NORMAL));String title=v.optString("label");title=TextUtils.ellipsize(title,new android.text.TextPaint(pen),r.width()-28,TextUtils.TruncateAt.MIDDLE).toString();c.drawText(title,r.left+14,r.top+46,pen);pen.setTypeface(Typeface.DEFAULT);
    }
    c.restore();
   }
@@ -135,7 +135,7 @@ final class RosGraphPanel extends LinearLayout {
   @Override public boolean onTouchEvent(MotionEvent e){
    pinch.onTouchEvent(e);switch(e.getActionMasked()){
     case MotionEvent.ACTION_DOWN:downX=lastX=e.getX();downY=lastY=e.getY();moved=scaling=false;getParent().requestDisallowInterceptTouchEvent(true);return true;
-    case MotionEvent.ACTION_MOVE:if(e.getPointerCount()==1&&!scaling){float x=e.getX(),y=e.getY();if(Math.hypot(x-downX,y-downY)>dp(7))moved=true;if(moved){tx+=x-lastX;ty+=y-lastY;invalidate();}lastX=x;lastY=y;}return true;
+    case MotionEvent.ACTION_MOVE:if(e.getPointerCount()==1&&!scaling){float x=e.getX(),y=e.getY();if(Math.hypot(x-downX,y-downY)>dp(7))moved=true;if(moved){tx+=x-lastX;ty+=y-lastY;lastX=x;lastY=y;invalidate();}}return true;
     case MotionEvent.ACTION_UP:if(!moved&&!scaling){select(hit(e.getX(),e.getY()));performClick();}getParent().requestDisallowInterceptTouchEvent(false);return true;
     case MotionEvent.ACTION_CANCEL:getParent().requestDisallowInterceptTouchEvent(false);return true;
     default:return true;

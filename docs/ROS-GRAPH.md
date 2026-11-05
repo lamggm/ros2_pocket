@@ -9,8 +9,9 @@ densa do rqt_graph. Esta página não declara publicação ou aceite físico.
 - Abra **Grafo**. Nós são arredondados; tópicos retangulares.
 - Toque em nó/tópico: destaca seus tópicos e os participantes das respectivas
   conversas; o contexto não relacionado fica esmaecido. Não muda posições/zoom.
-- Toque na linha: mostra direção, endpoints e QoS anunciado. É uma associação,
-  não uma garantia de compatibilidade nem medição de tráfego.
+- Toque na linha: mostra direção, endpoints e QoS anunciado. Papéis Publica/Assina
+  aparecem apenas na linha selecionada, sem empilhar rótulos sobre o foco.
+  É uma associação, não garantia de compatibilidade nem medição de tráfego.
 - Arraste dentro do desenho para mover; use pinça ou +/− para zoom.
 - **Enquadrar** ajusta o foco selecionado; sem seleção ajusta toda a visão.
 - Busca + Enter seleciona/enquadra o primeiro resultado determinístico,

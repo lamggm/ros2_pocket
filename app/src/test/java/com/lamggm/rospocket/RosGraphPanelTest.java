@@ -72,4 +72,15 @@ public class RosGraphPanelTest {
   }
   MotionEvent up=MotionEvent.obtain(start,start+250,MotionEvent.ACTION_UP,260,200,0);p.stage.onTouchEvent(up);up.recycle();assertTrue(p.stage.scale>before);assertEquals("",p.selected);
  }
+ @Test public void panKeepsTheInitialSmallMotionOnceDraggingBegins()throws Exception{
+  float before=p.stage.tx;long t=android.os.SystemClock.uptimeMillis();float[] xs={100,102,103,170};
+  for(int i=0;i<xs.length;i++){MotionEvent e=MotionEvent.obtain(t,t+i*20,i==0?MotionEvent.ACTION_DOWN:MotionEvent.ACTION_MOVE,xs[i],200,0);p.stage.onTouchEvent(e);e.recycle();}
+  assertEquals(before+70,p.stage.tx,.1f);
+ }
+ @Test public void nodeHighlightDoesNotPileRoleLabelsOverConnections()throws Exception{
+  p.select(named("/talker"));JSONObject e=null;for(JSONObject edge:p.edges.values())if(edge.optString("from").equals(named("/talker")))e=edge;assertNotNull(e);
+  PointF[] ends=p.stage.ends(e);float cy=ends[0].y*p.stage.scale+p.stage.ty;int left=(int)((ends[0].x+20)*p.stage.scale+p.stage.tx),right=(int)((ends[1].x-20)*p.stage.scale+p.stage.tx);int top=(int)(cy-24*p.stage.scale),bottom=(int)(cy-8*p.stage.scale);
+  Bitmap b=draw();int colored=0;for(int y=top;y<bottom;y++)for(int x=left;x<right;x++)if(b.getPixel(x,y)==RosGraphPanel.PUB)colored++;assertEquals("Roles belong on the selected edge, not a pile of labels over every branch",0,colored);
+  p.select(e.optString("id"));b=draw();colored=0;for(int y=top;y<bottom;y++)for(int x=left;x<right;x++)if(b.getPixel(x,y)==RosGraphPanel.PUB)colored++;assertTrue("A selected edge still renders its role",colored>0);
+ }
 }
