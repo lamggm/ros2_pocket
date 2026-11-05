@@ -5,7 +5,7 @@ class V1PackagingTests(unittest.TestCase):
  def test_production_and_dev_are_separate_update_identities(self):
   s=(ROOT/'app/build.gradle').read_text()
   self.assertRegex(s,r"applicationId 'com\.lamggm\.rospocket'")
-  self.assertRegex(s,r"versionName '1\.0\.0'")
+  self.assertRegex(s,r"versionName '1\.1\.0'")
   self.assertIn("applicationIdSuffix '.dev'",s)
   self.assertIn("versionNameSuffix '-dev'",s)
   self.assertIn('debuggable false',s)
