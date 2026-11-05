@@ -1,5 +1,26 @@
 # ROS Pocket — orientação de trabalho
 
+## Fechamento v1.1 — merge e release autorizados
+
+Após o smoke DEV, o operador autorizou publicar a branch/PR, validar CI,
+merge em main e release GitHub v1.1.0. Preservar os APKs congelados da fonte
+8ca6785 e separar o smoke físico DEV 11/11 da validação host do APK produção.
+A assinatura de produção usa a identidade upstream existente; não instalar
+produção no tablet, alterar rede ou atualizar o índice F-Droid neste escopo.
+Ver docs/RELEASE-v1.1.md. Os limites de autorização inicial abaixo são históricos.
+
+## Ciclo v1.1 — ROS Graph autorizado
+
+O operador antecipou a topologia da antiga proposta v2/issue33 para v1.1 e
+autorizou implementar e testar no tablet pelo Ryzen. Prioridade: grafo touch-first,
+toque em nó/tópico destaca suas conexões e esmaece o restante, sem reorganizar o
+layout na seleção; direção pub/sub e desconhecidos explícitos. Preservar DDS
+direto, formato manual Humble/Jazzy, quatro watches e somente leitura.
+Build/testes e smoke físico curto DEV estão autorizados; não inclui push,
+merge, release, assinatura de produção ou atualização F-Droid. Não interromper
+Wi-Fi, alterar VPN/firewall nem reabrir soak/RF. Requisitos em docs/ROS-GRAPH.md.
+As indicações de trabalho v1.0/v0.x abaixo são históricas.
+
 ## Fonte de verdade
 
 Trabalho atual autorizado: fechar v1.0 com ícone original e distribuição F-Droid,

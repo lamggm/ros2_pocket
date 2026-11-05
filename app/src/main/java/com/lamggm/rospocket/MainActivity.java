@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
  private static final int WARNING=0xffffa97d;
  private final ConnectionPolicy policy=new ConnectionPolicy();
  private ExplorerView topicList;
+ private RosGraphPanel rosGraph;
  private final PlotController plots=new PlotController();
  private final QaSnapshot qa=new QaSnapshot();
  private PlotView plotView;
@@ -112,8 +113,8 @@ public final class MainActivity extends Activity {
  private EditText input(String hint,String value,int id,int type){
   EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setId(id);e.setSingleLine(true);e.setTextColor(FG);e.setHintTextColor(MUTED);e.setTextSize(16);e.setInputType(type);e.setSelectAllOnFocus(true);return e;
  }
- private final LinearLayout[] sections=new LinearLayout[4];
- private final Button[] sectionButtons=new Button[4];
+ private final LinearLayout[] sections=new LinearLayout[5];
+ private final Button[] sectionButtons=new Button[5];
  private void showSection(int selected){
   if(sensorPanel!=null)sensorPanel.visible(selected==2);
   for(int i=0;i<sections.length;i++){
@@ -130,16 +131,16 @@ public final class MainActivity extends Activity {
   });
   root.addView(label("ROS Pocket",29,FG));
   TextView subtitle=label("v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA",13,ACCENT);subtitle.setPadding(0,0,0,dp(8));root.addView(subtitle);
-  String[] sectionNames={"connection","topics","monitor","logs"};String[] sectionLabels={"Conexão","Tópicos","Monitor","Logs"};
+  String[] sectionNames={"connection","topics","monitor","logs","graph"};String[] sectionLabels={"Conexão","Tópicos","Monitor","Logs","Grafo"};
   LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
   for(int i=0;i<sectionNames.length;i++){
-   final int selected=i;Button button=new Button(this);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs}[i]);button.setText(sectionLabels[i]);button.setAllCaps(false);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;nav.addView(button,new LinearLayout.LayoutParams(0,dp(48),1));
+   final int selected=i;Button button=new Button(this);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph}[i]);button.setText(sectionLabels[i]);button.setAllCaps(false);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;nav.addView(button,new LinearLayout.LayoutParams(0,dp(48),1));
   }
   root.addView(nav);
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
   LinearLayout body=column();scroll.addView(body);
   for(int i=0;i<sectionNames.length;i++){
-   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs}[i]);body.addView(sections[i]);
+   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph}[i]);body.addView(sections[i]);
   }
   LinearLayout connection=sections[0];
   LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.addView(label("Domain ID",15,MUTED));
@@ -194,6 +195,7 @@ public final class MainActivity extends Activity {
   plotView=new PlotView(this,plots);sections[2].addView(plotView);
   plotExport=new PlotExportPanel(this,plotView);sections[2].addView(plotExport);
   LinearLayout logCard=card();rosoutConsole=new RosoutConsoleView(this,this::clearRosout);logCard.addView(rosoutConsole);sections[3].addView(logCard);
+  rosGraph=new RosGraphPanel(this);sections[4].addView(rosGraph);
   showSection(0);
   setContentView(root);
  }
@@ -208,6 +210,7 @@ public final class MainActivity extends Activity {
  }
  private void requestConnection(boolean resetSelection){
   DeviceTestHooks.invalidate();
+  rosGraph.clear("Conectando · aguardando topologia desta sessão");
   try{
    int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();String format=selectedGraphFormat();
    if(!NetworkRules.validPeer(p))throw new IllegalArgumentException("Peer opcional: IPv4 sem porta.");
@@ -280,6 +283,7 @@ public final class MainActivity extends Activity {
   for(int i=1;i<4;i++)if(watchText[i]!=null){watchStructured[i].update(null,false);watchText[i].setText("Watch "+(i+1)+" · "+state);watchText[i].setTextColor(WARNING);}
  }
  private void unavailable(String state,String error){
+  rosGraph.clear("Grafo indisponível · sem sessão atual");
   extrasInactive(state);
   inactive(state);status.setText(error);status.setTextColor(WARNING);
   rosoutConsole.clearNow();
@@ -458,7 +462,8 @@ public final class MainActivity extends Activity {
   status.setText(connectionLabel+" · domínio "+config.domain+" · Wi-Fi "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; mesma rede não garante multicast.":""));
   status.setTextColor("connected".equals(connection)?ACCENT:MUTED);
   JSONObject graph=snapshot.optJSONObject("graph");String graphState=graph==null?"unconfirmed":graph.optString("state","unconfirmed"),graphError=graph==null?"":graph.optString("error");
-  if(graph!=null&&!config.graphFormat.equals(graph.optString("format"))){graphState="unsupported";graphError="Resposta diverge do formato de grafo selecionado";}
+  if(graph!=null&&!config.graphFormat.equals(graph.optString("format"))){graphState="unsupported";graphError="Resposta diverge do formato de grafo selecionado";rosGraph.clear(graphError);}
+  else rosGraph.update(snapshot);
   String graphLabel="humble".equals(config.graphFormat)?"Humble (GID24)":"Jazzy (GID16)";
   diagnostics.setText(networkDisplay+"\nDDS peers: "+snapshot.optInt("ddsPeers")+" · Nós ROS: "+snapshot.optInt("rosNodes")+"\nGrafo manual: "+graphLabel+" · "+graphState+"\nDescoberta DDS não garante assinatura compatível ou mensagens.");
   JSONArray ns=snapshot.optJSONArray("nodes");String nodeSignature=(ns==null?"[]":ns.toString())+"|"+graphState+"|"+graphError+"|"+config.graphFormat;
@@ -552,6 +557,7 @@ public final class MainActivity extends Activity {
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(MUTED);
  }
  private void disconnect(){
+  rosGraph.clear("Desconectado · nenhuma topologia atual");
   sensorPanel.available(false);
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
@@ -570,6 +576,7 @@ public final class MainActivity extends Activity {
   rosoutEpoch++;rosoutConsole.clearNow();
  }
  @Override protected void onStop(){
+  rosGraph.clear("Suspenso · aplicativo fora do primeiro plano");
   sensorPanel.available(false);
   if(sensorTicker!=null){sensorTicker.cancel(false);sensorTicker=null;}
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
