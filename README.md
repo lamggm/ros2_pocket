@@ -1,8 +1,13 @@
 # ROS Pocket
 
-> **v0.9 — estabilidade de bancada:** soak físico oficial de30min e lifecycle
-> Home/retorno + reinício aprovados no mesmo APK. RF/IP continua não validado.
-> [Resultados, identidade e limites](docs/FINALIZATION-v0.9.md).
+> **v1.1 — ROS Graph touch-first:** toque em nó ou tópico destaca suas conexões
+> e esmaece o contexto, sem embaralhar o layout. Busca, pan/zoom, enquadramento
+> e detalhes de endpoints/QoS. [Uso](docs/ROS-GRAPH.md) ·
+> [Artefatos, testes e limites](docs/RELEASE-v1.1.md).
+>
+> **Histórico v0.9:** soak físico local de30min e lifecycle aprovados naquele
+> APK, sem transferência desse aceite para novos bytes. RF/IP não validado.
+> [Resultados anteriores](docs/FINALIZATION-v0.9.md).
 
 > **v0.8 — grafo Humble/Jazzy com seleção manual:** formato persistido no perfil,
 > matriz ROS real no host e smoke Android direcionado 4/4.
@@ -23,13 +28,16 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 
 [Baixar a última release](https://github.com/lamggm/ros2_pocket/releases/latest) ·
 [Guia de uso](docs/USAGE.md) · [Documentação](docs/README.md) ·
-[Roadmap v0.5–v0.9](docs/ROADMAP.md) ·
+[Roadmap e histórico](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v0.9 é um protótipo de bancada. O APK físico é identificado internamente
-> como **0.9.0-dev**, versionCode **9**, assinatura debug compatível/hooks OFF.
-> [Soak oficial30min e lifecycle2/2](docs/FINALIZATION-v0.9.md) passaram no SM-X400 / Android16,
-> com DDS nativo sintético local; não é matriz ROS real pela LAN nem teste RF/IP.
+> A v1.1 mantém o alcance de protótipo de bancada. Produção é
+> **1.1.0/code11**, não debuggable, com assinatura upstream; DEV é
+> **1.1.0-dev/code11** e instala ao lado. Ambos ARM64/hooks OFF.
+> O smoke físico **11/11 pertence ao APK DEV**, com DDS sintético local Android.
+> Produção passou build, lint e inspeção de assinatura/manifesto; não recebeu
+> esse smoke físico. A tentativa ROS pela LAN não descobriu os nós; LAN/RF/IP
+> continuam não qualificados. [Identidades e limites](docs/RELEASE-v1.1.md).
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -39,7 +47,8 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 3. Instale em um Android **9 ou superior**, com processador **ARM64**. O Android
    pode pedir permissão para instalar aplicativos da origem escolhida.
 
-O aplicativo aparece como **ROS Pocket DEV**. Para atualizar uma instalação
+O APK principal aparece como **ROS Pocket**; o APK de bancada como
+**ROS Pocket DEV**, com package e assinatura distintos. Para atualizar uma instalação
 existente, o certificado precisa ser compatível. Se o Android rejeitar a
 assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 [instruções de instalação e atualização](docs/USAGE.md#instalar-e-atualizar).
@@ -50,6 +59,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 ## O que dá para fazer
 
 - Encontrar tópicos, filtrar a lista e consultar tipos, endpoints e QoS.
+- Explorar o [grafo nó → tópico → nó](docs/ROS-GRAPH.md), destacando conexões por toque.
 - Acompanhar até **quatro tópicos** com contadores, idade dos dados e mensagens estruturadas.
 - Plotar até **quatro séries numéricas**, com pausa da visualização.
 - Reter até **32 amostras por watch/poll** dos campos selecionados; ver descarte local conhecido, sem promessa de captura sem perdas.
@@ -59,7 +69,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Escolher manualmente o grafo **Humble (GID24)** ou **Jazzy (GID16)**, persistido no perfil.
 - Visualizar **LaserScan 2D ou câmera ROS**, alternados no Monitor, sem ocupar os watches.
 
-A interface tem quatro seções: **Conexão, Tópicos, Monitor e Logs**.
+A interface tem cinco seções: **Conexão, Tópicos, Monitor, Logs e Grafo**.
 O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
 
 <a id="connect"></a>

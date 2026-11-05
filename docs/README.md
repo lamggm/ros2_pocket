@@ -5,10 +5,17 @@
 
 Para começar a usar o APK, leia os guias abaixo. As referências técnicas e os
 registros históricos ficam separados para não interromper o passo a passo.
-Os guias continuam aplicáveis à v0.9; confira a versão disponível na página de release.
-O APK físico mantém o nome interno 0.9.0-dev, sem rebuild para alterar a etiqueta.
+Confira a versão disponível na página de release. Produção e DEV têm identidades
+distintas; o aceite físico de uma variante não é transferido à outra.
 
-## v1.0 — empacotamento autorizado
+## v1.1 — ROS Graph touch-first
+
+- [Grafo por toque](ROS-GRAPH.md): destaque de conexões, busca, pan/zoom,
+  enquadramento e estados desconhecidos explícitos.
+- [Artefatos, testes e limites](RELEASE-v1.1.md): fonte congelada, produção
+  assinada e smoke DEV 11/11 com DDS local; ROS pela LAN não validado.
+
+## v1.0 — histórico do empacotamento
 
 - [Escopo, identidades e gates](RELEASE-v1.0.md): ícone original, produção/DEV
   separados, licença Apache-2.0 e distribuição; não antecipa aceite/publicação.

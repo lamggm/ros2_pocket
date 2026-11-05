@@ -1,10 +1,16 @@
-# Roadmap do ROS Pocket — v0.5 a v0.9
+# Roadmap do ROS Pocket — v0.5 a v1.1
 
 [Projeto](../README.md) · [Documentação](README.md) ·
 [Milestones](https://github.com/lamggm/ros2_pocket/milestones) ·
 [Estado publicado](PROJECT-STATUS.md)
 
 ## Direção e estado
+
+**Ciclo atual v1.1:** ROS Graph foi antecipado da proposta v2/issue33 por decisão
+do operador. Implementação touch-first e smoke DEV 11/11 concluídos; promoção
+e release GitHub autorizadas. [Contrato](ROS-GRAPH.md) ·
+[Artefatos e limites](RELEASE-v1.1.md). LAN/RF/IP não foram qualificados.
+As seções v0.x abaixo são o planejamento/histórico daqueles ciclos.
 
 **Exportar → levar a bancada pronta → capturar melhor → ampliar compatibilidade → consolidar estabilidade.**
 

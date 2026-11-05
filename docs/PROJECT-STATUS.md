@@ -2,6 +2,23 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
+## v1.1 — ROS Graph, promoção e release autorizadas
+
+Grafo nó→tópico→nó touch-first implementado; seleção destaca conversas e esmaece
+contexto, com busca, pan/zoom e detalhes de associações anunciadas. Fonte dos
+APKs `8ca6785`; produção **1.1.0/code11/upstream** e DEV **1.1.0-dev/code11/debug**.
+O principal executa PR/CI/merge/release GitHub autorizados pelo operador.
+Os registros abaixo preservam o histórico, não a identidade do APK v1.1.
+
+Host:538 casos Java/1skip/zero falhas ou erros,309 Python e21 CTests aprovados;
+lintDebug/lintRelease sem erros/fatais. Smoke físico DEV **11/11** com produtor
+DDS sintético local Android. Produção passou build/manifesto/assinatura/hooks
+OFF; não foi instalada/testada fisicamente nesta rodada. Tentativa ROS pela
+LAN sem descoberta confirmada; RF/IP permanece na issue31. F-Droid independente
+e catálogo oficial não são atualizados por uma release GitHub.
+[Uso](ROS-GRAPH.md) · [Proveniência e limites](RELEASE-v1.1.md) ·
+[Última release](https://github.com/lamggm/ros2_pocket/releases/latest).
+
 ## v0.9 — estabilidade de bancada, aceite técnico aprovado
 
 [Fechamento, identidade e limites](FINALIZATION-v0.9.md) · [Histórico](STABILITY-v0.9.md).
