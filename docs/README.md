@@ -8,7 +8,14 @@ registros históricos ficam separados para não interromper o passo a passo.
 Confira a versão disponível na página de release. Produção e DEV têm identidades
 distintas; o aceite físico de uma variante não é transferido à outra.
 
-## v1.1 — ROS Graph touch-first
+## v1.2 — LAN/VPN e bridge existente
+
+- [Configurar LAN, VPN e interoperabilidade DDS](VPN-DDS.md).
+- [Fonte, variantes e evidências delimitadas](RELEASE-v1.2.md): leitura real e
+  bancada Ryzen análoga; rodada final10/10 separada dos subconjuntos anteriores.
+  Produção validada no host; ausência/retorno físico da VPN e RF/IP pendentes.
+
+## v1.1 — histórico ROS Graph touch-first
 
 - [Grafo por toque](ROS-GRAPH.md): destaque de conexões, busca, pan/zoom,
   enquadramento e estados desconhecidos explícitos.

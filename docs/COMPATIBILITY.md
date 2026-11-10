@@ -2,7 +2,8 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este documento descreve a v0.8 (APK físico **0.8.0-dev**, code8). Descobrir um endpoint,
+Este documento descreve os limites atuais da v1.2 (produção1.2.0 e DEV1.2.0-dev,
+code12); resultados históricos abaixo conservam sua versão. Descobrir um endpoint,
 decodificar mensagens e reconstruir o grafo de nós são capacidades distintas.
 Um tópico aparecer na lista não comprova as outras duas.
 
@@ -11,10 +12,13 @@ Um tópico aparecer na lista não comprova as outras duas.
 - Android 9/API 28 ou superior; APK ARM64 (`arm64-v8a`).
 - Interface em português. Não há aceite físico para todos os fabricantes,
   dispositivos antigos ou aparelhos Android com páginas de memória de 16 KiB.
-- IPv4 na mesma Wi-Fi/LAN. O app seleciona Wi-Fi físico e usa `DontRoute=true`
-  para filtrar locators distantes de VPNs/bridges Docker.
-- Sub-redes roteadas, IPv6-only e SROS2/DDS Security não são suportados ou
-  validados por este protótipo. Não há um servidor/bridge intermediário.
+- **LAN:** IPv4 na mesma Wi-Fi/LAN, Wi-Fi físico e `DontRoute=true` preservados.
+- **VPN:** modo explícito com peer IPv4 obrigatório, VPN disponível ao UID,
+  unicast e `DontRoute=false`, inclusive no leitor visual.
+  [Operação e limites](VPN-DDS.md) · [Evidência por variante](RELEASE-v1.2.md).
+- Interoperabilidade DDS com bridge ROS/Zenoh existente, sem backend Zenoh
+  nativo nem instalação automática de servidor. A bancada usou bridge1.10.2/Jazzy.
+- VPNs/sub-redes arbitrárias, IPv6-only e SROS2/DDS Security não herdam suporte.
 
 A receita nativa usa alinhamento ELF compatível com 16 KiB, mas isso não é teste
 em dispositivo com esse tamanho de página. A bancada física conhecida usa 4 KiB.
