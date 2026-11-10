@@ -29,7 +29,7 @@ public final class MainActivity extends Activity {
  private static final int BG=0xff0d1117,CARD=0xff161d27,FG=0xffe6edf3,MUTED=0xff9aa9bc,ACCENT=0xff48d7bb;
  NativeBridge.Api bridge=new NativeBridge.JniApi();
  private EditText domain,peer;
- private Spinner graphFormat;
+ private Spinner graphFormat,networkMode;
  private Button connect;
  private CheckBox reliable,transientLocal;
  private TextView status,diagnostics,nodes,message,counts,topicTitle,selectedTitle;
@@ -82,9 +82,10 @@ public final class MainActivity extends Activity {
  private boolean switchingWatch=false;
  private TextView watchEditorTitle;
  private static final class Config {
-  final int domain;final String peer,graphFormat;
+  final int domain;final String peer,graphFormat,networkMode;
   Config(int d,String p){this(d,p,"jazzy");}
-  Config(int d,String p,String format){domain=d;peer=p;graphFormat=format;}
+  Config(int d,String p,String format){this(d,p,format,"lan");}
+  Config(int d,String p,String format,String mode){domain=d;peer=p;graphFormat=format;networkMode=mode;}
  }
 
  @Override public void onCreate(Bundle saved) {
@@ -154,6 +155,10 @@ public final class MainActivity extends Activity {
   ArrayAdapter<String> formats=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,new String[]{"Jazzy (GID16)","Humble (GID24)","Não suportado — selecione o formato"});formats.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);graphFormat.setAdapter(formats);
   String savedFormat=prefs.getString("graphFormat","jazzy");graphFormat.setSelection("jazzy".equals(savedFormat)?0:"humble".equals(savedFormat)?1:2);
   connection.addView(graphFormat,new LinearLayout.LayoutParams(-1,dp(48)));
+  connection.addView(label("Transporte · LAN ou VPN roteada com peer explícito",13,MUTED));
+  networkMode=new Spinner(this);networkMode.setId(R.id.network_mode);networkMode.setContentDescription("Modo de rede LAN ou VPN");
+  ArrayAdapter<String> modes=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,new String[]{"LAN / Wi-Fi","VPN / Tailscale","Não suportado — selecione o modo"});modes.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);networkMode.setAdapter(modes);
+  String savedMode=prefs.getString("networkMode","lan");networkMode.setSelection("lan".equals(savedMode)?0:"vpn".equals(savedMode)?1:2);connection.addView(networkMode,new LinearLayout.LayoutParams(-1,dp(48)));
   status=label("Desconectado. Use o mesmo Domain ID e Wi-Fi do ROS 2.",14,MUTED);status.setId(R.id.status);status.setPadding(0,dp(6),0,dp(12));connection.addView(status);
   LinearLayout diagnosticCard=card();diagnosticCard.addView(label("CONEXÃO",14,ACCENT));
   diagnostics=label("Rede indisponível · DDS peers: — · Nós ROS: —",13,MUTED);diagnostics.setId(R.id.diagnostics);diagnosticCard.addView(diagnostics);connection.addView(diagnosticCard);
@@ -212,20 +217,21 @@ public final class MainActivity extends Activity {
   DeviceTestHooks.invalidate();
   rosGraph.clear("Conectando · aguardando topologia desta sessão");
   try{
-   int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();String format=selectedGraphFormat();
+   int d=InputRules.domain(domain.getText().toString());String p=peer.getText().toString().trim();String format=selectedGraphFormat();String mode=selectedNetworkMode();
    if(!NetworkRules.validPeer(p))throw new IllegalArgumentException("Peer opcional: IPv4 sem porta.");
+   if("vpn".equals(mode)&&p.isEmpty())throw new IllegalArgumentException("Modo VPN exige peer IPv4 explícito.");
    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(domain.getWindowToken(),0);
    domain.clearFocus();peer.clearFocus();
    foregroundActivity=new WeakReference<>(this);policy.reset();
    qa.invalidate();
    if(resetSelection&&!profileConfigured){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
    else watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);
-   requested=new Config(d,p,format);connectWanted=true;plots.reset(policy.generation());
+   requested=new Config(d,p,format,mode);connectWanted=true;plots.reset(policy.generation());
    sensorPanel.available(true);
    inactive("RECONECTANDO · aguardando dados desta sessão");
    extrasInactive("RECONECTANDO · aguardando dados desta sessão");
-   prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putString("graphFormat",format).putBoolean("wanted",true).apply();
-   domain.setEnabled(false);peer.setEnabled(false);graphFormat.setEnabled(false);connect.setText("Desconectar");
+   prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putString("graphFormat",format).putString("networkMode",mode).putBoolean("wanted",true).apply();
+   domain.setEnabled(false);peer.setEnabled(false);graphFormat.setEnabled(false);networkMode.setEnabled(false);connect.setText("Desconectar");
    status.setText("Iniciando DDS no domínio "+d+"…");status.setTextColor(MUTED);
   }catch(Exception ex){
    disconnect();status.setText(String.valueOf(ex.getMessage()));status.setTextColor(WARNING);
@@ -238,6 +244,12 @@ public final class MainActivity extends Activity {
    if(!wifiAddress(n).isEmpty())return n;
   }
   return null;
+ }
+ private Network connectionNetwork(Config config){
+  if("lan".equals(config.networkMode))return wifiNetwork();
+  ConnectivityManager manager=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);Network network=manager.getActiveNetwork();NetworkCapabilities caps=manager.getNetworkCapabilities(network);
+  // The active network is UID-specific; do not borrow a tunnel excluded for this app.
+  return caps!=null&&caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)&&!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)?network:null;
  }
  private String wifiAddress(Network network){
   LinkProperties links=wifiLinks(network);if(links==null)return "";
@@ -301,29 +313,31 @@ public final class MainActivity extends Activity {
   final WatchSlots.Frame[] beforeIdentity=watchSlots.frames();
   String details="Rede indisponível · domínio "+config.domain;
   try{
-   Network network=wifiNetwork();String address=wifiAddress(network);
+   Network network=connectionNetwork(config);String address=wifiAddress(network);
    LinkProperties links=wifiLinks(network);String iface=links==null?"":String.valueOf(links.getInterfaceName());
-   details="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · domínio "+config.domain;
+   details="Interface: "+iface+" · IPv4: "+address+"\nRede: "+("vpn".equals(config.networkMode)?"VPN roteada · peer unicast":"Wi-Fi")+" · domínio "+config.domain;
    policy.identity(network+"/"+iface+"/"+address);
    final long epoch=policy.generation();
    if(address.isEmpty()){
     if(nativeRunning||workerNetwork!=null||multicast!=null)stopSession();
-    ui(token,epoch,()->unavailable("OFFLINE · último valor não é telemetria atual","Sem IPv4 Wi-Fi. Aguardando reconexão…"));return;
+    ui(token,epoch,()->unavailable("OFFLINE · último valor não é telemetria atual","vpn".equals(config.networkMode)?"Sem VPN IPv4 ativa para este app. Confira o Tailscale e suas exclusões por aplicativo.":"Sem IPv4 Wi-Fi. Aguardando reconexão…"));return;
    }
    if(ConnectionPolicy.needsStart(nativeRunning,workerConfig!=config,!address.equals(workerAddress)||!network.equals(workerNetwork)||!iface.equals(workerInterface))){
     if(!policy.due(monotonicMillis()))return;
     ui(token,epoch,()->unavailable("RECONECTANDO · aguardando dados desta sessão",policy.error().isEmpty()?"Iniciando DDS no domínio "+config.domain+"…":policy.error()));
     MainActivity previous=nativeOwner.get();if(previous!=null&&previous!=this)previous.stopSession();
     stopSession();nativeOwner=new WeakReference<>(this);
-    acquireMulticast();
+    if("lan".equals(config.networkMode))acquireMulticast();
     ConnectivityManager manager=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
-    boolean bound=manager.bindProcessToNetwork(network);
+    boolean vpn="vpn".equals(config.networkMode);
+    boolean bound=vpn?manager.bindProcessToNetwork(null):manager.bindProcessToNetwork(network);
     // Some VPNs refuse physical-network binding. Preserve the existing LAN-routing fallback.
     if(!bound)manager.bindProcessToNetwork(null);
     workerNetwork=network;
-    JSONObject result=NativeBridge.Api.json(bridge.startWithGraphFormat(config.domain,address,config.peer,config.graphFormat));
+    if(vpn&&!network.equals(manager.getActiveNetwork()))throw new IllegalStateException("A VPN ativa mudou antes de iniciar DDS");
+   JSONObject result=NativeBridge.Api.json(bridge.startWithNetworkMode(config.domain,address,config.peer,config.graphFormat,config.networkMode));
     if(!result.optBoolean("ok"))throw new IllegalStateException(result.optString("error","Falha no DDS"));
-    workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
+    workerConfig=config;workerAddress=address;workerInterface=iface;nativeRunning=true;workerRosoutEpoch=rosoutEpoch;binding=vpn?"VPN padrão · peer unicast":bound?"Wi-Fi vinculada":"rota padrão (vínculo recusado)";
     if(!connectionCurrent(token,config,epoch)){stopSession();return;}
     subscriptionFailure="";lastUi=0;watchSlots.resetApplied();
     // Capture once after a still-current start, so ordinary reconnect edits are
@@ -358,7 +372,7 @@ public final class MainActivity extends Activity {
    JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
    policy.recovered();
-   final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: Wi-Fi · "+binding+" · domínio "+config.domain;
+   final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" · "+binding+" · domínio "+config.domain;
    // Intake runs for every real poll, regardless of display throttling/pause.
    // Serialize the final epoch check against UI reader replacement/teardown.
    synchronized(policy){
@@ -392,7 +406,7 @@ public final class MainActivity extends Activity {
    if(appliedSensor!=desired||appliedSensorEpoch!=visualEpoch){
     bridge.stopSensor();appliedSensor=desired;appliedSensorEpoch=visualEpoch;
     if(desired!=null){
-     JSONObject answer=NativeBridge.Api.json(bridge.startSensor(config.domain,workerAddress,config.peer,desired.wire,desired.type));
+     JSONObject answer=NativeBridge.Api.json(bridge.startSensorConfigured(config.domain,workerAddress,config.peer,desired.wire,desired.type,config.networkMode,config.graphFormat));
      if(!connectionCurrent(token,config,epoch)||!sensorPanel.current(desired,visualEpoch)){bridge.stopSensor();appliedSensor=null;return;}
      if(!answer.optBoolean("ok"))throw new IllegalStateException(answer.optString("error","Falha no sensor"));
      failedSensor=null;sensorRetryAt=0;
@@ -459,7 +473,7 @@ public final class MainActivity extends Activity {
   topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
   String connection=snapshot.optString("connectionState","offline");
   String connectionLabel="connected".equals(connection)?"CONECTADO":("reconnecting".equals(connection)?"RECONECTANDO":("discovering".equals(connection)?"DESCOBERTA":"ERRO/OFFLINE"));
-  status.setText(connectionLabel+" · domínio "+config.domain+" · Wi-Fi "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; mesma rede não garante multicast.":""));
+  status.setText(connectionLabel+" · domínio "+config.domain+" · "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; conexão não garante dados.":""));
   status.setTextColor("connected".equals(connection)?ACCENT:MUTED);
   JSONObject graph=snapshot.optJSONObject("graph");String graphState=graph==null?"unconfirmed":graph.optString("state","unconfirmed"),graphError=graph==null?"":graph.optString("error");
   if(graph!=null&&!config.graphFormat.equals(graph.optString("format"))){graphState="unsupported";graphError="Resposta diverge do formato de grafo selecionado";rosGraph.clear(graphError);}
@@ -528,6 +542,7 @@ public final class MainActivity extends Activity {
   });
   return ticket;
  }
+ private String selectedNetworkMode(){int selected=networkMode.getSelectedItemPosition();if(selected==0)return "lan";if(selected==1)return "vpn";throw new IllegalArgumentException("Modo de rede não suportado. Selecione LAN ou VPN.");}
  private String selectedGraphFormat(){
   int selected=graphFormat.getSelectedItemPosition();
   if(selected==0)return "jazzy";if(selected==1)return "humble";
@@ -540,12 +555,13 @@ public final class MainActivity extends Activity {
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watches.add(new BenchProfiles.Watch(i==0?selectedWire:r.wire,i==0?selectedType:r.type,i==0?reliableValue:r.reliable,i==0?transientValue:r.transientLocal));}
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
   String format=connectWanted&&requested!=null?requested.graphFormat:selectedGraphFormat();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format);
+  String mode=connectWanted&&requested!=null?requested.networkMode:selectedNetworkMode();
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode);
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
-  profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);graphFormat.setSelection("humble".equals(p.graphFormat)?1:0);graphFormat.setEnabled(true);
+  profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);graphFormat.setSelection("humble".equals(p.graphFormat)?1:0);graphFormat.setEnabled(true);networkMode.setSelection("vpn".equals(p.networkMode)?1:0);networkMode.setEnabled(true);
   plots.configureProfile(p);
   sensorPanel.available(false);sensorPanel.configure(p.visual);
   for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
@@ -568,7 +584,7 @@ public final class MainActivity extends Activity {
   // A poll already holding policy/slots may publish after the early invalidation.
   // policy.reset() fences that poll; clear once more before returning to the UI.
   qa.invalidate();
-  connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);graphFormat.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
+  connect.setText("Conectar");domain.setEnabled(true);peer.setEnabled(true);graphFormat.setEnabled(true);networkMode.setEnabled(true);status.setText("Desconectado · nenhum leitor DDS ativo");status.setTextColor(MUTED);
   topicList.update(new JSONArray());topicTitle.setText("TÓPICOS · 0");nodes.setText("Desconectado");lastNodes="";
   if(!profileConfigured){selectedWire="";selectedType="";}
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"selecione um tópico em Tópicos":selectedWire+" · desconectado"));counts.setText("Sem assinatura ativa");counts.setTextColor(MUTED);message.setText("Nenhuma mensagem recebida.");message.setTextColor(MUTED);

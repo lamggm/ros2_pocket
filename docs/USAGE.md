@@ -2,20 +2,20 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este guia corresponde à v0.7; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
-O candidato físico mantém a versão interna **0.7.0-dev**, code **7**.
-O [smoke físico de lotes/CSV](FINALIZATION-v0.7.md) passou **4/4** no SM-X400 / Android 16;
-isso não é qualificação extensa ou suporte a todos os dispositivos.
+Este guia corresponde à v1.2; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
+Produção é **1.2.0/code12**; o DEV físico é **1.2.0-dev/code12**.
+As janelas de leitura real e bancada Ryzen análoga estão em
+[evidências e limites](RELEASE-v1.2.md); não são qualificação de todos os dispositivos/redes.
 
 ## Instalar e atualizar
 
 O APK precisa de Android 9/API 28 ou superior e processador ARM64 (`arm64-v8a`).
 Na página da release, baixe o `.apk` em **Assets**, não os arquivos de código-fonte.
-A release também fornece `SHA256SUMS` e `app-debug.json` para conferir a integridade.
+A release também fornece `SHA256SUMS`, `production-artifact.json` e `dev-artifact.json`.
 
-A instalação usa o nome **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`.
-O candidato é debug, versionCode 7, e tem hooks de teste desativados.
-A assinatura debug não é uma assinatura de produção.
+O APK principal é **ROS Pocket**, package `com.lamggm.rospocket`, não debuggable,
+assinado upstream. **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`, é debug
+e instala ao lado. Ambos usam code12 e hooks OFF; assinaturas/canais não são intercambiáveis.
 
 Para atualizar sem perder configurações, o Android exige o mesmo package e um
 certificado compatível. O APK publicado reutiliza o certificado do último APK
@@ -31,6 +31,7 @@ simplesmente seguir os guias de build ou baixar o arquivo.
 - **Tópicos:** Explorer, busca, filtros, favoritos, endpoints e QoS anunciado.
 - **Monitor:** seleção de Watch 1–4, mensagens, campos numéricos, gráficos e sensores visuais.
 - **Logs:** console de `/rosout`, filtros, pausa e limpeza da visualização.
+- **Grafo:** topologia anunciada com destaque por toque, busca, pan/zoom e detalhes.
 
 Trocar de seção não desconecta a telemetria. O leitor visual só opera no Monitor;
 sair dele suspende o sensor e invalida a imagem anterior.
@@ -38,10 +39,12 @@ O app não publica comandos, altera parâmetros ou movimenta o robô.
 
 ## Conectar e ler um tópico
 
-1. Coloque o Android na mesma rede Wi-Fi/LAN dos participantes ROS 2.
+1. Escolha **LAN / Wi-Fi** na mesma rede dos participantes, ou **VPN / Tailscale**
+   com a VPN disponível para o app. [Contrato e limites](VPN-DDS.md).
 2. Em **Conexão**, informe o mesmo Domain ID. O intervalo aceito é **0–101**.
-3. Deixe o peer IPv4 vazio para descoberta automática. Use um peer explícito
-   somente quando souber o endereço correto; isso não comprova que multicast funciona.
+3. Em LAN, peer IPv4 vazio tenta descoberta automática. Em VPN, informe o peer
+   IPv4 acessível, sem porta; é obrigatório e não usa multicast. Peer explícito
+   não comprova descoberta automática nem recepção de mensagens.
 4. Escolha o **formato do grafo**: Humble (GID24) ou Jazzy (GID16). É manual,
    não uma detecção da distribuição. Toque em **Conectar**. Durante conexão ou
    reconexão desejada, o seletor fica bloqueado; desconecte para trocar.
@@ -84,7 +87,7 @@ Detalhes em [console rosout](ROSOUT-CONSOLE.md).
 
 Em **Conexão**, abaixo dos diagnósticos, os perfis guardam domínio, peer opcional,
 quatro slots tópico/tipo/QoS, até quatro campos de gráfico e as seleções scan/câmera
-com seu modo visual e o formato manual de grafo Humble/Jazzy. Eles não guardam
+com seu modo visual, o formato manual Humble/Jazzy e o modo de rede LAN/VPN. Eles não guardam
 amostras, contadores live, handles DDS ou identidades de sessão/readers.
 
 1. Configure conexão, watches, campos do gráfico e sensores visuais desejados.
@@ -110,9 +113,10 @@ Em **Importar perfil (JSON)**, escolha o arquivo e confirme **Adicionar** com um
 nome único. O app valida formato/schema/campos e até 128 KiB, gera outra identidade
 e adiciona sem substituir, aplicar ou conectar. Se o nome já existe, escolha outro;
 cancelamento ou arquivo inválido preservam o catálogo. Aplicar e Conectar seguem
-separados. Catálogos schema1/2 continuam legíveis, com default Jazzy em memória;
-schema1 também assume visual vazio. Uma operação explícita escreve schema3.
-Envelopes portáteis schema2/3 são aceitos; formatos de grafo desconhecidos são
+separados. Catálogos schemas1–3 continuam legíveis, assumindo LAN em memória;
+schemas anteriores ao formato manual assumem Jazzy e schema1 assume visual vazio.
+Uma operação explícita escreve schema4. Envelopes portáteis legados e schema4
+são aceitos conforme seu formato; modos e formatos de grafo desconhecidos são
 rejeitados. [Contrato portátil](PORTABLE-PROFILES.md) · [Formato do grafo](HUMBLE-JAZZY.md).
 
 ### Reinício e última aplicação
@@ -131,7 +135,7 @@ transformar amostras antigas em dados novos.
 
 ### Limites e falhas de armazenamento
 
-O schema v1 aceita até 16 perfis. Nomes são únicos sem distinção de caixa,
+O catálogo aceita até 16 perfis. Nomes são únicos sem distinção de caixa,
 têm 1–48 caracteres Unicode, no máximo 128 bytes UTF-8, e não aceitam controles
 ou caracteres de formatação. O arquivo tem teto de 128 KiB. Cada perfil tem
 quatro slots, inclusive vazios, e até quatro campos numéricos únicos suportados.
@@ -145,7 +149,8 @@ não como um catálogo vazio salvo com sucesso. Resolvido o arquivo, reabra o ap
 
 O I/O é limitado e ocorre no startup ou em operações manuais da UI, nunca no
 worker DDS. Isso não é uma garantia de durabilidade sob queda de energia nem
-um banco multiprocesso. Não há conta, cloud, sync, importação ou exportação.
+um banco multiprocesso. Não há conta, cloud ou sync; import/export de um perfil
+JSON usa explicitamente o seletor Android, separado do CSV de dados.
 
 ## Problemas de conexão
 
@@ -161,6 +166,7 @@ um banco multiprocesso. Não há conta, cloud, sync, importação ou exportaçã
 Algumas VPNs impedem o bind na rede Wi-Fi física. O app não altera a VPN,
 firewall ou configurações de rede. Se necessário, o dono do dispositivo pode
 excluir explicitamente o app da VPN; um app excluído deixa de usar a VPN/tailnet.
+Para o modo VPN, mantenha-o incluído e confira a rede disponível ao UID do app.
 Não interrompa seu único canal remoto de acesso para tentar descobrir o problema.
 
 ## Referências de cada recurso

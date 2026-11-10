@@ -2,7 +2,23 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## v1.1 — ROS Graph, promoção e release autorizadas
+## v1.2 — promoção e release autorizadas
+
+Modo LAN/VPN, perfis schema4, transporte imutável até o sensor e anúncios de
+leitores próprios para bridge ROS/Zenoh existente implementados. Commit de app
+`da1281d`, conteúdo igual ao snapshot físico; produção1.2.0/code12/upstream e
+DEV1.2.0-dev/code12/debug separados. [Uso](VPN-DDS.md) · [Proveniência](RELEASE-v1.2.md).
+
+DEV recebeu telemetria/scan do runtime existente. Bancada análoga Ryzen com
+ROS Jazzy e duas bridges Zenoh1.10.2 pela Tailscale: rodada final10/10 e
+replace/remove auditados em rodada anterior, sem costurar campanha contínua.
+Produção passou build/lint/assinatura no host, sem instalação física.
+Merge/CI/release GitHub são autorizados; publicação só é concluída após readback
+do merge, CI pós-merge e download dos assets. Não atualiza F-Droid.
+Issue38 permanece aberta para ausência/retorno real da VPN; RF/IP na issue31.
+Os registros anteriores não descrevem a identidade dos APKs v1.2.
+
+## v1.1 — histórico ROS Graph, promoção e release autorizadas
 
 Grafo nó→tópico→nó touch-first implementado; seleção destaca conversas e esmaece
 contexto, com busca, pan/zoom e detalhes de associações anunciadas. Fonte dos

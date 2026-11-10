@@ -1,6 +1,11 @@
 # ROS Pocket
 
-> **v1.1 — ROS Graph touch-first:** toque em nó ou tópico destaca suas conexões
+> **v1.2 — LAN/VPN e bridge ROS/Zenoh existente:** modo explícito, peer IPv4
+> obrigatório em VPN, perfis schema4 e anúncios dos próprios leitores.
+> DDS/Cyclone/JNI preservados, sem comandos ou backend Zenoh nativo.
+> [Configurar](docs/VPN-DDS.md) · [Artefatos e limites](docs/RELEASE-v1.2.md).
+>
+> **Histórico v1.1 — ROS Graph touch-first:** toque em nó ou tópico destaca suas conexões
 > e esmaece o contexto, sem embaralhar o layout. Busca, pan/zoom, enquadramento
 > e detalhes de endpoints/QoS. [Uso](docs/ROS-GRAPH.md) ·
 > [Artefatos, testes e limites](docs/RELEASE-v1.1.md).
@@ -31,13 +36,15 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap e histórico](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v1.1 mantém o alcance de protótipo de bancada. Produção é
-> **1.1.0/code11**, não debuggable, com assinatura upstream; DEV é
-> **1.1.0-dev/code11** e instala ao lado. Ambos ARM64/hooks OFF.
-> O smoke físico **11/11 pertence ao APK DEV**, com DDS sintético local Android.
-> Produção passou build, lint e inspeção de assinatura/manifesto; não recebeu
-> esse smoke físico. A tentativa ROS pela LAN não descobriu os nós; LAN/RF/IP
-> continuam não qualificados. [Identidades e limites](docs/RELEASE-v1.1.md).
+> A v1.2 mantém o alcance de protótipo de bancada. Produção é
+> **1.2.0/code12**, não debuggable, com assinatura upstream; DEV é
+> **1.2.0-dev/code12** e instala ao lado. Ambos ARM64/hooks OFF.
+> Leitura real via bridge existente e teste sintético Ryzen/Zenoh/Tailscale
+> foram exercitados no DEV físico. A rodada final direcionada passou **10/10**;
+> troca/remoção foi auditada em rodada anterior, sem somar campanhas.
+> Produção passou build/lint/assinatura no host, não esse smoke físico.
+> Ausência/retorno real da VPN e RF/IP continuam abertos.
+> [Identidades, janelas e limites](docs/RELEASE-v1.2.md).
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -67,6 +74,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Ler e filtrar logs de `/rosout`.
 - Salvar configuração de conexão, watches, gráficos e sensores em **perfis locais**, transportar um perfil em JSON e aplicar antes de conectar.
 - Escolher manualmente o grafo **Humble (GID24)** ou **Jazzy (GID16)**, persistido no perfil.
+- Escolher **LAN / Wi-Fi** ou **VPN / Tailscale** com peer explícito, inclusive para o leitor visual.
 - Visualizar **LaserScan 2D ou câmera ROS**, alternados no Monitor, sem ocupar os watches.
 
 A interface tem cinco seções: **Conexão, Tópicos, Monitor, Logs e Grafo**.
@@ -76,10 +84,12 @@ O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
 
 ## Primeira conexão
 
-1. Coloque o Android e os participantes ROS 2 na mesma rede Wi-Fi/LAN.
-2. Em **Conexão**, informe o mesmo **Domain ID** usado no ROS 2.
+1. Em **Conexão**, escolha **LAN / Wi-Fi** ou **VPN / Tailscale**.
+   Em LAN, use a mesma rede; em VPN, mantenha o app incluído na VPN e informe o peer IPv4 acessível.
+2. Informe o **Domain ID** do lado DDS ao qual o Android deve se conectar.
 3. Escolha o formato do grafo: **Humble (GID24)** ou **Jazzy (GID16)**. O app não detecta a distribuição.
-   Deixe o peer IPv4 vazio para tentar descoberta automática e toque em **Conectar**.
+   Em LAN, peer vazio tenta descoberta automática; em VPN ele é obrigatório.
+   Toque em **Conectar**. [Detalhes e limites](docs/VPN-DDS.md).
 4. Em **Monitor**, escolha um dos watches. Abra **Tópicos** e toque em **Ler** no tópico desejado.
 5. Volte ao **Monitor** para acompanhar os dados ou abra **Logs** para ver `/rosout`.
 
@@ -92,11 +102,12 @@ Se nada aparecer, confira domínio, multicast e QoS no
 privados: endpoints, String/Float64, rosout, nós e associações de endpoints.
 O formato de grafo é manual, sem fallback: Jazzy usa GID16 e Humble usa GID24
 com validação da cauda. Perfis antigos assumem Jazzy sem regravação no load.
-No Android físico, o smoke usa produtores DDS sintéticos locais; não demonstra
-as quatro combinações ROS reais pela LAN. [Matriz, versões e limites](docs/HUMBLE-JAZZY.md).
+As janelas físicas v1.2 incluem bridge existente e ROS Jazzy sintético no Ryzen
+via Zenoh/Tailscale; não demonstram as quatro combinações ROS reais pela LAN.
+[Matriz histórica](docs/HUMBLE-JAZZY.md) · [Alcance v1.2](docs/RELEASE-v1.2.md).
 Domínios mistos, outras distribuições e tipos não exercitados não herdam suporte.
 
-O APK atual é ARM64, usa IPv4 na mesma LAN e decodifica uma lista definida de
+O APK atual é ARM64, usa IPv4 em LAN ou no modo VPN explícito e decodifica uma lista definida de
 tipos padrão, incluindo [sensores visuais com limites explícitos](docs/SENSOR-VIEWS.md).
 Tipos customizados, mapas/TF, parâmetros, serviços/actions e teleop não fazem parte desta versão.
 Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
@@ -115,7 +126,7 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v0.9 preserva watches, sensores, logs e perfis. A release deve distribuir os
+A v1.2 preserva watches, sensores, logs e perfis. A release deve distribuir os
 mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
 explica a fonte local testada e a reconciliação documental/CI posterior.
 As releases anteriores permanecem intactas.

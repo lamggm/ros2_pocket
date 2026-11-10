@@ -31,14 +31,14 @@ public class PortableProfilesTest {
  @Test public void schemaTwoRoundTripPreservesBothSensorsAndActiveMode() throws Exception {
   BenchProfiles book=BenchProfiles.decode(schemaTwo(visual()));
   JSONObject out=new JSONObject(new String(book.encode(),StandardCharsets.UTF_8));
-  assertEquals(3,out.getInt("schema"));
+  assertEquals(4,out.getInt("schema"));
   assertEquals(visual().toString(),out.getJSONArray("profiles").getJSONObject(0).getJSONObject("visual").toString());
   assertEquals(visual().toString(),out.getJSONObject("applied").getJSONObject("visual").toString());
  }
  @Test public void schemaOneLoadPreservesOldBytesUntilAnExplicitCommit() throws Exception {
   byte[] old=BenchProfilesTest.catalog(BenchProfilesTest.profile());File file=new File(tmp.getRoot(),"profiles.json");Files.write(file.toPath(),old);
   ProfileStore store=new ProfileStore(file);BenchProfiles book=store.load();assertArrayEquals(old,Files.readAllBytes(file.toPath()));
-  store.commit(book);JSONObject out=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));assertEquals(3,out.getInt("schema"));
+  store.commit(book);JSONObject out=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));assertEquals(4,out.getInt("schema"));
   JSONObject v=out.getJSONObject("applied").getJSONObject("visual");assertEquals("scan",v.getString("mode"));assertTrue(v.isNull("scan"));assertTrue(v.isNull("camera"));
  }
  @Test public void wrongVisualModeTypesAndUnknownFieldsCannotBeImportedAsConfiguration() throws Exception {
@@ -57,7 +57,7 @@ public class PortableProfilesTest {
   assertNotEquals(source.id,first.id);assertNotEquals(first.id,second.id);assertEquals(source.peer,first.peer);assertEquals(source.visual.camera.type,first.visual.camera.type);
   JSONObject envelope=new JSONObject(new String(bytes,StandardCharsets.UTF_8));
   for(String field:new String[]{"format","schema","profile"}){
-   JSONObject invalid=new JSONObject(envelope.toString());invalid.put(field,field.equals("schema")?4:JSONObject.NULL);
+   JSONObject invalid=new JSONObject(envelope.toString());invalid.put(field,field.equals("schema")?5:JSONObject.NULL);
    try{BenchProfiles.importProfile(invalid.toString().getBytes(StandardCharsets.UTF_8));fail("Wrong envelope field must fail");}catch(IllegalArgumentException|JSONException expected){}
   }
   envelope.put("samples",new JSONArray());try{BenchProfiles.importProfile(envelope.toString().getBytes(StandardCharsets.UTF_8));fail("Telemetry must not be admitted");}catch(IllegalArgumentException|JSONException expected){}

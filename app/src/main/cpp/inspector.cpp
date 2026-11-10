@@ -1,4 +1,5 @@
 #include "inspector.hpp"
+#include "ros_reader_announcement.hpp"
 #include "model.hpp"
 #include "structured.hpp"
 #include "numeric_batch.hpp"
@@ -170,6 +171,7 @@ struct Watch {
 };
 struct Session::Impl : Watch {
  dds_entity_t domain=0,participant=0,pubs=0,subs=0,participants=0,graph=0,rosout_reader=0,rosout_topic=0;
+ RosReaderAnnouncement announcement;
  std::array<Watch,3> extra;
  uint64_t numeric_epoch=0;
  std::vector<std::pair<int,std::string>> numeric_selection;
@@ -181,6 +183,12 @@ struct Session::Impl : Watch {
  std::map<dds_instance_handle_t,GraphSource> graph_sources;
  std::map<std::string,std::string> graph_owners;
  std::string graph_format="jazzy",graph_error;
+ bool announce_readers(){
+
+  std::vector<dds_entity_t> readers;if(rosout_reader>0)readers.push_back(rosout_reader);
+  for(int i=0;i<4;i++)if(slot(i).reader>0)readers.push_back(slot(i).reader);
+  return announcement.update(readers);
+ }
 #ifdef POCKET_ENABLE_TEST_HOOKS
  struct FailureHook { int slot=-1; std::string stage; uint64_t session=0,generation=0,request=0,lease=0,nonce=0; } failure_hook;
  std::string failure_receipt;
@@ -310,21 +318,24 @@ Session::Session():impl(new Impl){}
 Session::~Session(){stop();}
 void Session::stop() {
  ++diagnostic_revision;++session_generation;++reader_generation;
- auto& s=*impl;for(int i=0;i<4;i++)s.slot(i).stop_reader();
+ auto& s=*impl;s.announcement.stop();for(int i=0;i<4;i++)s.slot(i).stop_reader();
  s.stop_rosout();
  if(s.participant>0)dds_delete(s.participant);
  if(s.domain>0)dds_delete(s.domain);
  impl.reset(new Impl);
 }
-std::string Session::start(int domain,const std::string& address,const std::string& peer,const std::string& graph_format) {
+std::string Session::start(int domain,const std::string& address,const std::string& peer,const std::string& graph_format,const std::string& network_mode) {
  stop();
  auto failed=[this](const std::string& message){stop();impl->last_error=message;return error(message);};
  if(graph_format!="jazzy"&&graph_format!="humble")return failed("Formato de grafo nao suportado; selecione jazzy ou humble.");
+ if(network_mode!="lan"&&network_mode!="vpn")return failed("Modo de rede desconhecido.");
+ if(network_mode=="vpn"&&peer.empty())return failed("Modo VPN exige peer IPv4 explicito.");
  if(!valid_domain(domain))return failed("Domain ID deve ser inteiro de 0 a 101 nesta versao.");
  if(!ipv4(address))return failed("Nenhum IPv4 Wi-Fi/LAN valido. Conecte a mesma rede do ROS 2.");
  if(!peer.empty()&&!ipv4(peer))return failed("Peer opcional deve ser um IPv4, sem porta.");
  auto& s=*impl;s.domain_id=domain;s.graph_format=graph_format;
- std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast><DontRoute>true</DontRoute></General><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
+ const bool vpn=network_mode=="vpn";
+ std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\""+(vpn?"false":"true")+"\"/></Interfaces><AllowMulticast>"+(vpn?"false":"spdp")+"</AllowMulticast><DontRoute>"+(vpn?"false":"true")+"</DontRoute></General><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
  // Cyclone 0.10.5 checks this serialized-size ceiling before RTPS fragment
  // reassembly/deserialization; retained UTF-8/tree limits alone are too late.
@@ -349,6 +360,7 @@ std::string Session::start(int domain,const std::string& address,const std::stri
   s.rosout_reader=dds_create_reader(s.participant,s.rosout_topic,log_q,nullptr);dds_delete_qos(log_q);
   if(s.rosout_reader<0){s.rosout_error="Falha ao criar leitor /rosout: "+std::string(dds_strretcode(s.rosout_reader));s.rosout_reader=0;}
  }
+ if(!s.announcement.start(s.participant,"inspector",graph_format)||!s.announce_readers())return failed("Falha ao anunciar leitores ROS");
  return "{\"ok\":true,\"domain\":"+std::to_string(domain)+"}";
 }
 void Session::clear_rosout(){auto& s=*impl;s.take_rosout(true);s.rosout.clear();}
@@ -387,6 +399,7 @@ std::string Session::remove_watch(int slot) {
  if(slot<0||slot>=4)return error("Watch slot deve ser de 0 a 3.");
  auto& w=impl->slot(slot);++w.generation;w.stop_reader();
  if(slot==0)++reader_generation;
+ if(impl->participant>0&&!impl->announce_readers())return error("Falha ao atualizar leitores ROS");
  return "{\"ok\":true}";
 }
 std::string Session::watch(int slot,const std::string& topic,const std::string& type,bool reliable,bool transient) {
@@ -440,7 +453,7 @@ std::string Session::watch(int slot,const std::string& topic,const std::string& 
 #ifdef POCKET_ENABLE_TEST_HOOKS
  receipt.topic=s.topic;
 #endif
- if(s.topic<0){auto msg="Falha ao criar topico: "+std::string(dds_strretcode(s.topic));s.stop_reader();s.last_error=msg;return error(msg);}
+ if(s.topic<0){auto msg="Falha ao criar topico: "+std::string(dds_strretcode(s.topic));s.stop_reader();impl->announce_readers();s.last_error=msg;return error(msg);}
  auto* q=dds_create_qos();dds_qset_reliability(q,reliable?DDS_RELIABILITY_RELIABLE:DDS_RELIABILITY_BEST_EFFORT,DDS_MSECS(100));
  dds_qset_durability(q,transient?DDS_DURABILITY_TRANSIENT_LOCAL:DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,64);
  dds_qset_resource_limits(q,64,1,64);
@@ -454,7 +467,8 @@ std::string Session::watch(int slot,const std::string& topic,const std::string& 
  receipt.reader=s.reader;
 #endif
  dds_delete_qos(q);
- if(s.reader<0){auto msg="Falha ao assinar: "+std::string(dds_strretcode(s.reader));s.stop_reader();s.last_error=msg;return error(msg);}
+ if(s.reader<0){auto msg="Falha ao assinar: "+std::string(dds_strretcode(s.reader));s.stop_reader();impl->announce_readers();s.last_error=msg;return error(msg);}
+ if(!impl->announce_readers()){s.stop_reader();s.last_error="Falha ao anunciar leitor ROS";return error(s.last_error);}
  s.rate_time=Clock::now();
  return "{\"ok\":true}";
 }

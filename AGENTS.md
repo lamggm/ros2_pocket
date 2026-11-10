@@ -1,5 +1,23 @@
 # ROS Pocket — orientação de trabalho
 
+## Ciclo v1.2 — leitura do runtime existente
+
+O objetivo autorizado desta etapa é o APK DEV ler grafo, telemetria e LaserScan
+no runtime ativo do alvo `gb001-v2`, usando seu endpoint DDS roteado existente.
+A v1.2 inclui modo explícito LAN/VPN, peer IPv4 obrigatório em VPN, transporte
+imutável por sessão e interoperabilidade DDS com `zenoh-bridge-ros2dds` (issues
+38 e 39). O adiamento inicial da issue39 foi explicitamente revertido.
+
+Preservar C++/Cyclone/JNI, formatos manuais Humble/Jazzy, quatro watches e um
+leitor visual. Anunciar somente os próprios leitores reais em metadados ROS de
+descoberta quando necessário; isso não autoriza publicação de dados/comandos,
+RPC, parâmetros ou atuação. Não trocar o backend por Zenoh nativo/rmw_zenoh e
+não alterar a bridge, configuração ou runtime do robô. Principal implementa;
+revisões menores independentes. Validar no APK DEV físico, preservar assinatura,
+configuração e produção; não transferir passes de provas externas ao APK.
+Sem merge/release, instalação de produção, F-Droid, rede/firewall, RF ou soak
+implícitos. As autorizações e estados de ciclos anteriores abaixo são históricos.
+
 ## Fechamento v1.1 — merge e release autorizados
 
 Após o smoke DEV, o operador autorizou publicar a branch/PR, validar CI,
