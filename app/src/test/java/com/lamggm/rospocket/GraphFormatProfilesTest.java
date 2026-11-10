@@ -13,12 +13,12 @@ public class GraphFormatProfilesTest {
  @Test public void humbleGraphFormatSurvivesPortableRoundTrip() throws Exception {
   BenchProfiles.Profile source=BenchProfiles.decode(PortableProfilesTest.schemaTwo(PortableProfilesTest.visual())).profiles.get(0);
   JSONObject envelope=new JSONObject(new String(BenchProfiles.exportProfile(source),StandardCharsets.UTF_8));
-  envelope.put("schema",3);envelope.getJSONObject("profile").put("graphFormat","humble");
+  envelope.put("schema",3);envelope.getJSONObject("profile").put("graphFormat","humble").remove("networkMode");
   final BenchProfiles.Profile imported;
   try{imported=BenchProfiles.importProfile(envelope.toString().getBytes(StandardCharsets.UTF_8));}
   catch(IllegalArgumentException|JSONException unsupported){throw new AssertionError("Schema3 must preserve the explicit Humble graph format",unsupported);}
   JSONObject result=new JSONObject(new String(BenchProfiles.exportProfile(imported),StandardCharsets.UTF_8));
-  assertEquals(3,result.getInt("schema"));
+  assertEquals(4,result.getInt("schema"));
   assertEquals("humble",result.getJSONObject("profile").getString("graphFormat"));
   assertNotEquals(source.id,imported.id);
  }
@@ -30,7 +30,7 @@ public class GraphFormatProfilesTest {
     assertArrayEquals(old,java.nio.file.Files.readAllBytes(file.toPath()));
     assertEquals("jazzy",book.profiles.get(0).graphFormat);assertEquals("jazzy",book.applied.graphFormat);
     store.commit(book);JSONObject committed=new JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));
-    assertEquals(3,committed.getInt("schema"));assertEquals("jazzy",committed.getJSONObject("applied").getString("graphFormat"));
+    assertEquals(4,committed.getInt("schema"));assertEquals("jazzy",committed.getJSONObject("applied").getString("graphFormat"));
    }finally{java.nio.file.Files.deleteIfExists(file.toPath());}
   }
  }

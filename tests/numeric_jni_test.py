@@ -48,7 +48,8 @@ def main():
                        '-o', out / 'librospocket.so'])
     run('compile-java', [jdk / 'bin/javac', '-encoding', 'UTF-8', '-cp', android_jar,
                         '-d', out, 'app/src/main/java/com/lamggm/rospocket/NativeBridge.java',
-                        'tests/NumericJniBridgeTest.java', 'tests/GraphFormatJniBridgeTest.java'])
+                        'tests/NumericJniBridgeTest.java', 'tests/GraphFormatJniBridgeTest.java',
+                        'tests/NetworkModeJniBridgeTest.java'])
     raw = run('real-jni', [jdk / 'bin/java', '-Djava.library.path=' + str(out),
                           '-cp', str(out) + os.pathsep + str(android_jar),
                           'com.lamggm.rospocket.NumericJniBridgeTest'])
@@ -73,6 +74,12 @@ def main():
     for index in range(2, 6):
         assert graph_rows[index * 2]['ok'] is False
         assert graph_rows[index * 2 + 1]['running'] is False
+    network_raw = run('real-network-jni', [jdk / 'bin/java', '-Djava.library.path=' + str(out),
+                                         '-cp', str(out) + os.pathsep + str(android_jar),
+                                         'com.lamggm.rospocket.NetworkModeJniBridgeTest'])
+    network_rows = [json.loads(line) for line in network_raw.splitlines()]
+    assert len(network_rows) == 12
+    assert [row['ok'] for row in network_rows] == [False, False, True, True] * 3
     result = {'classification': 'real Linux JNI boundary; no DDS producer or Android execution',
               'passed': True, 'invalid_requests_rejected': 7, 'graph_modes_started': ['humble', 'jazzy'],
               'invalid_graph_modes_rejected': 4,

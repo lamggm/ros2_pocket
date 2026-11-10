@@ -13,7 +13,7 @@ class Session {
 #endif
  public:
  Session(); ~Session();
- std::string start(int domain, const std::string& address, const std::string& peer, const std::string& graph_format="jazzy");
+ std::string start(int domain, const std::string& address, const std::string& peer, const std::string& graph_format="jazzy", const std::string& network_mode="lan");
  std::string poll();
  std::string select_numeric(uint64_t epoch,const std::vector<std::pair<int,std::string>>& fields);
  std::string diagnostic_state() const;

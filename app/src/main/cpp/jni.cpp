@@ -27,6 +27,12 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format)));}
  catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
 }
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startWithNetworkMode(JNIEnv* e,jclass,jint d,jstring address,jstring peer,jstring format,jstring mode) {
+ std::lock_guard<std::mutex> lock(mutex);sensor.stop();
+ if(!format||e->GetStringUTFLength(format)>6||!mode||e->GetStringUTFLength(mode)>3){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Formato ou modo de rede nao suportado\"}");}
+ try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format),text(e,mode)));}
+ catch(const std::exception&){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar rede DDS\"}");}
+}
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_poll(JNIEnv* e,jclass) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.poll());
 }
@@ -57,6 +63,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stop(JN
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensor(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type){
  std::lock_guard<std::mutex> lock(mutex);
  try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type)));}
+ catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensorWithNetworkMode(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type,jstring mode){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!mode||e->GetStringUTFLength(mode)>3){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Modo de rede visual nao suportado\"}");}
+ try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type),text(e,mode)));}
+ catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensorConfigured(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type,jstring mode,jstring format){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!mode||e->GetStringUTFLength(mode)>3||!format||e->GetStringUTFLength(format)>6){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Modo ou formato visual nao suportado\"}");}
+ try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type),text(e,mode),text(e,format)));}
  catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollSensor(JNIEnv* e,jclass){

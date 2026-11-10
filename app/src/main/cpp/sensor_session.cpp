@@ -1,5 +1,6 @@
 #include "sensors.hpp"
 #include "model.hpp"
+#include "ros_reader_announcement.hpp"
 #include <dds/dds.h>
 #include <chrono>
 #include <arpa/inet.h>
@@ -11,13 +12,17 @@ std::string fail(const std::string& s){return "{\"ok\":false,\"error\":"+json_qu
 }
 struct SensorSession::Impl {
  dds_entity_t domain=0,participant=0,topic=0,reader=0;
+ RosReaderAnnouncement announcement;
  uint64_t count=0,received=0;int kind=0;std::string error;
 };
 SensorSession::SensorSession():impl(new Impl){} SensorSession::~SensorSession(){stop();}
-void SensorSession::stop(){auto& s=*impl;if(s.participant>0)dds_delete(s.participant);if(s.domain>0)dds_delete(s.domain);impl.reset(new Impl);}
-std::string SensorSession::start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type){
+void SensorSession::stop(){auto& s=*impl;s.announcement.stop();if(s.participant>0)dds_delete(s.participant);if(s.domain>0)dds_delete(s.domain);impl.reset(new Impl);}
+std::string SensorSession::start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode,const std::string& graph_format){
  stop();auto& s=*impl;
  auto rejected=[&](const std::string& why){stop();impl->error=why;return fail(why);};
+ if(graph_format!="jazzy"&&graph_format!="humble")return rejected("Formato de grafo visual desconhecido");
+ if(network_mode!="lan"&&network_mode!="vpn")return rejected("Modo de rede visual desconhecido");
+ if(network_mode=="vpn"&&peer.empty())return rejected("Modo VPN visual exige peer IPv4 explicito");
  if(!valid_domain(domain)||!ipv4(address)||(!peer.empty()&&!ipv4(peer))||topic.rfind("rt/",0)!=0||topic.size()>512)return rejected("Configuração de sensor inválida");
  const dds_topic_descriptor_t* descriptor=nullptr;
  if(type=="sensor_msgs::msg::dds_::LaserScan_"){descriptor=&sensor_msgs_msg_dds__LaserScan__desc;s.kind=1;}
@@ -27,7 +32,8 @@ std::string SensorSession::start(int domain,const std::string& address,const std
  // A private Cyclone domain with the same wire domain avoids raising telemetry's
  // immutable 64KiB admission ceiling. No discovery/readers other than this sensor.
  const int internal=1000+domain;
- std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast><DontRoute>true</DontRoute></General><Discovery><ExternalDomainId>"+std::to_string(domain)+"</ExternalDomainId><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
+ const bool vpn=network_mode=="vpn";
+ std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\""+(vpn?"false":"true")+"\"/></Interfaces><AllowMulticast>"+(vpn?"false":"spdp")+"</AllowMulticast><DontRoute>"+(vpn?"false":"true")+"</DontRoute></General><Discovery><ExternalDomainId>"+std::to_string(domain)+"</ExternalDomainId><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
  config+="</Discovery><Internal><MaxSampleSize>4 MiB</MaxSampleSize></Internal></Domain></CycloneDDS>";
  s.domain=dds_create_domain(internal,config.c_str());if(s.domain<0)return rejected("Falha no domínio visual DDS: "+std::string(dds_strretcode(s.domain)));
@@ -35,6 +41,7 @@ std::string SensorSession::start(int domain,const std::string& address,const std
  s.topic=dds_create_topic(s.participant,descriptor,topic.c_str(),nullptr,nullptr);if(s.topic<0)return rejected("Falha no tópico visual DDS");
  auto q=dds_create_qos();dds_qset_reliability(q,DDS_RELIABILITY_BEST_EFFORT,0);dds_qset_durability(q,DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,1);dds_qset_resource_limits(q,1,1,1);
  s.reader=dds_create_reader(s.participant,s.topic,q,nullptr);dds_delete_qos(q);if(s.reader<0)return rejected("Falha no leitor visual DDS");
+ if(!s.announcement.start(s.participant,"sensor",graph_format)||!s.announcement.update({s.reader}))return rejected("Falha ao anunciar leitor visual ROS");
  return "{\"ok\":true}";
 }
 SensorFrame SensorSession::poll(){
