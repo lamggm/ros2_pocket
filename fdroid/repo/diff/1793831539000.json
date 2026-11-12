@@ -1,0 +1,60 @@
+{
+  "repo": {
+    "timestamp": 1794494970000
+  },
+  "packages": {
+    "com.lamggm.rospocket": {
+      "metadata": {
+        "lastUpdated": 1794494970000,
+        "description": {
+          "en-US": "ROS Pocket is a read-only Android inspector using direct DDS and Cyclone DDS.\nInspect discovered topics, supported telemetry types and sensor views, monitor\nnumeric histories and export CSV, and manage portable local bench profiles.\nNative workspace with Dashboard, Explore, Graph and Logs, system/light/dark\nthemes, circular namespace groups and local visual physics. Namespace does\nnot identify a ROS package; arrows are announced associations, not traffic.\n\nARM64 devices, Android 9 (API 28) or later. Network discovery depends on your\nROS domain, peers and network setup, with explicit LAN or routed VPN mode.\nRF/IP recovery and actual VPN absence/return remain unqualified. The final\nversion1.3 APK was host-validated, without new physical-device acceptance.\n\nThis is the independent upstream repository, not the official f-droid.org\ncatalogue. APKs keep the upstream production signature used by GitHub releases."
+        }
+      },
+      "versions": {
+        "8f2c06d21ddcc08e8fbd49f746a884dd0582126a7cd6ac6b97f5e6cccd18c67a": {
+          "added": 1794494970000,
+          "file": {
+            "name": "/com.lamggm.rospocket_13.apk",
+            "sha256": "8f2c06d21ddcc08e8fbd49f746a884dd0582126a7cd6ac6b97f5e6cccd18c67a",
+            "size": 5051752
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a"
+            ],
+            "versionName": "1.3.0",
+            "versionCode": 13,
+            "features": [
+              {
+                "name": "android.hardware.wifi"
+              }
+            ],
+            "usesSdk": {
+              "minSdkVersion": 28,
+              "targetSdkVersion": 35
+            },
+            "signer": {
+              "sha256": [
+                "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              },
+              {
+                "name": "android.permission.ACCESS_WIFI_STATE"
+              },
+              {
+                "name": "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
