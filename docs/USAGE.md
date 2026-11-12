@@ -2,10 +2,11 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-Este guia corresponde à v1.2; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
-Produção é **1.2.0/code12**; o DEV físico é **1.2.0-dev/code12**.
-As janelas de leitura real e bancada Ryzen análoga estão em
-[evidências e limites](RELEASE-v1.2.md); não são qualificação de todos os dispositivos/redes.
+Este guia corresponde à v1.3; confira a versão na [última release](https://github.com/lamggm/ros2_pocket/releases/latest).
+Produção é **1.3.0/code13**; DEV é **1.3.0-dev/code13**.
+Os APKs finais foram validados no host, não instalados/testados fisicamente
+nesta rodada. [Evidências e limites](RELEASE-v1.3.md); janelas físicas anteriores
+permanecem históricas e não qualificam estes bytes ou todos os dispositivos/redes.
 
 ## Instalar e atualizar
 
@@ -15,7 +16,7 @@ A release também fornece `SHA256SUMS`, `production-artifact.json` e `dev-artifa
 
 O APK principal é **ROS Pocket**, package `com.lamggm.rospocket`, não debuggable,
 assinado upstream. **ROS Pocket DEV**, package `com.lamggm.rospocket.dev`, é debug
-e instala ao lado. Ambos usam code12 e hooks OFF; assinaturas/canais não são intercambiáveis.
+e instala ao lado. Ambos usam code13 e hooks OFF; assinaturas/canais não são intercambiáveis.
 
 Para atualizar sem perder configurações, o Android exige o mesmo package e um
 certificado compatível. O APK publicado reutiliza o certificado do último APK
@@ -27,13 +28,18 @@ simplesmente seguir os guias de build ou baixar o arquivo.
 
 ## Conhecer a interface
 
-- **Conexão:** domínio, peer, conectar/desconectar, diagnóstico, nós e perfis locais.
-- **Tópicos:** Explorer, busca, filtros, favoritos, endpoints e QoS anunciado.
-- **Monitor:** seleção de Watch 1–4, mensagens, campos numéricos, gráficos e sensores visuais.
-- **Logs:** console de `/rosout`, filtros, pausa e limpeza da visualização.
-- **Grafo:** topologia anunciada com destaque por toque, busca, pan/zoom e detalhes.
+- **Painel:** quatro watches, mensagens, campos numéricos, gráficos e um leitor visual.
+- **Explorar:** busca, filtros, favoritos, lista e detalhes/endpoints/QoS. Tablet
+  mostra lista e detalhes em paralelo; celular tem retorno explícito à lista.
+- **Grafo:** círculos de nós/tópicos, agrupamento visual por namespace, física
+  local, arraste, pin, pan/zoom e inspetor. Namespace não informa pacote ROS.
+- **Logs:** console compacto de `/rosout`, busca/severidade, pausa/limpeza e
+  inspetor do evento tocado, lateral quando há largura.
+- **Conexão**, no cabeçalho: domínio, peer, conectar/desconectar, diagnóstico,
+  nós e perfis locais. **Aparência**: Sistema (padrão), Claro ou Escuro; recolore
+  a interface sem recriar a Activity nem reconectar leitores.
 
-Trocar de seção não desconecta a telemetria. O leitor visual só opera no Monitor;
+Trocar de seção não desconecta a telemetria. O leitor visual só opera no Painel;
 sair dele suspende o sensor e invalida a imagem anterior.
 O app não publica comandos, altera parâmetros ou movimenta o robô.
 
@@ -48,8 +54,9 @@ O app não publica comandos, altera parâmetros ou movimenta o robô.
 4. Escolha o **formato do grafo**: Humble (GID24) ou Jazzy (GID16). É manual,
    não uma detecção da distribuição. Toque em **Conectar**. Durante conexão ou
    reconexão desejada, o seletor fica bloqueado; desconecte para trocar.
-5. Em **Monitor**, escolha **Watch 1–4**. Em **Tópicos**, toque em **Ler** em um
-   tópico de tipo suportado. Volte ao Monitor para ver os valores e a árvore de campos.
+5. Em **Explorar**, toque num tópico para inspecionar, sem iniciar leitor.
+   **Monitorar** oferece Watch1–4; confirme antes de substituir uma posição
+   ocupada. Volte ao Painel para os valores e a árvore de campos.
 
 Cada watch tem seleção e QoS próprios. Alterar QoS ou usar **Remover watch
 selecionado** afeta apenas o slot selecionado, não os outros leitores.
@@ -63,7 +70,7 @@ ser antigo mesmo com a conexão ativa.
 ## Gráficos e logs
 
 Para LaserScan 2D ou câmera, selecione **Visualizar** no tópico suportado no
-Explorer. O Monitor alterna um sensor visual por vez, sem ocupar os watches.
+Explorer. O Painel alterna um sensor visual por vez, sem ocupar os watches.
 Veja [formatos, limites, zoom e comportamento](SENSOR-VIEWS.md).
 
 Selecione campos numéricos de qualquer um dos quatro watches para criar até

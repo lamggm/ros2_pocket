@@ -2,7 +2,28 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## v1.2 — promoção e release autorizadas
+## v1.3 — workspace nativo, promoção e release autorizadas
+
+Painel com quatro watches e um leitor visual, Explorer dividido, temas
+Sistema/Claro/Escuro, console compacto com inspetor e grafo circular com física
+local por namespace. Namespace não é pacote nem nova entidade DDS descoberta.
+Backend C++/Cyclone/JNI, perfis schema4, Humble/Jazzy e LAN/VPN preservados.
+
+Fonte de aplicação `a358dbc072a0e04f23e3dbd54203ead4f2e11965`, exatamente os329
+arquivos do snapshot testado; promoção posterior altera apenas documentação.
+Host:688 Java/zero falhas/um skip,309 Python, lintDebug e lintRelease sem erros
+e164 avisos cada. Revisões independentes delimitadas aprovadas, inclusive
+correções de identidade acessível/pin com mais de24 namespaces.
+
+Produção1.3.0/code13/upstream e DEV1.3.0-dev/code13/debug separados. Os APKs
+finais não receberam instalação/smoke físico: demonstração externa e capturas
+anteriores não lhes transferem aceite. PR/CI/merge e publicação GitHub são
+autorizados e têm readbacks separados; seus IDs ficam nas notas da release.
+Sem instalação, parada da demo, alteração de rede ou atualização F-Droid.
+Issues38 (VPN real) e31 (RF/IP) continuam pendentes.
+[Interface](UI-v1.3.md) · [Proveniência e limites](RELEASE-v1.3.md).
+
+## v1.2 — histórico de promoção e release
 
 Modo LAN/VPN, perfis schema4, transporte imutável até o sensor e anúncios de
 leitores próprios para bridge ROS/Zenoh existente implementados. Commit de app

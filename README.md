@@ -1,6 +1,11 @@
 # ROS Pocket
 
-> **v1.2 — LAN/VPN e bridge ROS/Zenoh existente:** modo explícito, peer IPv4
+> **v1.3 — workspace nativo e grafo circular:** Painel, Explorar, Grafo e Logs;
+> aparência Sistema/Claro/Escuro, quatro watches, console com inspetor e física
+> visual por namespace. [Interface](docs/UI-v1.3.md) ·
+> [Artefatos, testes host e limites](docs/RELEASE-v1.3.md).
+>
+> **Histórico v1.2 — LAN/VPN e bridge ROS/Zenoh existente:** modo explícito, peer IPv4
 > obrigatório em VPN, perfis schema4 e anúncios dos próprios leitores.
 > DDS/Cyclone/JNI preservados, sem comandos ou backend Zenoh nativo.
 > [Configurar](docs/VPN-DDS.md) · [Artefatos e limites](docs/RELEASE-v1.2.md).
@@ -36,15 +41,15 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap e histórico](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v1.2 mantém o alcance de protótipo de bancada. Produção é
-> **1.2.0/code12**, não debuggable, com assinatura upstream; DEV é
-> **1.2.0-dev/code12** e instala ao lado. Ambos ARM64/hooks OFF.
-> Leitura real via bridge existente e teste sintético Ryzen/Zenoh/Tailscale
-> foram exercitados no DEV físico. A rodada final direcionada passou **10/10**;
-> troca/remoção foi auditada em rodada anterior, sem somar campanhas.
-> Produção passou build/lint/assinatura no host, não esse smoke físico.
-> Ausência/retorno real da VPN e RF/IP continuam abertos.
-> [Identidades, janelas e limites](docs/RELEASE-v1.2.md).
+> A v1.3 mantém o alcance de protótipo de bancada. Produção é
+> **1.3.0/code13**, não debuggable, com assinatura upstream; DEV é
+> **1.3.0-dev/code13** e instala ao lado. Ambos ARM64/hooks OFF.
+> O candidato final passou688 casos Java (zero falhas, um skip),309 testes
+> Python e revisão independente. Produção passou build/lint/assinatura no host.
+> **Nenhum dos APKs finais v1.3 foi instalado ou validado fisicamente nesta rodada.**
+> As prévias usam dados sintéticos exclusivos dos testes. Aceites anteriores
+> não se transferem a estes bytes; VPN real e RF/IP continuam pendentes.
+> [Identidades, evidências e limites](docs/RELEASE-v1.3.md).
 > Não use o app como instrumento de segurança ou controle de uma operação.
 
 ## Baixar e instalar
@@ -75,9 +80,11 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Salvar configuração de conexão, watches, gráficos e sensores em **perfis locais**, transportar um perfil em JSON e aplicar antes de conectar.
 - Escolher manualmente o grafo **Humble (GID24)** ou **Jazzy (GID16)**, persistido no perfil.
 - Escolher **LAN / Wi-Fi** ou **VPN / Tailscale** com peer explícito, inclusive para o leitor visual.
-- Visualizar **LaserScan 2D ou câmera ROS**, alternados no Monitor, sem ocupar os watches.
+- Visualizar **LaserScan 2D ou câmera ROS**, alternados no Painel, sem ocupar os watches.
 
-A interface tem cinco seções: **Conexão, Tópicos, Monitor, Logs e Grafo**.
+A interface tem quatro destinos: **Painel, Explorar, Grafo e Logs**.
+**Conexão** e **Aparência** ficam no cabeçalho. Toque no Explorer inspeciona;
+**Monitorar** escolhe explicitamente um dos quatro slots e confirma substituição.
 O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
 
 <a id="connect"></a>
@@ -90,8 +97,9 @@ O app usa DDS direto; não exige rosbridge ou um servidor auxiliar.
 3. Escolha o formato do grafo: **Humble (GID24)** ou **Jazzy (GID16)**. O app não detecta a distribuição.
    Em LAN, peer vazio tenta descoberta automática; em VPN ele é obrigatório.
    Toque em **Conectar**. [Detalhes e limites](docs/VPN-DDS.md).
-4. Em **Monitor**, escolha um dos watches. Abra **Tópicos** e toque em **Ler** no tópico desejado.
-5. Volte ao **Monitor** para acompanhar os dados ou abra **Logs** para ver `/rosout`.
+4. Abra **Explorar**, selecione um tópico e toque em **Monitorar** para escolher
+   um dos quatro watches. Substituir uma posição ocupada exige confirmação.
+5. Volte ao **Painel** para acompanhar os dados ou abra **Logs** para ver `/rosout`.
 
 Se nada aparecer, confira domínio, multicast e QoS no
 [guia de conexão](docs/USAGE.md#problemas-de-conexão).
@@ -126,7 +134,8 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v1.2 preserva watches, sensores, logs e perfis. A release deve distribuir os
-mesmos bytes usados no smoke físico, não o APK recompilado pelo CI. O manifesto
-explica a fonte local testada e a reconciliação documental/CI posterior.
+A v1.3 preserva watches, sensores, logs e perfis. A release distribui o DEV
+congelado validado no host e a variante produção separada, não substituídos
+pelo APK recompilado no CI. O manifesto conserva o HEAD/snapshot original do
+build e distingue o commit de consolidação, a promoção documental e o merge.
 As releases anteriores permanecem intactas.
