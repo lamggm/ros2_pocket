@@ -22,7 +22,7 @@ final class StructuredMessageView extends LinearLayout {
   rows=new LinearLayout(context);rows.setOrientation(VERTICAL);addView(rows);
  }
  private TextView label(String text) {
-  TextView view=new TextView(getContext());view.setText(text);view.setTextColor(0xffe6edf3);
+  TextView view=new TextView(getContext());view.setText(text);view.setTextColor(UiTheme.color(getContext(),0xffe6edf3));
   view.setTypeface(Typeface.MONOSPACE);view.setTextIsSelectable(true);return view;
  }
  private String bounded(String text,int max) {

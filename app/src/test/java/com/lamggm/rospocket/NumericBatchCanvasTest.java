@@ -7,7 +7,7 @@ import org.robolectric.*;
 import org.robolectric.annotation.*;
 import static org.junit.Assert.*;
 /** Real native host Canvas; the incoming batch is explicitly synthetic. */
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night") @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class NumericBatchCanvasTest {
  @Test public void coincidentReceiveGapCannotBecomeAVisibleConnectingSegment()throws Exception{
   for(boolean gap:new boolean[]{false,true}){

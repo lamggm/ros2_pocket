@@ -39,7 +39,8 @@ public class ConnectionActivityTest {
  }
  void tick()throws Exception{work("tick",new Class<?>[]{int.class},1);}
  void paint(){shadowOf(Looper.getMainLooper()).idle();}
- String text(int id){return ((TextView)a.findViewById(id)).getText().toString();}
+ static String textOf(android.view.View v){if(v instanceof TextView)return ((TextView)v).getText().toString();StringBuilder out=new StringBuilder();if(v instanceof android.view.ViewGroup){android.view.ViewGroup g=(android.view.ViewGroup)v;for(int i=0;i<g.getChildCount();i++)out.append(textOf(g.getChildAt(i))).append("\n");}return out.toString();}
+ String text(int id){return textOf(a.findViewById(id));}
  void address(String value)throws Exception{LinkProperties lp=new LinkProperties();lp.setInterfaceName("wlan-test");lp.setLinkAddresses(java.util.Collections.singletonList(org.robolectric.util.ReflectionHelpers.callConstructor(LinkAddress.class,org.robolectric.util.ReflectionHelpers.ClassParameter.from(String.class,value+"/24"))));cm.setLinkProperties(wifi,lp);}
  @Before public void setup()throws Exception{
   a=Robolectric.buildActivity(MainActivity.class).create().get();bridge=new Fake();set("bridge",bridge);
@@ -96,6 +97,9 @@ public class ConnectionActivityTest {
   tick();paint();assertEquals(1,explorer.visibleCount());assertEquals(2,bridge.starts);assertEquals(2,bridge.subscriptions);
   assertTrue(((CheckBox)explorer.findViewWithTag("favorite:rt/numeric\nstd_msgs::msg::dds_::Float64_")).isChecked());
   ((Button)explorer.findViewWithTag("read:rt/numeric\nstd_msgs::msg::dds_::Float64_")).performClick();
+  assertEquals("A read action now opens the explicit slot chooser",2,bridge.subscriptions);
+  android.app.AlertDialog chooser=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertTrue(chooser.isShowing());chooser.getListView().performItemClick(null,0,0);paint();
+  android.app.AlertDialog confirm=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertTrue(confirm.isShowing());confirm.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();paint();
   ((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);assertEquals(3,bridge.subscriptions);
  }
  @Test public void addressChangeFencesOldCallbackAndRecreatesOnlyOnce()throws Exception{
@@ -198,14 +202,14 @@ public class ConnectionActivityTest {
  }
  @Test public void rosoutControlsFilterPauseClearAndFenceActivityLifecycle()throws Exception{
   bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":1,\"bytes\":120,\"entries\":[{\"level\":40,\"logger\":\"camera.driver\",\"message\":\"sensor failed\",\"sourceSec\":123,\"sourceNanosec\":4,\"intakeAgeMs\":8}]}")).toString();
-  tick();paint();TextView logs=a.findViewById(R.id.rosout_entries);assertTrue("rosout missing; logs="+logs.getText()+" status="+text(R.id.status),logs.getText().toString().contains("sensor failed"));
+  tick();paint();android.view.View logs=a.findViewById(R.id.rosout_entries);assertTrue("rosout missing; logs="+textOf(logs)+" status="+text(R.id.status),textOf(logs).contains("sensor failed"));
   a.findViewById(R.id.rosout_pause).performClick();
   bridge.snapshot=new org.json.JSONObject(bridge.snapshot).put("rosout",new org.json.JSONObject("{\"active\":true,\"count\":2,\"bytes\":240,\"entries\":[{\"level\":20,\"logger\":\"planner\",\"message\":\"new sample\",\"sourceSec\":124,\"sourceNanosec\":0,\"intakeAgeMs\":1}]}")).toString();set("lastUi",0L);tick();paint();
-  assertTrue(logs.getText().toString().contains("sensor failed"));assertFalse(logs.getText().toString().contains("new sample"));assertTrue(text(R.id.counts).contains("RECEBENDO"));assertEquals("42.5",text(R.id.message));
+  assertTrue(textOf(logs).contains("sensor failed"));assertFalse(textOf(logs).contains("new sample"));assertTrue(text(R.id.counts).contains("RECEBENDO"));assertEquals("42.5",text(R.id.message));
   a.findViewById(R.id.rosout_clear).performClick();((ScheduledExecutorService)get("worker")).submit(()->{}).get(5,TimeUnit.SECONDS);
-  assertEquals(1,bridge.rosoutClears);assertTrue(logs.getText().toString().contains("Console limpo"));
-  a.findViewById(R.id.rosout_pause).performClick();((RosoutConsoleView)a.findViewById(R.id.rosout_entries).getParent()).update(new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":20,\"logger\":\"old\",\"message\":\"old session secret\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}] }"));
-  assertTrue(logs.getText().toString().contains("old session secret"));call("onStop",new Class<?>[]{});assertFalse("Activity stop must not leave old-session logs visible",logs.getText().toString().contains("old session secret"));
+  assertEquals(1,bridge.rosoutClears);assertTrue(textOf(logs).contains("Console limpo"));
+  a.findViewById(R.id.rosout_pause).performClick();((RosoutConsoleView)get("rosoutConsole")).update(new org.json.JSONObject("{\"active\":true,\"count\":1,\"entries\":[{\"level\":20,\"logger\":\"old\",\"message\":\"old session secret\",\"sourceSec\":1,\"sourceNanosec\":0,\"intakeAgeMs\":1}] }"));
+  assertTrue(textOf(logs).contains("old session secret"));call("onStop",new Class<?>[]{});assertFalse("Activity stop must not leave old-session logs visible",textOf(logs).contains("old session secret"));
  }
  @Test public void clearBeforePollCaptureCannotRepaintAfterNativeClear()throws Exception{
   field("foregroundActivity").set(null,new java.lang.ref.WeakReference<>(a));

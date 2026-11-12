@@ -4,6 +4,7 @@ import org.json.*;
 import org.junit.Test;
 import static org.junit.Assert.*;
 /** Real Android controls; the JNI double is host-only, not DDS evidence. */
+@org.robolectric.annotation.Config(qualifiers="night")
 public class PlotMultiWatchActivityTest extends MultiWatchActivityTest {
  private PlotController plots()throws Exception{return (PlotController)get("plots");}
  private PlotView view(){return a.getWindow().getDecorView().findViewWithTag("live-plot");}
@@ -103,7 +104,7 @@ public class PlotMultiWatchActivityTest extends MultiWatchActivityTest {
   row.put("message",new JSONObject().put("schemaVersion",1).put("type","nav_msgs/msg/Odometry").put("numericPaths",new JSONArray().put(path))
    .put("root",new JSONObject().put("path",path).put("kind","number").put("value",7.25).put("display","NOT A NUMBER TO PARSE")));
   f.snapshot=snapshot.toString();set("lastUi",0L);tick();paint();
-  assertTrue("Tell users exactly where plot selection happens",((TextView)view().getChildAt(1)).getText().toString().contains("caixas"));
+  view().findViewWithTag("plot-settings").performClick();assertEquals(android.view.View.VISIBLE,view().findViewWithTag("plot-configuration").getVisibility());assertTrue("Tell users exactly where plot selection happens",((TextView)view().findViewWithTag("plot-instructions")).getText().toString().contains("caixas"));
   int calls=f.calls.size(),subscriptions=f.subscriptions;
   CheckBox check=view().findViewWithTag("plot-field:"+PlotMultiWatchTest.watch(1)+"\n"+path);assertNotNull(check);check.performClick();
   assertEquals(1,plots().history.snapshot().size());
@@ -169,7 +170,7 @@ public class PlotMultiWatchActivityTest extends MultiWatchActivityTest {
  }
  @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
  public void fourNativeSlotProjectionsRenderThroughRealHostCanvas()throws Exception {
-  livePlots();android.view.View chart=view().getChildAt(view().getChildCount()-1);chart.layout(0,0,800,300);
+  livePlots();android.view.View chart=view().findViewById(R.id.plot_chart);chart.layout(0,0,800,300);
   android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(800,300,android.graphics.Bitmap.Config.ARGB_8888);chart.draw(new android.graphics.Canvas(image));
   for(int color:PlotView.COLORS){int pixels=0;for(int y=40;y<265;y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)pixels++;assertTrue("Integrated slot trace reaches actual Canvas",pixels>0);}
  }

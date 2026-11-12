@@ -8,7 +8,13 @@ registros históricos ficam separados para não interromper o passo a passo.
 Confira a versão disponível na página de release. Produção e DEV têm identidades
 distintas; o aceite físico de uma variante não é transferido à outra.
 
-## v1.2 — LAN/VPN e bridge existente
+## v1.3 — workspace nativo e grafo circular
+
+- [Interface, temas e interação](UI-v1.3.md): Painel, Explorar, Grafo e Logs.
+- [Fonte, variantes e evidências](RELEASE-v1.3.md): APKs ARM64/code13, testes
+  host e revisão independente; candidato final sem novo aceite físico.
+
+## v1.2 — histórico LAN/VPN e bridge existente
 
 - [Configurar LAN, VPN e interoperabilidade DDS](VPN-DDS.md).
 - [Fonte, variantes e evidências delimitadas](RELEASE-v1.2.md): leitura real e

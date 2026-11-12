@@ -10,11 +10,11 @@ import org.robolectric.*;
 import org.robolectric.annotation.*;
 import static org.junit.Assert.*;
 
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class RosGraphPanelTest {
  RosGraphPanel p;
- @Before public void setup()throws Exception{p=new RosGraphPanel(RuntimeEnvironment.getApplication());p.update(RosGraphModelTest.fixture());p.stage.layout(0,0,1100,480);p.stage.fit(false);}
+ @Before public void setup()throws Exception{p=new RosGraphPanel(RuntimeEnvironment.getApplication());p.physicsToggle.setChecked(false);p.update(RosGraphModelTest.fixture());p.stage.layout(0,0,1100,480);p.stage.fit(false);}
  String named(String label){for(String id:p.vertices.keySet())if(p.label(id).equals(label))return id;throw new AssertionError(label);}
  void tap(float x,float y){long t=android.os.SystemClock.uptimeMillis();MotionEvent d=MotionEvent.obtain(t,t,MotionEvent.ACTION_DOWN,x,y,0),u=MotionEvent.obtain(t,t+50,MotionEvent.ACTION_UP,x,y,0);p.stage.onTouchEvent(d);p.stage.onTouchEvent(u);d.recycle();u.recycle();}
  Bitmap draw(){Bitmap b=Bitmap.createBitmap(1100,480,Bitmap.Config.ARGB_8888);p.stage.draw(new Canvas(b));return b;}
@@ -22,7 +22,7 @@ public class RosGraphPanelTest {
   String talker=named("/talker"),other=named("/other");java.util.Map<String,RectF> before=new java.util.LinkedHashMap<>();for(String id:p.positions.keySet())before.put(id,new RectF(p.positions.get(id)));
   float scale=p.stage.scale,tx=p.stage.tx,ty=p.stage.ty;RectF target=p.stage.screenRect(talker);Bitmap full=draw();tap(target.centerX(),target.centerY());
   assertEquals(talker,p.selected);assertTrue(p.focused.contains(named("/listener")));assertFalse(p.focused.contains(other));assertEquals(before,p.positions);assertEquals(scale,p.stage.scale,0);assertEquals(tx,p.stage.tx,0);assertEquals(ty,p.stage.ty,0);
-  Bitmap focused=draw();RectF r=p.stage.screenRect(other);int x=(int)(r.left+8),y=(int)r.centerY();assertNotEquals(full.getPixel(x,y),focused.getPixel(x,y));
+  Bitmap focused=draw();RectF r=p.stage.screenRect(other);int x=Math.round(r.centerX()),y=Math.round(r.centerY());assertNotEquals(full.getPixel(x,y),focused.getPixel(x,y));
   String preview=System.getenv("POCKET_GRAPH_PREVIEW");if(preview!=null){try(java.io.FileOutputStream out=new java.io.FileOutputStream(preview)){focused.compress(Bitmap.CompressFormat.PNG,100,out);}}
   p.update(RosGraphModelTest.fixture());assertEquals(talker,p.selected);assertEquals(before,p.positions);assertEquals(scale,p.stage.scale,0);
   tap(1,1);assertEquals("",p.selected);assertTrue(p.focused.isEmpty());
@@ -73,14 +73,17 @@ public class RosGraphPanelTest {
   MotionEvent up=MotionEvent.obtain(start,start+250,MotionEvent.ACTION_UP,260,200,0);p.stage.onTouchEvent(up);up.recycle();assertTrue(p.stage.scale>before);assertEquals("",p.selected);
  }
  @Test public void panKeepsTheInitialSmallMotionOnceDraggingBegins()throws Exception{
-  float before=p.stage.tx;long t=android.os.SystemClock.uptimeMillis();float[] xs={100,102,103,170};
-  for(int i=0;i<xs.length;i++){MotionEvent e=MotionEvent.obtain(t,t+i*20,i==0?MotionEvent.ACTION_DOWN:MotionEvent.ACTION_MOVE,xs[i],200,0);p.stage.onTouchEvent(e);e.recycle();}
+  float before=p.stage.tx;long t=android.os.SystemClock.uptimeMillis();float[] xs={5,7,8,75};assertFalse("Background pan starts outside elements",p.vertices.containsKey(p.stage.hit(5,5)));
+  for(int i=0;i<xs.length;i++){MotionEvent e=MotionEvent.obtain(t,t+i*20,i==0?MotionEvent.ACTION_DOWN:MotionEvent.ACTION_MOVE,xs[i],5,0);p.stage.onTouchEvent(e);e.recycle();}
   assertEquals(before+70,p.stage.tx,.1f);
+ }
+ @Test public void overviewZoomKeepsLabelsAndBordersReadableInScreenUnits() throws Exception {
+  p.stage.scale=.3f;Bitmap b=draw();assertTrue("Overview labels need a minimum screen-space size",p.stage.pen.getTextSize()*p.stage.scale>=p.dp(12)-.01);assertTrue("Box borders should not vanish below a pixel",p.stage.pen.getStrokeWidth()*p.stage.scale>=p.dp(1)-.01);b.recycle();
  }
  @Test public void nodeHighlightDoesNotPileRoleLabelsOverConnections()throws Exception{
   p.select(named("/talker"));JSONObject e=null;for(JSONObject edge:p.edges.values())if(edge.optString("from").equals(named("/talker")))e=edge;assertNotNull(e);
-  PointF[] ends=p.stage.ends(e);float cy=ends[0].y*p.stage.scale+p.stage.ty;int left=(int)((ends[0].x+20)*p.stage.scale+p.stage.tx),right=(int)((ends[1].x-20)*p.stage.scale+p.stage.tx);int top=(int)(cy-24*p.stage.scale),bottom=(int)(cy-8*p.stage.scale);
-  Bitmap b=draw();int colored=0;for(int y=top;y<bottom;y++)for(int x=left;x<right;x++)if(b.getPixel(x,y)==RosGraphPanel.PUB)colored++;assertEquals("Roles belong on the selected edge, not a pile of labels over every branch",0,colored);
-  p.select(e.optString("id"));b=draw();colored=0;for(int y=top;y<bottom;y++)for(int x=left;x<right;x++)if(b.getPixel(x,y)==RosGraphPanel.PUB)colored++;assertTrue("A selected edge still renders its role",colored>0);
+  // Circular labels choose a collision-free pose; fixed card-era pixel rectangles are not their contract.
+  GraphCircularViewTest.ShapeCanvas all=new GraphCircularViewTest.ShapeCanvas();p.stage.draw(all);assertEquals("Roles belong on the selected edge, not a pile over every branch",0,java.util.Collections.frequency(all.textValues,"Publica")+java.util.Collections.frequency(all.textValues,"Assina"));
+  p.select(e.optString("id"));GraphCircularViewTest.ShapeCanvas selected=new GraphCircularViewTest.ShapeCanvas();p.stage.draw(selected);assertEquals("A selected edge still renders exactly its own role",1,java.util.Collections.frequency(selected.textValues,e.optString("role")));
  }
 }

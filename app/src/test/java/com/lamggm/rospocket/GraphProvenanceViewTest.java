@@ -8,7 +8,7 @@ import org.robolectric.*;
 import org.robolectric.annotation.*;
 import static org.junit.Assert.*;
 /** Actual host native Canvas; typed native rows are synthetic, not JNI/device evidence. */
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night") @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class GraphProvenanceViewTest {
  private PlotController live() throws Exception {
   PlotController c=new PlotController();c.acceptNative(PlotMultiWatchTest.snapshot(1,100),1,false);

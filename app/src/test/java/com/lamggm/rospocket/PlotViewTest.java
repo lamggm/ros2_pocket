@@ -6,7 +6,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.*;
 import org.robolectric.annotation.*;
 import static org.junit.Assert.*;
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night") @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class PlotViewTest {
  @Test public void actualControlsSelectOverlayAndPauseOnlyPresentation()throws Exception {
   PlotController c=new PlotController();c.acceptNative(PlotControllerTest.sample(1,100),1,false);
@@ -32,7 +32,7 @@ public class PlotViewTest {
  @Test public void nativeCanvasOverlaysFourColorsButDoesNotBridgeNonfiniteGaps(){
   PlotController c=new PlotController();PlotView v=new PlotView(RuntimeEnvironment.getApplication(),c);
   for(int i=0;i<4;i++){String id="s"+i;c.history.select(id,"x",null);c.history.append(id,1,(double)i,null);c.history.append(id,2,Double.NaN,null);c.history.append(id,3,(double)i+1,null);}
-  v.refresh();android.view.View chart=v.getChildAt(v.getChildCount()-1);chart.layout(0,0,800,300);
+  v.refresh();android.view.View chart=v.findViewById(R.id.plot_chart);chart.layout(0,0,800,300);
   Bitmap image=Bitmap.createBitmap(800,300,Bitmap.Config.ARGB_8888);chart.draw(new Canvas(image));
   for(int color:PlotView.COLORS){int count=0;for(int y=40;y<265;y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)count++;assertTrue("each series is drawn",count>0);}
   for(int y=40;y<265;y++)for(int color:PlotView.COLORS)assertNotEquals("No invented continuous line across NaN",color,image.getPixel(400,y));

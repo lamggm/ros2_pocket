@@ -28,7 +28,7 @@ final class PlotExportPanel extends LinearLayout {
  PlotExportPanel(Activity activity,PlotView plot){
   super(activity);this.activity=activity;this.plot=plot;setOrientation(VERTICAL);
   export=new Button(activity);export.setId(R.id.plot_export);export.setTag("plot-export");export.setText("Exportar gráficos em CSV");export.setOnClickListener(v->begin());addView(export);
-  status=new TextView(activity);status.setId(R.id.plot_export_status);status.setTag("plot-export-status");status.setTextColor(0xff9aa9bc);status.setText("CSV de snapshots retidos, não grava todas as mensagens. O seletor de arquivos pode suspender DDS ao colocar o app em segundo plano.");addView(status);
+  status=new TextView(activity);status.setId(R.id.plot_export_status);status.setTag("plot-export-status");status.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));status.setText("CSV de snapshots retidos, não grava todas as mensagens. O seletor de arquivos pode suspender DDS ao colocar o app em segundo plano.");addView(status);
  }
  private void begin(){
   if(pending!=null||writing||closed)return;

@@ -11,7 +11,7 @@ import java.util.*;
 import static org.junit.Assert.*;
 
 /** Real host model/Canvas; native rows in unit cases are explicitly synthetic. */
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night") @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class PlotQualificationTest {
  static JSONObject rows(long count,long received,long reader)throws Exception {
   JSONArray watches=new JSONArray();

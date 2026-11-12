@@ -25,8 +25,8 @@ public class BuildIdentityActivityTest {
   return matches;
  }
  @Test public void v1DebugBuildRetainsSeparateDevIdentity() {
-  assertEquals("1.2.0-dev",BuildConfig.VERSION_NAME);
-  assertEquals(12,BuildConfig.VERSION_CODE);
+  assertEquals("1.3.0-dev",BuildConfig.VERSION_NAME);
+  assertEquals(13,BuildConfig.VERSION_CODE);
   assertEquals("com.lamggm.rospocket.dev",BuildConfig.APPLICATION_ID);
   assertTrue("Preparation stays debug; no release signer or package migration",BuildConfig.DEBUG);
  }
@@ -39,6 +39,6 @@ public class BuildIdentityActivityTest {
  @Test public void subtitleUsesActualBuildVersionAndPreservesReadOnlyIdentity() {
   MainActivity activity=Robolectric.buildActivity(MainActivity.class).create().get();
   assertEquals("One real header must describe the actual build, not a historical label",1,
-   matchingText(activity.getWindow().getDecorView(),"v"+BuildConfig.VERSION_NAME+" · DDS direto · SOMENTE LEITURA"));
+   matchingText(activity.getWindow().getDecorView(),"v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA"));
  }
 }
