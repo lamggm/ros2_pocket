@@ -22,7 +22,7 @@ final class ProfileTransferPanel extends LinearLayout {
   super(activity);this.activity=activity;this.selection=selection;this.importer=importer;setOrientation(VERTICAL);
   export=new Button(activity);export.setId(R.id.profile_export);export.setText("Exportar perfil selecionado (JSON)");export.setAllCaps(false);export.setOnClickListener(v->beginExport());addView(export);
   importButton=new Button(activity);importButton.setId(R.id.profile_import);importButton.setText("Importar perfil (JSON)");importButton.setAllCaps(false);importButton.setOnClickListener(v->beginImport());addView(importButton);
-  status=new TextView(activity);status.setId(R.id.profile_transfer_status);status.setTextColor(0xff9aa9bc);status.setText("JSON de configuração, sem amostras/imagens. Pode conter peer/IP e nomes de tópicos.");addView(status);
+  status=new TextView(activity);status.setId(R.id.profile_transfer_status);status.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));status.setText("JSON de configuração, sem amostras/imagens. Pode conter peer/IP e nomes de tópicos.");addView(status);
  }
  private boolean begin(){if(busy||closed)return false;busy=true;revision++;export.setEnabled(false);importButton.setEnabled(false);return true;}
  private boolean current(long token){return !closed&&busy&&revision==token;}

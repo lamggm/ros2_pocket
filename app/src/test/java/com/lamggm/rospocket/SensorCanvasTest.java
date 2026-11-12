@@ -2,7 +2,7 @@ package com.lamggm.rospocket;
 import android.graphics.*;import android.view.View;import org.junit.*;import org.junit.runner.RunWith;
 import org.robolectric.*;import org.robolectric.annotation.*;import static org.junit.Assert.*;
 import java.io.*;import java.nio.file.*;import org.json.JSONObject;
-@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @LooperMode(LooperMode.Mode.PAUSED) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31,qualifiers="night") @LooperMode(LooperMode.Mode.PAUSED) @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class SensorCanvasTest {
  private SensorPanelTest.QueuedPanel panel;
  @Before public void setup(){panel=new SensorPanelTest.QueuedPanel();panel.available(true);panel.visible(true);}

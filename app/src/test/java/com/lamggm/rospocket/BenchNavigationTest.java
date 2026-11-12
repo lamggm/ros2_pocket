@@ -28,13 +28,13 @@ public class BenchNavigationTest extends ConnectionActivityTest {
  }
  @Test public void fourSectionsContainRealControlsAndSwitchWithoutRebuildingViews() throws Exception {
   String[] names={"connection","topics","monitor","logs"};
-  String[] labels={"Conexão","Tópicos","Monitor","Logs"};
+  String[] labels={"Conexão","Explorar","Painel","Logs"};
   int[] controls={R.id.domain,R.id.topics,R.id.plot_panel,R.id.rosout_entries};
   View[] actual=new View[4];
   for(int i=0;i<4;i++){
    actual[i]=a.findViewById(controls[i]);
    assertTrue("Real control belongs to "+names[i],within(actual[i],view("section_"+names[i])));
-   assertEquals(labels[i],((Button)view("nav_"+names[i])).getText().toString());
+   assertEquals(labels[i],((Button)view("nav_"+names[i])).getText().toString().split("\n",2)[0]);
    assertEquals("Abrir seção "+labels[i],view("nav_"+names[i]).getContentDescription().toString());
   }
   int[][] remaining={{R.id.peer,R.id.connect,R.id.status,R.id.diagnostics,R.id.nodes},

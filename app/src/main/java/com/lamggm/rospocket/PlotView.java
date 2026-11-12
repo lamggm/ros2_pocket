@@ -13,6 +13,9 @@ final class PlotView extends LinearLayout {
  private final PlotController controller;
  private final LinearLayout choices;
  private final TextView legend;
+ private final TextView summary;
+ private final TextView sourceLabel;
+ private final LinearLayout configuration;
  private final Button pause;
  private final Chart chart;
  private boolean paused;private long revision=-1;
@@ -22,13 +25,19 @@ final class PlotView extends LinearLayout {
  private List<PlotHistory.Series> visible=Collections.emptyList();
  PlotView(Context context,PlotController controller){
   super(context);this.controller=controller;setId(R.id.plot_panel);setOrientation(VERTICAL);setTag("live-plot");
-  TextView title=new TextView(context);title.setText("GRÁFICO · snapshots numéricos");title.setTextColor(COLORS[0]);addView(title);
-  TextView hint=new TextView(context);hint.setText("Para traçar campos da inspeção estruturada, marque as caixas abaixo (Watch + caminho).\nToques na árvore selecionam apenas o inspetor; as caixas selecionam o gráfico.\nAté 4 séries · 30 s / 600 pontos por série.\nEixo Y bruto compartilhado (autoescala); unidades somente declaradas.\nRecepção monotônica, não horário da origem. Lacunas não são zeros.");hint.setTextColor(0xff9aa9bc);addView(hint);
-  pause=new Button(context);pause.setId(R.id.plot_pause);pause.setTag("plot-pause");pause.setText("Pausar gráfico");pause.setOnClickListener(v->{paused=!paused;pause.setText(paused?"Retomar gráfico":"Pausar gráfico");refresh();});addView(pause);
-  choices=new LinearLayout(context);choices.setOrientation(VERTICAL);addView(choices);
-  legend=new TextView(context);legend.setTextColor(0xffe6edf3);addView(legend);
+  LinearLayout toolbar=new LinearLayout(context);toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);addView(toolbar);
+  TextView title=new TextView(context);title.setText("Gráfico");title.setTextSize(19);title.setTextColor(UiTheme.color(getContext(),0xffe6edf3));toolbar.addView(title,new LayoutParams(0,-2,1));
+  configuration=new LinearLayout(context);configuration.setOrientation(VERTICAL);configuration.setTag("plot-configuration");configuration.setVisibility(GONE);
+  pause=new VisualButton(context,"icon","pause");pause.setId(R.id.plot_pause);pause.setTag("plot-pause");pause.setText("Pausar gráfico");pause.setContentDescription("Pausar gráfico");pause.setOnClickListener(v->{paused=!paused;pause.setSelected(paused);pause.setText(paused?"Retomar gráfico":"Pausar gráfico");pause.setContentDescription(pause.getText());UiTheme.apply(pause);refresh();});toolbar.addView(pause,new LayoutParams(dp(48),dp(48)));
+  Button settings=new VisualButton(context,"icon","more");settings.setText("Séries e detalhes");settings.setTag("plot-settings");settings.setContentDescription("Escolher séries, detalhes e exportar gráfico");settings.setOnClickListener(v->configuration.setVisibility(configuration.getVisibility()==GONE?VISIBLE:GONE));toolbar.addView(settings,new LayoutParams(dp(48),dp(48)));
+  sourceLabel=new TextView(context);sourceLabel.setText("Selecione campos no menu ⋯");sourceLabel.setTextColor(UiTheme.color(context,0xff9aa9bc));sourceLabel.setTextSize(12);sourceLabel.setSingleLine(true);sourceLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);sourceLabel.setGravity(android.view.Gravity.CENTER_VERTICAL);addView(sourceLabel,new LayoutParams(-1,dp(48)));
   chart=new Chart(context);chart.setId(R.id.plot_chart);chart.setContentDescription("Gráfico numérico: tempo de recepção monotônico, valores brutos");addView(chart,new LayoutParams(-1,(int)(240*getResources().getDisplayMetrics().density)));
+  summary=new TextView(context);summary.setText("Escolha campos numéricos em ⋯");summary.setTextSize(11);summary.setTextColor(UiTheme.color(context,0xff9aa9bc));summary.setMaxLines(2);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);summary.setPadding(0,dp(12),0,dp(8));addView(summary);
+  addView(configuration);TextView hint=new TextView(context);hint.setTag("plot-instructions");hint.setText("Para traçar campos da inspeção estruturada, marque as caixas abaixo (Watch + caminho).\nToques na árvore selecionam apenas o inspetor; as caixas selecionam o gráfico.\nAté 4 séries · 30 s / 600 pontos por série.\nEixo Y bruto compartilhado (autoescala); unidades somente declaradas.\nRecepção monotônica, não horário da origem. Lacunas não são zeros.");hint.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));hint.setTextSize(12);configuration.addView(hint);
+  choices=new LinearLayout(context);choices.setOrientation(VERTICAL);configuration.addView(choices);
+  legend=new TextView(context);legend.setTextColor(UiTheme.color(getContext(),0xffe6edf3));legend.setTextSize(12);configuration.addView(legend);
  }
+ private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
  List<PlotHistory.Series> displayed(){return visible;}
  List<PlotHistory.Series> exportSeries(){synchronized(controller){refresh();return visible;}}
  boolean pausedForExport(){return paused;}
@@ -66,7 +75,7 @@ final class PlotView extends LinearLayout {
   revision=observedRevision;
   choices.removeAllViews();
   for(PlotController.Field f:controller.fields()){
-   CheckBox check=new CheckBox(getContext());check.setTag("plot-field:"+f.id());check.setText(f.watch+" · "+f.path+(f.unit==null?" [unidade desconhecida]":" ["+f.unit+"]"));check.setTextColor(0xffe6edf3);check.setChecked(controller.selected(f.id()));
+   CheckBox check=new CheckBox(getContext());check.setTag("plot-field:"+f.id());check.setText(f.watch+" · "+f.path+(f.unit==null?" [unidade desconhecida]":" ["+f.unit+"]"));check.setTextColor(UiTheme.color(getContext(),0xffe6edf3));check.setChecked(controller.selected(f.id()));
    check.setOnCheckedChangeListener((b,on)->{if(on){if(!controller.select(f.watch,f.path)){check.setChecked(false);Toast.makeText(getContext(),"Limite de quatro séries",Toast.LENGTH_SHORT).show();}}else {removeSeries(f.id());}refresh();});choices.addView(check);
   }
   for(PlotHistory.Series s:controller.history.snapshot()){
@@ -80,7 +89,7 @@ final class PlotView extends LinearLayout {
   }
   if(visible.isEmpty())labels.append("Sem série selecionada / sem dados numéricos atuais.");
   for(String field:controller.pendingProfileFields())labels.append("\nPERFIL · campo pendente: ").append(field);
-  legend.setText(labels);chart.invalidate();
+  legend.setText(labels);sourceLabel.setText(visible.isEmpty()?"Selecione campos no menu ⋯":visible.size()==1?visible.get(0).id.replace('\n',' '):visible.size()+" séries selecionadas");StringBuilder shortLabel=new StringBuilder(paused?"PAUSADO · ":"");if(visible.isEmpty())shortLabel.append("Sem histórico selecionado");else for(PlotHistory.Series s:visible){if(shortLabel.length()>0)shortLabel.append("  ·  ");shortLabel.append(s.id.replace('\n',' ')).append(": ");PlotHistory.Point last=s.points.isEmpty()?null:s.points.get(s.points.size()-1);shortLabel.append(last==null||last.value==null?"—":last.value.toString()).append(s.unit==null?" [unidade desconhecida]":" "+s.unit);}summary.setText(shortLabel);summary.setTextColor(UiTheme.color(getContext(),paused?0xffffa97d:0xff9aa9bc));chart.invalidate();
  }
  private void removeSeries(String id){
   controller.removeSelection(id);
@@ -112,8 +121,8 @@ final class PlotView extends LinearLayout {
   private void drawChart(Canvas canvas){
    float left=12,top=40,right=getWidth()-12,bottom=getHeight()-35;
    if(right<=left||bottom<=top)return;
-   pen.setColor(0xff9aa9bc);pen.setStrokeWidth(1);pen.setTextSize(12*getResources().getDisplayMetrics().scaledDensity);
-   canvas.drawLine(left,bottom,right,bottom,pen);
+   pen.setColor(UiTheme.color(getContext(),0xff9aa9bc));pen.setStrokeWidth(1);pen.setTextSize(12*getResources().getDisplayMetrics().scaledDensity);
+   canvas.drawLine(left,bottom,right,bottom,pen);pen.setColor(VisualButton.border(getContext()));for(int row=1;row<4;row++){float y=top+(bottom-top)*row/4;canvas.drawLine(left,y,right,y,pen);}pen.setColor(UiTheme.color(getContext(),0xff9aa9bc));
    double min=Double.POSITIVE_INFINITY,max=Double.NEGATIVE_INFINITY;long first=Long.MAX_VALUE,last=0;
    for(PlotHistory.Series s:visible)for(PlotHistory.Point p:s.points){first=Math.min(first,p.time);last=Math.max(last,p.time);if(p.value!=null){min=Math.min(min,p.value);max=Math.max(max,p.value);}}
    if(!Double.isFinite(min)||!Double.isFinite(max)){canvas.drawText("Sem pontos finitos",left,top,pen);return;}
@@ -121,7 +130,7 @@ final class PlotView extends LinearLayout {
    canvas.drawText(String.format(Locale.ROOT,"recepção: −%.2f s → 0",(last-first)/1e9),left,getHeight()-10,pen);
    int i=0;
    for(PlotHistory.Series s:visible){
-    pen.setColor(COLORS[i++%COLORS.length]);pen.setStrokeWidth(3);
+    pen.setColor(UiTheme.color(getContext(),COLORS[i++%COLORS.length]));pen.setStrokeWidth(3);
     boolean previous=false;float px=0,py=0;
     for(PlotHistory.Point p:s.points){
      if(p.value==null){previous=false;continue;}
