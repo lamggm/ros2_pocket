@@ -14,7 +14,7 @@
       }
     },
     "address": "https://lamggm.github.io/ros2_pocket/fdroid/repo",
-    "timestamp": 1794494970000,
+    "timestamp": 1794767526000,
     "categories": {
       "Development": {
         "icon": {
@@ -41,7 +41,7 @@
           "Development"
         ],
         "issueTracker": "https://github.com/lamggm/ros2_pocket/issues",
-        "lastUpdated": 1794494970000,
+        "lastUpdated": 1794767526000,
         "license": "Apache-2.0",
         "sourceCode": "https://github.com/lamggm/ros2_pocket",
         "webSite": "https://github.com/lamggm/ros2_pocket",
@@ -54,7 +54,7 @@
           "en-US": "Read-only ROS 2 and DDS inspection on Android"
         },
         "description": {
-          "en-US": "ROS Pocket is a read-only Android inspector using direct DDS and Cyclone DDS.\nInspect discovered topics, supported telemetry types and sensor views, monitor\nnumeric histories and export CSV, and manage portable local bench profiles.\nNative workspace with Dashboard, Explore, Graph and Logs, system/light/dark\nthemes, circular namespace groups and local visual physics. Namespace does\nnot identify a ROS package; arrows are announced associations, not traffic.\n\nARM64 devices, Android 9 (API 28) or later. Network discovery depends on your\nROS domain, peers and network setup, with explicit LAN or routed VPN mode.\nRF/IP recovery and actual VPN absence/return remain unqualified. The final\nversion1.3 APK was host-validated, without new physical-device acceptance.\n\nThis is the independent upstream repository, not the official f-droid.org\ncatalogue. APKs keep the upstream production signature used by GitHub releases."
+          "en-US": "Read-only Android ROS 2/DDS inspector with native Dashboard, Explore, Graph and Logs, themes, four telemetry watches, numeric plots/CSV and one LaserScan/camera reader.\n\nVersion1.4 adds offline URDF/CAD assets, bounded full indexed GLES2, passive observed TF, fullscreen and resizable/reorderable dashboard cards. Assets bind to the exact robot description; no robot commands, RPC or arbitrary mesh downloads.\n\nARM64 Android9+. Explicit LAN or routed VPN setup and manual Humble/Jazzy graph format. Production1.4 was host-built/linted/signed; the separate DEV variant received bounded physical-tablet and software-simulation observation. Production physical, sustained FPS/battery, real VPN absence/return and RF/IP recovery remain unqualified.\n\nThis is the independent upstream repository, not the official f-droid.org catalogue. APKs retain the upstream production certificate used by GitHub releases."
         },
         "icon": {
           "en-US": {
@@ -66,6 +66,49 @@
         "preferredSigner": "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
       },
       "versions": {
+        "4d8f3549c883092c7565f20abd80946d6319856ed8f4c91c9347d52c8e732e81": {
+          "added": 1794767526000,
+          "file": {
+            "name": "/com.lamggm.rospocket_14.apk",
+            "sha256": "4d8f3549c883092c7565f20abd80946d6319856ed8f4c91c9347d52c8e732e81",
+            "size": 5240168
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a"
+            ],
+            "versionName": "1.4.0",
+            "versionCode": 14,
+            "features": [
+              {
+                "name": "android.hardware.wifi"
+              }
+            ],
+            "usesSdk": {
+              "minSdkVersion": 28,
+              "targetSdkVersion": 35
+            },
+            "signer": {
+              "sha256": [
+                "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              },
+              {
+                "name": "android.permission.ACCESS_WIFI_STATE"
+              },
+              {
+                "name": "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+              }
+            ]
+          }
+        },
         "8f2c06d21ddcc08e8fbd49f746a884dd0582126a7cd6ac6b97f5e6cccd18c67a": {
           "added": 1794494970000,
           "file": {
