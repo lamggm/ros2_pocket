@@ -27,8 +27,13 @@ oficial f-droid.org é externa e não é alegada por esta atualização.
 Commit de aplicação: `7be5839cc4ca9a0b44fef88f4009d4c4914d029e`. Seus386arquivos são idênticos à candidata
 revisada e testada, snapshot
 `ba2eb344f5724fdb523ca1af14cf05e58a95d23771acd1286c9369f0479dba4d`.
-A promoção posterior altera apenas documentação e descrições da loja. O APK do CI
-não substitui os artefatos congelados; merge/tag e IDs de CI constam nas notas da release.
+A promoção inicial alterou apenas documentação e descrições da loja. Uma correção
+posterior ficou restrita ao produtor da fixture nativa TF: ele agora usa loopback
+explícito como o receptor, sem alterar o app, assertions ou prazos. O CI inicial
+[43747008570](https://github.com/lamggm/ros2_pocket/actions/runs/43747008570) falhou
+nesse teste; o reproducer rejeitou o original com uma segunda interface e aceitou
+a correção com o mesmo oracle. O APK do CI não substitui os artefatos congelados;
+merge/tag e IDs do head final constam nas notas da release.
 
 - **DEV físico:** `ros-pocket-dev-v1.4.0-arm64.apk`,
   `com.lamggm.rospocket.dev`,1.4.0-dev/code14,debuggable,ARM64,hooks OFF.
