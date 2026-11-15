@@ -23,4 +23,5 @@ Reordenar/redimensionar não remove e reinsere as Views de conteúdo: modelo, bu
 
 JUnit/Robolectric: modelo imutável/codec, falha real AtomicFile, rascunho/salvar/cancelar/padrão, menu nativo, gesto de resize, evento antigo, persistência, Back/seção/lifecycle, viewports reais, identidade do modelo/zoom/readers, layouts phone/tablet e temas. Ajuste de projeção preserva enquadramento no lado menor de cards altos, sem mudar geometria. Imagens host usam fixtures explicitamente sintéticas, somente testes; não entram no APK.
 
-Aceite físico e build/review vinculados ao candidato constam dos recibos externos da entrega. Não equivalem a soak, FPS/bateria, reconexão RF/IP ou aceite do robô físico. Sem merge/release/produção neste incremento.
+Aceite físico e build/review vinculados ao candidato constam dos recibos externos da entrega. Não equivalem a soak, FPS/bateria, reconexão RF/IP ou aceite do robô físico. O incremento original era DEV sem promoção implícita; a autorização posterior
+e a separação DEV físico/produção host constam de [RELEASE-v1.4](RELEASE-v1.4.md).

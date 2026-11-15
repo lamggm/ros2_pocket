@@ -8,7 +8,14 @@ registros históricos ficam separados para não interromper o passo a passo.
 Confira a versão disponível na página de release. Produção e DEV têm identidades
 distintas; o aceite físico de uma variante não é transferido à outra.
 
-## v1.3 — workspace nativo e grafo circular
+## v1.4 — CAD offline, TF passivo e painel editável
+
+- [Interface e descrição](UI-v1.4.md); [CAD/TF e tela cheia](CAD-TF-VIEWER.md).
+- [Pacotes offline](ROBOT-ASSETS.md); [grade editável](DASHBOARD-LAYOUT.md).
+- [Fonte, variantes, aceite e distribuição](RELEASE-v1.4.md): DEV físico e
+  produção host separados, limites e repositório F-Droid independente.
+
+## v1.3 — histórico do workspace nativo e grafo circular
 
 - [Interface, temas e interação](UI-v1.3.md): Painel, Explorar, Grafo e Logs.
 - [Fonte, variantes e evidências](RELEASE-v1.3.md): APKs ARM64/code13, testes

@@ -1,0 +1,1 @@
+Offline URDF/CAD assets, passive observed TF and fullscreen. Resize and reorder dashboard cards with local persistence. Read-only DDS; no robot commands.

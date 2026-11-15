@@ -1,6 +1,10 @@
 # ROS Pocket
 
-> **v1.3 — workspace nativo e grafo circular:** Painel, Explorar, Grafo e Logs;
+> **v1.4 — CAD offline, TF observado e painel editável:** URDF seguro, malhas
+> locais vinculadas à descrição, GLES2/tela cheia e cards redimensionáveis.
+> [Uso](docs/UI-v1.4.md) · [Artefatos e aceite](docs/RELEASE-v1.4.md).
+>
+> **Histórico v1.3 — workspace nativo e grafo circular:** Painel, Explorar, Grafo e Logs;
 > aparência Sistema/Claro/Escuro, quatro watches, console com inspetor e física
 > visual por namespace. [Interface](docs/UI-v1.3.md) ·
 > [Artefatos, testes host e limites](docs/RELEASE-v1.3.md).
@@ -41,16 +45,13 @@ gráficos e logs. Ele é **somente leitura**: não envia comandos para o robô.
 [Roadmap e histórico](docs/ROADMAP.md) ·
 [Reportar um problema](https://github.com/lamggm/ros2_pocket/issues)
 
-> A v1.3 mantém o alcance de protótipo de bancada. Produção é
-> **1.3.0/code13**, não debuggable, com assinatura upstream; DEV é
-> **1.3.0-dev/code13** e instala ao lado. Ambos ARM64/hooks OFF.
-> O candidato final passou688 casos Java (zero falhas, um skip),309 testes
-> Python e revisão independente. Produção passou build/lint/assinatura no host.
-> **Nenhum dos APKs finais v1.3 foi instalado ou validado fisicamente nesta rodada.**
-> As prévias usam dados sintéticos exclusivos dos testes. Aceites anteriores
-> não se transferem a estes bytes; VPN real e RF/IP continuam pendentes.
-> [Identidades, evidências e limites](docs/RELEASE-v1.3.md).
-> Não use o app como instrumento de segurança ou controle de uma operação.
+> A v1.4 preserva o alcance de ferramenta de bancada, somente leitura.
+> Produção **1.4.0/code14** tem assinatura upstream; DEV **1.4.0-dev/code14**
+> instala ao lado. DEV recebeu smoke físico delimitado de CAD/TF/painel e
+> observação de simulação ROS pela LAN; produção recebeu build/lint/assinatura
+> no host, sem instalação física.777casos Java/zero falhas/um skip opt-in,
+> 316testes Python e28CTests na candidata de conteúdo idêntico.
+> [Identidades e limites](docs/RELEASE-v1.4.md). Não é instrumento de segurança.
 
 ## Baixar e instalar
 
@@ -81,6 +82,7 @@ assinatura, **não desinstale nem limpe os dados como atalho**: veja as
 - Escolher manualmente o grafo **Humble (GID24)** ou **Jazzy (GID16)**, persistido no perfil.
 - Escolher **LAN / Wi-Fi** ou **VPN / Tailscale** com peer explícito, inclusive para o leitor visual.
 - Visualizar **LaserScan 2D ou câmera ROS**, alternados no Painel, sem ocupar os watches.
+- Observar URDF/CAD com assets offline, TF passivo e tela cheia; personalizar tamanhos e ordem dos sete cards.
 
 A interface tem quatro destinos: **Painel, Explorar, Grafo e Logs**.
 **Conexão** e **Aparência** ficam no cabeçalho. Toque no Explorer inspeciona;
@@ -117,7 +119,8 @@ Domínios mistos, outras distribuições e tipos não exercitados não herdam su
 
 O APK atual é ARM64, usa IPv4 em LAN ou no modo VPN explícito e decodifica uma lista definida de
 tipos padrão, incluindo [sensores visuais com limites explícitos](docs/SENSOR-VIEWS.md).
-Tipos customizados, mapas/TF, parâmetros, serviços/actions e teleop não fazem parte desta versão.
+Tipos customizados, mapas, parâmetros, serviços/actions e teleop continuam fora do escopo.
+TF passivo é limitado ao [modelo URDF/CAD](docs/CAD-TF-VIEWER.md), não navegação ou RViz completo.
 Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 
 <a id="development-sequence"></a>
@@ -134,8 +137,8 @@ Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 - [Acompanhar versões e desenvolvimento](docs/PROJECT-STATUS.md): release, branches, histórico e backlog.
 - [Roadmap v0.5–v0.9](docs/ROADMAP.md): entregas e propostas futuras, limites, milestones e issues.
 
-A v1.3 preserva watches, sensores, logs e perfis. A release distribui o DEV
-congelado validado no host e a variante produção separada, não substituídos
+A v1.4 preserva watches, sensores, logs e perfis. A release distribui o DEV
+congelado fisicamente exercitado e a variante produção host separada, não substituídos
 pelo APK recompilado no CI. O manifesto conserva o HEAD/snapshot original do
 build e distingue o commit de consolidação, a promoção documental e o merge.
 As releases anteriores permanecem intactas.

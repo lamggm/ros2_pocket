@@ -1,0 +1,1 @@
+URDF/CAD com malhas offline, TF passivo e tela cheia. Redimensione e reordene os cards com persistência local. DDS somente leitura, sem comandos ao robô.

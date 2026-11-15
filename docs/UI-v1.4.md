@@ -77,5 +77,7 @@ recuperação e coexistência com a Session de telemetria. Isso não é aceite f
 Android nem teste do runtime de um robô.
 
 Fixtures e imagens demonstrativas existem somente nos testes. APK DEV 1.4.0,
-code14, ARM64, hooks OFF; sem instalação, push, merge, release ou F-Droid implícitos.
-Os resultados exatos de build/lint/regressões e os hashes acompanham a entrega.
+code14, ARM64, hooks OFF. A implementação inicial não autorizava promoção
+implícita. O aceite DEV e a autorização posterior de merge/release/índice F-Droid
+estão consolidados em [RELEASE-v1.4](RELEASE-v1.4.md), com hashes e limites;
+produção não herda a validação física do DEV.

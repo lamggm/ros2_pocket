@@ -2,7 +2,18 @@
 
 [Início](../README.md) · [Índice da documentação](README.md)
 
-## v1.3 — workspace nativo, promoção e release autorizadas
+## v1.4 — CAD, TF e painel; promoção/release/F-Droid autorizados
+
+Candidata consolidada em `7be5839cc4ca9a0b44fef88f4009d4c4914d029e`,386arquivos de conteúdo
+idêntico ao snapshot aprovado.777casos Java/zero falhas/um skip opt-in,316Python
+e28CTests. DEV físico: CAD full/TF, fullscreen, personalização/persistência e
+observação ROS de simulação pela LAN; produção host sem instalação física.
+PR/CI/merge/release e atualização do índice F-Droid independente são autorizados
+e têm readbacks separados. Sem alterar robô físico/rede/energia do tablet.
+[Artefatos, fontes, evidências e limites](RELEASE-v1.4.md) ·
+[Interface](UI-v1.4.md) · [Painel](DASHBOARD-LAYOUT.md).
+
+## v1.3 — histórico do workspace nativo e da promoção
 
 Painel com quatro watches e um leitor visual, Explorer dividido, temas
 Sistema/Claro/Escuro, console compacto com inspetor e grafo circular com física

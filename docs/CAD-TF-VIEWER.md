@@ -52,5 +52,7 @@ Primeira conversão com esses extras e seus replays falhos foram preservados.
 
 Testes host/native e revisão não equivalem a aceite no Mali/tablet. Fonte TF de
 bancada é explicitamente sintética, embora use ROS/CDR reais; não é movimento
-observado no robô físico. Aceite físico ainda pendente nesta fotografia documental.
-Não há merge/release/produção/rede/robô autorizados implicitamente.
+observado no robô físico. Essa fotografia antecede o aceite DEV posterior de CAD/TF/tela cheia e
+observação de simulação ROS no tablet, registrados em [release v1.4](RELEASE-v1.4.md).
+Não é aceite físico do robô ou da variante produção. Promoção/merge/release e
+índice F-Droid foram autorizados separadamente; rede/hardware continuam preservados.
