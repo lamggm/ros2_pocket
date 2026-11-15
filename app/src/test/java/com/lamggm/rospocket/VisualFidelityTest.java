@@ -11,9 +11,9 @@ public class VisualFidelityTest extends ConnectionActivityTest {
   tick();paint();call("refreshDashboard",new Class<?>[]{});View root=a.getWindow().getDecorView().findViewWithTag("app-root");root.measure(View.MeasureSpec.makeMeasureSpec(1280,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(850,View.MeasureSpec.EXACTLY));root.layout(0,0,1280,850);assertFalse(root.isLayoutRequested());
   call("refreshDashboard",new Class<?>[]{});assertFalse("An unchanged header must not feed a requestLayout/globalLayout loop",root.isLayoutRequested());
  }
- @Test @org.robolectric.annotation.Config(qualifiers="w1000dp-h700dp") public void referenceGivesScanMoreRoomThanChart(){
+ @Test @org.robolectric.annotation.Config(qualifiers="w1000dp-h700dp") public void defaultUsesEqualResizableTwoByTwoSensorAndPlotCards(){
   View root=a.getWindow().getDecorView().findViewWithTag("app-root");root.measure(View.MeasureSpec.makeMeasureSpec(1280,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(850,View.MeasureSpec.EXACTLY));root.layout(0,0,1280,850);
-  View sensor=root.findViewWithTag("sensor-panel"),chart=(View)root.findViewById(R.id.plot_panel).getParent();assertEquals("The selected mockup uses a 1.65:1 visualizer/chart split",1.65,(double)sensor.getWidth()/chart.getWidth(),.02);
+  View sensor=root.findViewWithTag("sensor-panel"),chart=(View)root.findViewById(R.id.plot_panel).getParent();DashboardBoard board=root.findViewWithTag("dashboard-board");assertEquals(2,board.layout().get("sensors").width);assertEquals(2,board.layout().get("sensors").height);assertEquals(2,board.layout().get("plot").width);assertEquals(2,board.layout().get("plot").height);assertEquals("Custom grid replaces the historical fixed 1.65:1 split",1,(double)sensor.getWidth()/chart.getWidth(),.02);
  }
  @Test public void opensOnDashboardWithConnectionStillGloballyAccessible(){assertEquals(View.VISIBLE,a.findViewById(R.id.section_monitor).getVisibility());assertEquals(View.VISIBLE,a.findViewById(R.id.nav_connection).getVisibility());}
  @Test public void referenceNavigationHasNativeLineIconsAndMetricCardsHaveValueHierarchy(){

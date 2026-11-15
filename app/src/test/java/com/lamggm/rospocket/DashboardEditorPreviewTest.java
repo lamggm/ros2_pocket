@@ -1,0 +1,11 @@
+package com.lamggm.rospocket;
+import android.graphics.*;import android.view.*;import org.junit.*;import org.junit.runner.RunWith;import org.robolectric.*;import org.robolectric.annotation.*;import java.io.*;import static org.junit.Assert.*;
+/** Host Android Views, explicit synthetic source. Never packaged in the APK. */
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE) @LooperMode(LooperMode.Mode.PAUSED)
+public class DashboardEditorPreviewTest {
+ @Test @Config(qualifiers="w1200dp-h900dp") public void tabletLight()throws Exception{render("tablet-light",1200,900,"light");}
+ @Test @Config(qualifiers="w1200dp-h900dp") public void tabletDark()throws Exception{render("tablet-dark",1200,900,"dark");}
+ @Test @Config(qualifiers="w400dp-h1000dp") public void phoneLight()throws Exception{render("phone-light",400,1000,"light");}
+ @Test @Config(qualifiers="w400dp-h1000dp") public void phoneDark()throws Exception{render("phone-dark",400,1000,"dark");}
+ void render(String name,int w,int h,String theme)throws Exception{ConnectionActivityTest f=new ConnectionActivityTest();f.setup();try{RobotDashboardTest.Fake api=new RobotDashboardTest.Fake();f.set("bridge",api);api.snapshot=new org.json.JSONObject(api.snapshot).put("topics",RobotDashboardTest.topics("/robot/robot_description")).toString();f.tick();f.paint();UiTheme.save(f.a,theme);f.a.applyAppearance();View root=f.a.getWindow().getDecorView().findViewWithTag("app-root");DashboardBoard board=root.findViewWithTag("dashboard-board");board.edit();board.resize("robot",2,2);board.moveBefore("sensors","robot");root.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h,View.MeasureSpec.EXACTLY));root.layout(0,0,w,h);Bitmap bitmap=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);root.draw(new Canvas(bitmap));assertTrue(board.editing());assertTrue(root.findViewWithTag("layout-resize:sensors").getHeight()>=48);String dir=System.getenv("POCKET_DASHBOARD_PREVIEW_DIR");if(dir!=null){File folder=new File(dir);folder.mkdirs();try(OutputStream out=new FileOutputStream(new File(folder,name+"-HOST-SYNTHETIC.png"))){assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,out));}}bitmap.recycle();}finally{f.cleanup();}}
+}

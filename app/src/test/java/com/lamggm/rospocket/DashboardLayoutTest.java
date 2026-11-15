@@ -1,0 +1,7 @@
+package com.lamggm.rospocket;
+import org.junit.*;import org.junit.runner.RunWith;import org.robolectric.*;import org.robolectric.annotation.*;import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31)
+public class DashboardLayoutTest {
+ @Test public void resizeAndReorderAreImmutableAndSurviveStrictRoundTrip(){DashboardLayout original=DashboardLayout.defaults();DashboardLayout changed=original.resize("robot",2,2).before("sensors","watch0");assertEquals("sensors",changed.items.get(0).id);assertEquals(4,original.get("robot").width);assertEquals("watch0",original.items.get(0).id);DashboardLayout read=DashboardLayout.decode(changed.encode());assertEquals(changed.encode(),read.encode());assertEquals(2,read.get("robot").width);assertEquals(2,read.get("robot").height);assertEquals(7,read.items.size());}
+ @Test public void invalidSizesAndUnknownOrDuplicateCardsNeverBecomeSavedLayouts(){DashboardLayout a=DashboardLayout.defaults();assertThrows(IllegalArgumentException.class,()->a.resize("sensors",1,1));assertThrows(IllegalArgumentException.class,()->a.resize("watch0",5,1));assertThrows(IllegalArgumentException.class,()->a.resize("unknown",2,2));assertThrows(IllegalArgumentException.class,()->DashboardLayout.decode("{}"));String valid=a.encode();assertThrows(IllegalArgumentException.class,()->DashboardLayout.decode(valid.replace("watch1","watch0")));assertThrows(IllegalArgumentException.class,()->DashboardLayout.decode(valid.replace("\"width\":1","\"width\":true")));}
+}

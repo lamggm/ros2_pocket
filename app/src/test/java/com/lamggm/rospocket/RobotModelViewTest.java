@@ -1,0 +1,15 @@
+package com.lamggm.rospocket;
+import android.graphics.*;
+import android.view.*;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.*;
+import org.robolectric.annotation.*;
+import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31) @GraphicsMode(GraphicsMode.Mode.NATIVE) @LooperMode(LooperMode.Mode.PAUSED)
+public class RobotModelViewTest {
+ @Test public void nativeCardDrawsActualPrimitiveFacesAndFingerRotatesTheView(){RobotModelView v=new RobotModelView(RuntimeEnvironment.getApplication());v.layout(0,0,700,360);v.setModel(RobotDescription.parse(RobotDescriptionTest.SMALL));Bitmap bitmap=Bitmap.createBitmap(700,360,Bitmap.Config.ARGB_8888);v.draw(new Canvas(bitmap));assertTrue("Real URDF geometry must reach Canvas",v.drawnFaces>=12);double before=v.yaw;for(int i=0;i<3;i++){MotionEvent e=MotionEvent.obtain(0,i*20,i==0?MotionEvent.ACTION_DOWN:i==2?MotionEvent.ACTION_UP:MotionEvent.ACTION_MOVE,i==0?200:270,140,0);v.onTouchEvent(e);e.recycle();}assertNotEquals(before,v.yaw,0);assertTrue(v.autoRotate);bitmap.recycle();}
+ @Test public void slowDefaultRotationStopsForTouchHiddenSectionAndDetachedWindow(){android.app.Activity a=Robolectric.buildActivity(android.app.Activity.class).setup().visible().get();RobotModelView v=new RobotModelView(a);a.setContentView(v);v.layout(0,0,700,360);v.setModel(RobotDescription.parse(RobotDescriptionTest.SMALL));v.setScreenActive(true);assertTrue(v.frameScheduled);v.animation.doFrame(1_000_000_000L);double before=v.yaw;v.animation.doFrame(1_100_000_000L);assertTrue(v.yaw>before);MotionEvent down=MotionEvent.obtain(0,0,MotionEvent.ACTION_DOWN,100,100,0);v.onTouchEvent(down);down.recycle();double held=v.yaw;v.animation.doFrame(1_200_000_000L);assertEquals(held,v.yaw,0);MotionEvent up=MotionEvent.obtain(0,20,MotionEvent.ACTION_UP,100,100,0);v.onTouchEvent(up);up.recycle();v.setScreenActive(false);assertFalse(v.frameScheduled);v.animation.doFrame(1_300_000_000L);assertEquals(held,v.yaw,0);a.setContentView(new android.view.View(a));assertFalse(v.frameScheduled);a.finish();}
+ @Test public void defaultCameraLooksDownOnPositiveUrdfZInsteadOfUnderTheRobot()throws Exception{RobotModelView v=new RobotModelView(RuntimeEnvironment.getApplication());java.lang.reflect.Method m=RobotModelView.class.getDeclaredMethod("rotate",double.class,double.class,double.class);m.setAccessible(true);double[] above=(double[])m.invoke(v,0d,0d,1d);assertTrue("At positive camera elevation a higher point must be nearer",above[2]<0);}
+ @Test public void missingMeshesAreNotReplacedWithAFakeRobot(){RobotModelView v=new RobotModelView(RuntimeEnvironment.getApplication());v.layout(0,0,700,360);v.setModel(RobotDescription.parse("<robot name='mesh_only'><link name='b'><visual><geometry><mesh filename='package://private/robot.stl'/></geometry></visual></link></robot>"));Bitmap b=Bitmap.createBitmap(700,360,Bitmap.Config.ARGB_8888);v.draw(new Canvas(b));assertEquals(0,v.drawnFaces);assertTrue(v.getContentDescription().toString().contains("malha"));b.recycle();}
+}

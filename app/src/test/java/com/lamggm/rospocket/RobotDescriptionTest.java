@@ -1,0 +1,14 @@
+package com.lamggm.rospocket;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
+import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=31)
+public class RobotDescriptionTest {
+ static final String SMALL="<robot name='robo_real'><material name='green'><color rgba='0.1 0.8 0.4 1'/></material><link name='base'><visual><geometry><box size='2 1 .5'/></geometry><material name='green'/></visual><visual><geometry><mesh filename='package://robot/meshes/base.dae'/></geometry></visual></link><link name='wheel'><visual><origin rpy='1.5707963267948966 0 0'/><geometry><cylinder radius='.2' length='.1'/></geometry></visual></link><joint name='wheel_joint' type='fixed'><parent link='base'/><child link='wheel'/><origin xyz='.5 0 -.3'/></joint></robot>";
+ @Test public void readsActualNamePrimitivesAndUnavailableMeshWithoutInventingGeometry(){RobotDescription m=RobotDescription.parse(SMALL);assertEquals("robo_real",m.name);assertEquals(3,m.visuals.size());assertEquals("box",m.visuals.get(0).kind);assertArrayEquals(new double[]{2,1,.5},m.visuals.get(0).size,1e-8);assertEquals(1,m.missingMeshes.size());assertEquals("package://robot/meshes/base.dae",m.missingMeshes.get(0));assertEquals("mesh",m.visuals.get(1).kind);}
+ @Test public void composesJointAndVisualTransformsInURDFMetres(){RobotDescription m=RobotDescription.parse(SMALL);RobotDescription.Visual wheel=m.visuals.get(2);double[] p=RobotDescription.point(wheel.transform,0,0,.1);assertArrayEquals(new double[]{.5,-.1,-.3},p,1e-7);}
+ @Test public void rejectsExternalEntitiesMalformedStructureAndNonfiniteNumbers(){for(String bad:new String[]{"<!DOCTYPE robot [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><robot name='x'><link name='b'/></robot>","<robot name='x'><link name='b'/><link name='b'/></robot>","<robot name='x'><link name='a'/><link name='b'/></robot>","<robot name='x'><link name='b'><visual><geometry><sphere radius='NaN'/></geometry></visual></link></robot>","<robot name='x'><link name='b'><visual><geometry><box size='0 1 1'/></geometry></visual></link></robot>","<robot name='x'><link name='a'/><link name='b'/><joint name='j' type='fixed'><parent link='missing'/><child link='b'/></joint></robot>"})assertThrows(IllegalArgumentException.class,()->RobotDescription.parse(bad));}
+ @Test public void rejectsCyclesAndOversizedPayloadBeforeUnboundedWork(){assertThrows(IllegalArgumentException.class,()->RobotDescription.parse(" ".repeat(600000)));assertThrows(IllegalArgumentException.class,()->RobotDescription.parse("<robot name='x'><link name='a'/><link name='b'/><joint name='j1' type='fixed'><parent link='a'/><child link='b'/></joint><joint name='j2' type='fixed'><parent link='b'/><child link='a'/></joint></robot>"));}
+}

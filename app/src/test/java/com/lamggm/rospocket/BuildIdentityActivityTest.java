@@ -25,8 +25,8 @@ public class BuildIdentityActivityTest {
   return matches;
  }
  @Test public void v1DebugBuildRetainsSeparateDevIdentity() {
-  assertEquals("1.3.0-dev",BuildConfig.VERSION_NAME);
-  assertEquals(13,BuildConfig.VERSION_CODE);
+  assertEquals("1.4.0-dev",BuildConfig.VERSION_NAME);
+  assertEquals(14,BuildConfig.VERSION_CODE);
   assertEquals("com.lamggm.rospocket.dev",BuildConfig.APPLICATION_ID);
   assertTrue("Preparation stays debug; no release signer or package migration",BuildConfig.DEBUG);
  }

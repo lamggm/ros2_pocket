@@ -17,7 +17,7 @@ final class PlotView extends LinearLayout {
  private final TextView sourceLabel;
  private final LinearLayout configuration;
  private final Button pause;
- private final Chart chart;
+ private final Chart chart;private int tilePixels;
  private boolean paused;private long revision=-1;
  private long lastDrawNanos;
  private long preparedRevision,drawnRevision=-1;
@@ -37,6 +37,8 @@ final class PlotView extends LinearLayout {
   choices=new LinearLayout(context);choices.setOrientation(VERTICAL);configuration.addView(choices);
   legend=new TextView(context);legend.setTextColor(UiTheme.color(getContext(),0xffe6edf3));legend.setTextSize(12);configuration.addView(legend);
  }
+ void tileHeight(int height){if(tilePixels!=height){tilePixels=height;requestLayout();}}
+ @Override protected void onMeasure(int widthSpec,int heightSpec){if(tilePixels<=0){super.onMeasure(widthSpec,heightSpec);return;}android.view.ViewGroup.LayoutParams lp=chart.getLayoutParams();lp.height=dp(96);super.onMeasure(widthSpec,MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));int overhead=getMeasuredHeight()-chart.getMeasuredHeight();lp.height=Math.max(dp(96),tilePixels-overhead);super.onMeasure(widthSpec,heightSpec);}
  private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
  List<PlotHistory.Series> displayed(){return visible;}
  List<PlotHistory.Series> exportSeries(){synchronized(controller){refresh();return visible;}}

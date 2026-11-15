@@ -25,7 +25,7 @@ class SensorPanel extends LinearLayout {
  private final TextView title,status;
  private final TextView displayTitle;
  private final Surface surface;
- private int mode=0;private double zoom=1;
+ private int mode=0;private double zoom=1;private int tilePixels;private Runnable tileResize;
  private SensorPacket.Decoded shown;
  private static final int FG=0xffe6edf3,ACCENT=0xff5cdbb8;
  private static final class Task {
@@ -43,7 +43,7 @@ class SensorPanel extends LinearLayout {
   Button expand=new VisualButton(c,"icon","expand");expand.setContentDescription("Ampliar ou reduzir visualização");top.addView(expand,new LayoutParams(dp(48),dp(48)));
   LinearLayout row=new LinearLayout(c);addView(row);button(row,"LaserScan",()->switchMode(0));button(row,"Câmera",()->switchMode(1));row.findViewWithTag("sensor-LaserScan").setSelected(true);
   surface=new Surface(c);surface.setTag("sensor-surface");addView(surface,new LinearLayout.LayoutParams(-1,(int)(320*getResources().getDisplayMetrics().density)));
-  expand.setOnClickListener(v->{android.view.ViewGroup.LayoutParams p=surface.getLayoutParams();p.height=p.height>dp(320)?dp(240):dp(420);surface.setLayoutParams(p);});
+  expand.setTag("sensor-resize");expand.setOnClickListener(v->{if(tileResize!=null){tileResize.run();return;}android.view.ViewGroup.LayoutParams p=surface.getLayoutParams();p.height=p.height>dp(320)?dp(240):dp(420);surface.setLayoutParams(p);});
   status=text("Sem leitor visual · best effort / volatile");status.setTag("sensor-status");status.setTextSize(11);status.setPadding(0,dp(10),0,0);
   addView(details);title=new TextView(c);title.setText("SENSORES VISUAIS · selecione um tópico no Explorer");title.setTextColor(UiTheme.color(c,FG));title.setTextSize(12);title.setTag("sensor-title");details.addView(title);
   LinearLayout scale=new LinearLayout(c);details.addView(scale);button(scale,"Zoom +",()->{zoom=Math.min(16,zoom*2);surface.invalidate();});button(scale,"Zoom −",()->{zoom=Math.max(.25,zoom/2);surface.invalidate();});button(scale,"Enquadrar",()->{zoom=1;surface.invalidate();});
@@ -120,6 +120,9 @@ class SensorPanel extends LinearLayout {
   post(this::deliverUi);
  }
  private void deliverUi(){final Runnable latest;synchronized(this){latest=pendingUi;pendingUi=null;uiQueued=false;}if(latest!=null)latest.run();}
+ void tileResize(Runnable callback){tileResize=callback;findViewWithTag("sensor-resize").setContentDescription("Alterar tamanho do card LiDAR e câmera");}
+ void tileHeight(int height){if(tilePixels!=height){tilePixels=height;requestLayout();}}
+ @Override protected void onMeasure(int widthSpec,int heightSpec){if(tilePixels<=0){super.onMeasure(widthSpec,heightSpec);return;}android.view.ViewGroup.LayoutParams lp=surface.getLayoutParams();lp.height=dp(72);super.onMeasure(widthSpec,MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));int overhead=getMeasuredHeight()-surface.getMeasuredHeight();lp.height=Math.max(dp(72),tilePixels-overhead);super.onMeasure(widthSpec,heightSpec);}
  void dispose(){synchronized(this){closed=true;pending=null;pendingUi=null;stream++;}if(ownedDecoder!=null)ownedDecoder.shutdownNow();}
  private void refreshStatus(){
   if(shown==null){status.setText("Aguardando primeira amostra válida · best effort / volatile");return;}

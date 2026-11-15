@@ -36,6 +36,12 @@ final class NativeBridge {
   }
   default byte[] pollSensor(){return new byte[0];}
   default void stopSensor() {}
+  default byte[] startDescription(int d,String a,String p,String w,boolean r,boolean l,String m,String f){return "{\"ok\":false,\"error\":\"Leitor de descrição indisponível\"}".getBytes(StandardCharsets.UTF_8);}
+  default byte[] startTf(String dynamic,String fixed,boolean reliable,boolean retained){return "{\"ok\":false,\"error\":\"TF indisponível\"}".getBytes(StandardCharsets.UTF_8);}
+  default byte[] pollTf(){return "{}".getBytes(StandardCharsets.UTF_8);}
+  default void stopTf(){}
+  default byte[] pollDescription(){return "{}".getBytes(StandardCharsets.UTF_8);}
+  default void stopDescription() {}
   static JSONObject json(byte[] bytes) throws org.json.JSONException {return new JSONObject(new String(bytes,StandardCharsets.UTF_8));}
  }
  static final class JniApi implements Api {
@@ -55,6 +61,12 @@ final class NativeBridge {
   public byte[] startSensorConfigured(int d,String a,String p,String w,String t,String m,String f){return NativeBridge.startSensorConfigured(d,a,p,w,t,m,f);}
   public byte[] pollSensor(){return NativeBridge.pollSensor();}
   public void stopSensor(){NativeBridge.stopSensor();}
+  public byte[] startDescription(int d,String a,String p,String w,boolean r,boolean l,String m,String f){return NativeBridge.startDescription(d,a,p,w,r,l,m,f);}
+  public byte[] startTf(String d,String f,boolean r,boolean t){return NativeBridge.startTf(d,f,r,t);}
+  public byte[] pollTf(){return NativeBridge.pollTf();}
+  public void stopTf(){NativeBridge.stopTf();}
+  public byte[] pollDescription(){return NativeBridge.pollDescription();}
+  public void stopDescription(){NativeBridge.stopDescription();}
  }
  static native byte[] start(int domain,String address,String peer);
  static native byte[] startWithGraphFormat(int domain,String address,String peer,String format);
@@ -72,5 +84,11 @@ final class NativeBridge {
  static native byte[] startSensorConfigured(int d,String a,String p,String w,String t,String mode,String format);
  static native byte[] pollSensor();
  static native void stopSensor();
+ static native byte[] startDescription(int d,String a,String p,String w,boolean r,boolean l,String mode,String format);
+ static native byte[] startTf(String dynamic,String fixed,boolean reliable,boolean retained);
+ static native byte[] pollTf();
+ static native void stopTf();
+ static native byte[] pollDescription();
+ static native void stopDescription();
  static JSONObject json(byte[] bytes) throws org.json.JSONException {return Api.json(bytes);}
 }

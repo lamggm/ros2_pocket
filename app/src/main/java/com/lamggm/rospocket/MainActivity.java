@@ -42,6 +42,7 @@ public final class MainActivity extends Activity {
  private PlotView plotView;
  private PlotExportPanel plotExport;
  private SensorPanel sensorPanel;
+ private DashboardBoard dashboardBoard;
  private ScheduledFuture<?> sensorTicker;
  // Applied state is confined to the same process-wide DDS queue as telemetry.
  private SensorPanel.Request appliedSensor;
@@ -83,6 +84,11 @@ public final class MainActivity extends Activity {
  private LinearLayout watchDetails;
  private TextView sessionSummary;
  private TextView dashboardSubtitle;
+ private TextView dashboardTitle;
+ private ScheduledFuture<?> robotTicker;
+ private final RobotContext robotContext=new RobotContext();
+ private RobotPanel robotPanel;
+ private int selectedSection=2;
  private final String[] dashboardValues={"","","",""};
  private final boolean[] dashboardFresh=new boolean[4];
  private final WatchSlots.Request[] dashboardOwners=new WatchSlots.Request[4];
@@ -126,6 +132,9 @@ public final class MainActivity extends Activity {
  private final LinearLayout[] sections=new LinearLayout[5];
  private final Button[] sectionButtons=new Button[5];
  private void showSection(int selected){
+  selectedSection=selected;
+  if(dashboardBoard!=null&&selected!=2)dashboardBoard.cancel();
+  if(robotPanel!=null)robotPanel.view.setScreenActive(resumed&&selected==2);
   if(sensorPanel!=null)sensorPanel.visible(selected==2);
   for(int i=0;i<sections.length;i++){
    sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
@@ -133,6 +142,8 @@ public final class MainActivity extends Activity {
    if(sectionButtons[i].getParent()!=null)UiTheme.apply(sectionButtons[i]);
   }
  }
+ private ScrollView dashboardScroll(View content){ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setNestedScrollingEnabled(true);scroll.addView(content,new ScrollView.LayoutParams(-1,-2));return scroll;}
+ @Override public void onBackPressed(){if(dashboardBoard!=null&&dashboardBoard.editing()){dashboardBoard.cancel();return;}super.onBackPressed();}
  private void makeUi(){
   LinearLayout root=column();root.setTag("app-root");root.setBackgroundColor(VisualButton.bg(this));
   root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -192,11 +203,11 @@ public final class MainActivity extends Activity {
   });connection.addView(profiles);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
   topicList=new ExplorerView(this,this::readFromExplorer);topicList.setId(R.id.topics);graphCard.addView(topicList);sections[1].addView(graphCard);
-  LinearLayout panelHeading=new LinearLayout(this);panelHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);LinearLayout panelIdentity=column();panelIdentity.addView(label("Seu painel",27,FG));dashboardSubtitle=label("Suas leituras, num só lugar.",13,MUTED);panelIdentity.addView(dashboardSubtitle);panelHeading.addView(panelIdentity,new LinearLayout.LayoutParams(0,-2,1));Button addReading=new VisualButton(this,"secondary","add");addReading.setText("Adicionar");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));panelHeading.addView(addReading,new LinearLayout.LayoutParams(dp(130),dp(48)));LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(20);sections[2].addView(panelHeading,headingParams);
-  LinearLayout overview=column();overview.setTag("watch-overview");sections[2].addView(overview);
-  boolean roomy=getResources().getConfiguration().screenWidthDp>=900&&getResources().getConfiguration().fontScale<1.3f;int columns=roomy?4:2;
-  for(int rowIndex=0;rowIndex<4/columns;rowIndex++){LinearLayout overviewRow=new LinearLayout(this);overviewRow.setBaselineAligned(false);overview.addView(overviewRow);for(int col=0;col<columns;col++){final int slot=rowIndex*columns+col;MetricCard metric=new MetricCard(this);metric.setTag("watch-card:"+slot);metric.setOnClickListener(v->{chooseWatch(slot);if((slot==0?selectedWire:watchSlots.get(slot).wire).isEmpty())showSection(1);else watchDetails.setVisibility(View.VISIBLE);});watchCards[slot]=metric;LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(160),1);lp.setMargins(0,0,col==columns-1?0:dp(14),dp(12));overviewRow.addView(metric,lp);}}
+  LinearLayout panelHeading=new LinearLayout(this);panelHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);LinearLayout panelIdentity=column();dashboardTitle=label("Seu painel",27,FG);dashboardTitle.setTag("dashboard-title");panelIdentity.addView(dashboardTitle);dashboardSubtitle=label("Suas leituras, num só lugar.",13,MUTED);panelIdentity.addView(dashboardSubtitle);panelHeading.addView(panelIdentity,new LinearLayout.LayoutParams(0,-2,1));Button addReading=new VisualButton(this,"secondary","add");addReading.setText("Adicionar");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));panelHeading.addView(addReading,new LinearLayout.LayoutParams(dp(130),dp(48)));LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(20);sections[2].addView(panelHeading,headingParams);
+  dashboardBoard=new DashboardBoard(this);sections[2].addView(dashboardBoard);
+  for(int i=0;i<4;i++){final int slot=i;MetricCard metric=new MetricCard(this);metric.setTag("watch-card:"+slot);metric.setOnClickListener(v->{chooseWatch(slot);if((slot==0?selectedWire:watchSlots.get(slot).wire).isEmpty())showSection(1);else watchDetails.setVisibility(View.VISIBLE);});watchCards[slot]=metric;dashboardBoard.addCard("watch"+slot,"Watch "+(slot+1),metric,null);}
   TextView cardHint=label("Toque numa leitura para ver os detalhes e QoS.",11,MUTED);cardHint.setPadding(0,0,0,dp(18));sections[2].addView(cardHint);
+  robotPanel=new RobotPanel(this,robotContext,name->{if(!android.text.TextUtils.equals(dashboardTitle.getText(),name))dashboardTitle.setText(name);});robotPanel.tileMode();dashboardBoard.addCard("robot","Modelo 3D",robotPanel,null);
   LinearLayout echo=card();watchDetails=echo;echo.setVisibility(View.GONE);Button closeDetails=new VisualButton(this,"secondary",null);closeDetails.setText("Fechar detalhes");closeDetails.setOnClickListener(v->watchDetails.setVisibility(View.GONE));echo.addView(closeDetails);selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
@@ -222,9 +233,8 @@ public final class MainActivity extends Activity {
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
   sections[2].addView(echo);
-  LinearLayout visuals=new LinearLayout(this);visuals.setBaselineAligned(false);visuals.setOrientation(roomy?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);sections[2].addView(visuals);
-  sensorPanel=new SensorPanel(this);sensorPanel.setPadding(dp(18),dp(18),dp(18),dp(18));sensorPanel.findViewWithTag("sensor-surface").getLayoutParams().height=dp(roomy?240:280);LinearLayout.LayoutParams sensorParams=new LinearLayout.LayoutParams(roomy?0:-1,roomy?-1:-2,roomy?1.65f:0);sensorParams.setMargins(0,0,roomy?dp(18):0,roomy?0:dp(18));visuals.addView(sensorPanel,sensorParams);
-  LinearLayout chartCard=card();visuals.addView(chartCard,new LinearLayout.LayoutParams(roomy?0:-1,roomy?-1:-2,roomy?1:0));plotView=new PlotView(this,plots);chartCard.addView(plotView);
+  sensorPanel=new SensorPanel(this);sensorPanel.setPadding(dp(18),dp(18),dp(18),dp(18));sensorPanel.tileResize(()->dashboardBoard.editSize("sensors"));dashboardBoard.addCard("sensors","LiDAR / Câmera",dashboardScroll(sensorPanel),sensorPanel::tileHeight);
+  LinearLayout chartCard=card();plotView=new PlotView(this,plots);chartCard.addView(plotView);dashboardBoard.addCard("plot","Gráfico",dashboardScroll(chartCard),height->plotView.tileHeight(height-chartCard.getPaddingTop()-chartCard.getPaddingBottom()));
   plotExport=new PlotExportPanel(this,plotView);((LinearLayout)plotView.findViewWithTag("plot-configuration")).addView(plotExport);
   rosoutConsole=new RosoutConsoleView(this,this::clearRosout);sections[3].addView(rosoutConsole);
   rosGraph=new RosGraphPanel(this);sections[4].addView(rosGraph);
@@ -233,14 +243,23 @@ public final class MainActivity extends Activity {
  }
  @Override protected void onStart(){
   super.onStart();foregroundActivity=new WeakReference<>(this);resumed=true;generation++;
+  robotPanel.view.setScreenActive(selectedSection==2);
   worker=DDS_WORKER;
   final int token=generation;
   if(connectWanted)requestConnection(false);
   ticker=worker.scheduleWithFixedDelay(()->tick(token),0,500,TimeUnit.MILLISECONDS);
   sensorPanel.available(connectWanted);
   sensorTicker=worker.scheduleWithFixedDelay(()->tickSensor(token),0,100,TimeUnit.MILLISECONDS);
+   robotTicker=worker.scheduleWithFixedDelay(()->tickRobot(token),0,100,TimeUnit.MILLISECONDS);
+ }
+ private void tickRobot(int token){tickRobotPose(token);}
+ private void tickRobotPose(int token){
+  final Config config=workerConfig;final long epoch=policy.generation();if(!nativeRunning||config==null||!connectionCurrent(token,config,epoch))return;
+  RobotContext.PoseSnapshot pose=robotContext.pollTf(bridge,System.nanoTime());if(pose==null||!connectionCurrent(token,config,epoch))return;
+  ui(token,epoch,()->{if(connectionCurrent(token,config,epoch))robotPanel.updatePose(pose);});
  }
  private void requestConnection(boolean resetSelection){
+  robotContext.select("");robotPanel.clear("Aguardando descrição desta conexão");
   dashboardPeers=0;
   DeviceTestHooks.invalidate();
   rosGraph.clear("Conectando · aguardando topologia desta sessão");
@@ -300,6 +319,7 @@ public final class MainActivity extends Activity {
   qa.invalidate();
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
+  robotContext.resetWorker();
   sensorPanel.invalidateStream();appliedSensor=null;failedSensor=null;sensorRetryAt=0;
   try{if(owns){try{bridge.stopSensor();}finally{bridge.stop();}}}finally{
    nativeRunning=false;workerConfig=null;workerAddress="";
@@ -324,6 +344,7 @@ public final class MainActivity extends Activity {
   for(int i=1;i<4;i++)if(watchText[i]!=null){dashboardFresh[i]=false;watchStructured[i].update(null,false);watchText[i].setText("Watch "+(i+1)+" · "+state);watchText[i].setTextColor(UiTheme.color(this,WARNING));}
  }
  private void unavailable(String state,String error){
+  robotPanel.clear("Descrição indisponível · sem sessão atual");
   dashboardPeers=0;
   rosGraph.clear("Grafo indisponível · sem sessão atual");
   extrasInactive(state);
@@ -401,6 +422,7 @@ public final class MainActivity extends Activity {
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
    JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
+   final RobotContext.Snapshot robotSnapshot=robotContext.observe(bridge,config.domain,address,config.peer,config.networkMode,config.graphFormat,snapshot.optJSONArray("topics"),()->connectionCurrent(token,config,epoch));
    policy.recovered();
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" · "+binding+" · domínio "+config.domain;
    // Intake runs for every real poll, regardless of display throttling/pause.
@@ -416,7 +438,7 @@ public final class MainActivity extends Activity {
     }
    }
    long paint=System.nanoTime();
-   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
+   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
   }catch(Throwable ex){
    String e=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());
    try{stopSession();}catch(Throwable cleanup){android.util.Log.w("RosPocket","DDS teardown: "+cleanup.getClass().getSimpleName());}
@@ -474,7 +496,7 @@ public final class MainActivity extends Activity {
  }
  void applyAppearance(){
   View root=getWindow().getDecorView().findViewWithTag("app-root");if(root==null)return;
-  setTheme(UiTheme.dark(this)?R.style.AppTheme:R.style.AppTheme_Light);root.setBackgroundColor(UiTheme.color(this,BG));UiTheme.apply(root);
+  setTheme(UiTheme.dark(this)?R.style.AppTheme:R.style.AppTheme_Light);root.setBackgroundColor(UiTheme.color(this,BG));UiTheme.apply(root);if(dashboardBoard!=null)dashboardBoard.appearance();if(robotPanel!=null)robotPanel.appearance();
   java.util.Iterator<WeakReference<android.app.AlertDialog>> dialogs=themedDialogs.iterator();while(dialogs.hasNext()){android.app.AlertDialog d=dialogs.next().get();if(d==null||!d.isShowing())dialogs.remove();else UiTheme.dialog(d);}
   getWindow().setStatusBarColor(UiTheme.color(this,BG));getWindow().setNavigationBarColor(UiTheme.color(this,BG));
   int flags=getWindow().getDecorView().getSystemUiVisibility();int mask=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;getWindow().getDecorView().setSystemUiVisibility(UiTheme.dark(this)?flags&~mask:flags|mask);
@@ -644,6 +666,7 @@ public final class MainActivity extends Activity {
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(UiTheme.color(this,MUTED));
  }
  private void disconnect(){
+  robotContext.select("");robotPanel.clear("Desconectado · sem descrição desta sessão");
   dashboardPeers=0;
   rosGraph.clear("Desconectado · nenhuma topologia atual");
   sensorPanel.available(false);
@@ -663,9 +686,13 @@ public final class MainActivity extends Activity {
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
   rosoutEpoch++;rosoutConsole.clearNow();
  }
+ @Override protected void onResume(){super.onResume();robotPanel.view.setScreenActive(resumed&&selectedSection==2);}
+ @Override protected void onPause(){robotPanel.view.setScreenActive(false);super.onPause();}
  @Override protected void onStop(){
+  robotContext.select("");robotPanel.clear("Suspenso · aguardando nova sessão");robotPanel.view.setScreenActive(false);
   rosGraph.clear("Suspenso · aplicativo fora do primeiro plano");
   sensorPanel.available(false);
+  if(robotTicker!=null){robotTicker.cancel(false);robotTicker=null;}
   if(sensorTicker!=null){sensorTicker.cancel(false);sensorTicker=null;}
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   if(foregroundActivity.get()==this)foregroundActivity=new WeakReference<>(null);
@@ -676,14 +703,16 @@ public final class MainActivity extends Activity {
   if(ticker!=null){ticker.cancel(false);ticker=null;}
   queueStop();worker=null;
   rosoutEpoch++;rosoutConsole.clearNow();
+  if(dashboardBoard!=null)dashboardBoard.cancel();
   super.onStop();
  }
  @Override protected void onActivityResult(int request,int result,android.content.Intent data){
   super.onActivityResult(request,result,data);
   if(plotExport!=null)plotExport.result(request,result,data);
   if(profiles!=null)profiles.result(request,result,data);
+  if(robotPanel!=null)robotPanel.result(request,result,data);
  }
- @Override protected void onDestroy(){profiles.dispose();plotExport.dispose();sensorPanel.dispose();super.onDestroy();}
+ @Override protected void onDestroy(){dashboardBoard.dispose();profiles.dispose();plotExport.dispose();sensorPanel.dispose();robotPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);
