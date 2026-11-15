@@ -2,9 +2,11 @@
 #include "inspector.hpp"
 #include "model.hpp"
 #include "sensors.hpp"
+#include "robot_description.hpp"
 #include <mutex>
 static pocket::Session session;
 static pocket::SensorSession sensor;
+static pocket::RobotDescriptionSession description;
 static std::mutex mutex;
 static std::string text(JNIEnv* env,jstring s) {
  if(!s)return "";
@@ -18,17 +20,19 @@ static jbyteArray bytes(JNIEnv* env,const std::string& s) {
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_start(JNIEnv* e,jclass,jint d,jstring address,jstring peer) {
  std::lock_guard<std::mutex> lock(mutex);
+ description.stop();
  try{return bytes(e,session.start(d,text(e,address),text(e,peer)));}
  catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startWithGraphFormat(JNIEnv* e,jclass,jint d,jstring address,jstring peer,jstring format) {
  std::lock_guard<std::mutex> lock(mutex);
+ description.stop();
  if(!format||e->GetStringUTFLength(format)>6){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Formato de grafo nao suportado\"}");}
  try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format)));}
  catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startWithNetworkMode(JNIEnv* e,jclass,jint d,jstring address,jstring peer,jstring format,jstring mode) {
- std::lock_guard<std::mutex> lock(mutex);sensor.stop();
+ std::lock_guard<std::mutex> lock(mutex);sensor.stop();description.stop();
  if(!format||e->GetStringUTFLength(format)>6||!mode||e->GetStringUTFLength(mode)>3){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Formato ou modo de rede nao suportado\"}");}
  try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format),text(e,mode)));}
  catch(const std::exception&){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar rede DDS\"}");}
@@ -58,7 +62,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.subscribe(text(e,topic),text(e,type),reliable,transient));
 }
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stop(JNIEnv*,jclass) {
- std::lock_guard<std::mutex> lock(mutex);sensor.stop();session.stop();
+ std::lock_guard<std::mutex> lock(mutex);description.stop();sensor.stop();session.stop();
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensor(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type){
  std::lock_guard<std::mutex> lock(mutex);
@@ -88,6 +92,18 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_p
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopSensor(JNIEnv*,jclass){
  std::lock_guard<std::mutex> lock(mutex);sensor.stop();
 }
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startTf(JNIEnv* e,jclass,jstring d,jstring f,jboolean r,jboolean t){std::lock_guard<std::mutex> lock(mutex);if(!d||!f||e->GetStringUTFLength(d)>512||e->GetStringUTFLength(f)>512){description.stop_tf();return bytes(e,"{\"ok\":false,\"error\":\"Tópico TF inválido\"}");}try{return bytes(e,description.start_tf(text(e,d),text(e,f),r,t));}catch(const std::exception&){description.stop_tf();return bytes(e,"{\"ok\":false,\"error\":\"Falha TF\"}");}}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollTf(JNIEnv* e,jclass){std::lock_guard<std::mutex> lock(mutex);try{return bytes(e,description.poll_tf());}catch(const std::exception&){return bytes(e,"{\"running\":false,\"error\":\"Falha TF\"}");}}
+extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopTf(JNIEnv*,jclass){std::lock_guard<std::mutex> lock(mutex);description.stop_tf();}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startDescription(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring w,jboolean r,jboolean l,jstring m,jstring f){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!w||!m||!f||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(w)>512||e->GetStringUTFLength(m)>3||e->GetStringUTFLength(f)>6){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração de descrição inválida\"}");}
+ try{return bytes(e,description.start(d,text(e,a),text(e,p),text(e,w),r,l,text(e,m),text(e,f)));}catch(const std::exception&){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar descrição DDS\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollDescription(JNIEnv* e,jclass){
+ std::lock_guard<std::mutex> lock(mutex);try{return bytes(e,description.poll());}catch(const std::exception&){description.stop();return bytes(e,"{\"running\":false,\"error\":\"Falha de leitura da descrição\"}");}
+}
+extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopDescription(JNIEnv*,jclass){std::lock_guard<std::mutex> lock(mutex);description.stop();}
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_watch(JNIEnv* e,jclass,jint slot,jstring topic,jstring type,jboolean reliable,jboolean transient) {
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.watch(slot,text(e,topic),text(e,type),reliable,transient));
 }

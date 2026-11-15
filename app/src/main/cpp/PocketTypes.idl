@@ -15,11 +15,16 @@ module std_msgs { module msg { module dds_ {
 module geometry_msgs { module msg { module dds_ {
 @final struct Vector3_ { double x; double y; double z; };
 @final struct Quaternion_ { double x; double y; double z; double w; };
+@final struct Transform_ { Vector3_ translation; Quaternion_ rotation; };
+@final struct TransformStamped_ { std_msgs::msg::dds_::Header_ header; string child_frame_id; Transform_ transform; };
 @final struct Twist_ { Vector3_ linear; Vector3_ angular; };
 @final struct Point_ { double x; double y; double z; };
 @final struct Pose_ { Point_ position; Quaternion_ orientation; };
 @final struct PoseWithCovariance_ { Pose_ pose; double covariance[36]; };
 @final struct TwistWithCovariance_ { Twist_ twist; double covariance[36]; };
+}; }; };
+module tf2_msgs { module msg { module dds_ {
+@final struct TFMessage_ { sequence<geometry_msgs::msg::dds_::TransformStamped_> transforms; };
 }; }; };
 module nav_msgs { module msg { module dds_ {
 @final struct Odometry_ {
