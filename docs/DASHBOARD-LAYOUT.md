@@ -19,9 +19,23 @@ Personalização local de apresentação, não edição do robô. Preserva C++/C
 - Grade adaptativa de 4, 2 ou 1 colunas. Larguras limitadas somente na renderização em telas menores, sem alterar o tamanho lógico salvo. Ordem estável por linhas; não é posicionamento livre com células vazias.
 - Redimensionar muda os viewports reais. Controles técnicos do modelo ficam em **⋮**; indicação de pose permanece no card. Opções longas de sensores/gráfico rolam dentro dos respectivos cards. Tela cheia do modelo preservada.
 
+## Visualizações das leituras
+
+Em **Editar painel → tamanho/posição da leitura → Visualização da leitura…**, escolha:
+
+- **Número / mensagem:** apresentação original, sem interpretar texto de mensagens como número.
+- **Gauge semicircular:** arco e ponteiro do campo numérico selecionado.
+- **Barra horizontal:** preenchimento linear da escala selecionada.
+
+Gauge/barra usam o caminho exato (por exemplo `data`, `linear.x`, `pose.pose.position.x`), mínimo, máximo e unidade textual definidos pelo usuário. Unidade é rótulo, não conversão física nem inferência pelo nome do tópico. Use ponto decimal na escala. São campos tipados de `numericFields` do mesmo watch; não há parse do texto apresentado, novo leitor, série adicional nem mudança no seletor do gráfico.
+
+Somente valores numéricos finitos e atuais alimentam o indicador. Campo inexistente/incompatível/não finito aparece indisponível, nunca zero. Limites devem ser finitos e crescentes, com amplitude representável. Valor fora da escala satura apenas o desenho, preservando o número e o aviso **Fora da escala**. O histórico continua no card Gráfico já existente; gauges não armazenam amostras.
+
+As opções seguem o mesmo rascunho, Salvar/Cancelar, owner do perfil, restart e transferência do layout. Layouts schema1 migram em memória para visualização numérica, sem regravar no load. O catálogo continua schema6; o layout embutido tem versão própria. Versões antigas do app não devem receber layouts schema2. Gauge/barra reservam pelo menos duas unidades de altura na renderização para evitar colisão entre escala/ponteiro/valor; a altura lógica salva é preservada.
+
 ## Estado e limites
 
-Sem perfil aplicado, `dashboard-layout-v1.json` privado mantém o painel anônimo e serve de origem para migração em memória dos perfis antigos. Com perfil aplicado, o layout mora no catálogo `bench-profiles-v1.json`, inclusive no snapshot aplicado. O codec de cada layout permanece schema1, até4096bytes, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Arquivos antigos/corrompidos não são apagados ao carregar. Escritas usam AtomicFile/readback; resultado incerto mantém aviso mesmo após Cancelar/Back, sem promessa fictícia de rollback. Falha do catálogo exige reabertura para observar o estado real. Não é promessa contra falha física do armazenamento.
+Sem perfil aplicado, `dashboard-layout-v1.json` privado mantém o painel anônimo e serve de origem para migração em memória dos perfis antigos. Com perfil aplicado, o layout mora no catálogo `bench-profiles-v1.json`, inclusive no snapshot aplicado. O codec de cada layout escreve schema2 e lê schema1/2, até4096bytes, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Arquivos antigos/corrompidos não são apagados ao carregar. Escritas usam AtomicFile/readback; resultado incerto mantém aviso mesmo após Cancelar/Back, sem promessa fictícia de rollback. Falha do catálogo exige reabertura para observar o estado real. Não é promessa contra falha física do armazenamento.
 
 Reordenar/redimensionar não remove e reinsere as Views de conteúdo: modelo, buffers, câmera, filtros, histórico e seleção permanecem nos mesmos owners. Diálogos/gestos antigos são cercados pela identidade do rascunho. Fontes de dados continuam independentes da edição.
 

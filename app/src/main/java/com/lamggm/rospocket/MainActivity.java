@@ -97,6 +97,7 @@ public final class MainActivity extends Activity {
  private RobotPanel robotPanel;
  private int selectedSection=2;
  private final String[] dashboardValues={"","","",""};
+ private final JSONArray[] dashboardNumeric=new JSONArray[4];
  private final boolean[] dashboardFresh=new boolean[4];
  private final WatchSlots.Request[] dashboardOwners=new WatchSlots.Request[4];
  private int dashboardPeers;
@@ -613,7 +614,7 @@ public final class MainActivity extends Activity {
    String state=fresh?"RECEBENDO":(count==0?"AGUARDANDO":"SEM DADOS RECENTES");
    counts.setText(String.format(Locale.ROOT,"%s · %d msgs · %s Hz recebidos\n%d publicador(es) compatível(is) · idade %s\n%s",state,count,receivedRate(snapshot.optDouble("hz")),matched,age<0?"—":String.format(Locale.ROOT,"%.1f s",age),snapshot.optString("qos")));
    counts.setTextColor(UiTheme.color(this,fresh?ACCENT:WARNING));message.setTextColor(UiTheme.color(this,fresh?FG:MUTED));
-   dashboardFresh[0]=fresh;dashboardOwners[0]=watchSlots.get(0);
+   dashboardFresh[0]=fresh;dashboardOwners[0]=watchSlots.get(0);dashboardNumeric[0]=snapshot.optJSONArray("numericFields");
    message.setText(count>0?snapshot.optString("last"):"Nenhuma mensagem recebida. Confira publicadores e QoS.");
    structured.update(count>0?snapshot.optJSONObject("message"):null,fresh);
   }else{
@@ -630,7 +631,7 @@ public final class MainActivity extends Activity {
   boolean robotConnected=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(dashboardTitle,!robotConnected?"desconectado":observedRobotName.trim().isEmpty()?"desconhecido":observedRobotName);if(appliedProfile!=null){BenchProfiles.Profile p=profiles.applied();String caption=p==null?"Sem perfil aplicado":"Perfil: "+p.name;if(p!=null)try{if(!java.util.Arrays.equals(BenchProfiles.exportProfile(captureProfile(p.id,p.name)),BenchProfiles.exportProfile(p)))caption+=" · configuração não salva";}catch(Exception invalid){caption+=" · configuração em edição";}if(dashboardBoard!=null&&dashboardBoard.editing())caption+=" · painel em edição";setDashboardText(appliedProfile,caption);}if(headerRobotIdentity!=null&&headerBrand!=null&&headerBrand.isLaidOut()){int[] b=new int[2],h=new int[2];headerBrand.getLocationOnScreen(b);((View)headerRobotIdentity.getParent()).getLocationOnScreen(h);float target=b[1]-h[1];if(headerRobotIdentity.getY()!=target)headerRobotIdentity.setY(target);}
   int occupied=0;for(int i=0;i<4;i++)if(!(i==0?selectedWire:watchSlots.get(i).wire).isEmpty())occupied++;
   setDashboardText(dashboardSubtitle,occupied+"/4 leituras configuradas");
-  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);String wire=i==0?selectedWire:r.wire,type=i==0?selectedType:r.type;TextView stateView=i==0?counts:watchText[i];String state=stateView.getText().toString();boolean fresh=!wire.isEmpty()&&dashboardFresh[i]&&dashboardOwners[i]==r;MetricCard b=(MetricCard)watchCards[i];b.bind(i,occupied,wire,type,state,i==0?message.getText().toString():dashboardValues[i],fresh);if(b.isSelected()!=(activeWatch==i)){b.setSelected(activeWatch==i);UiTheme.apply(b);}b.setContentDescription(b.getText()+" · abrir detalhes e QoS");}
+  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);String wire=i==0?selectedWire:r.wire,type=i==0?selectedType:r.type;TextView stateView=i==0?counts:watchText[i];String state=stateView.getText().toString();boolean fresh=resumed&&connectWanted&&!wire.isEmpty()&&dashboardFresh[i]&&dashboardOwners[i]==r;MetricCard b=(MetricCard)watchCards[i];b.bind(i,occupied,wire,type,state,i==0?message.getText().toString():dashboardValues[i],fresh);if(b.isSelected()!=(activeWatch==i)){b.setSelected(activeWatch==i);UiTheme.apply(b);}b.sample(dashboardNumeric[i],fresh);}
  }
  private static void setDashboardText(TextView view,String text){if(!android.text.TextUtils.equals(view.getText(),text))view.setText(text);}
  private void readFromExplorer(JSONObject topic){
@@ -728,7 +729,7 @@ public final class MainActivity extends Activity {
   if(!profileConfigured){selectedWire="";selectedType="";}
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"selecione um tópico em Tópicos":selectedWire+" · desconectado"));counts.setText("Sem assinatura ativa");counts.setTextColor(UiTheme.color(this,MUTED));message.setText("Nenhuma mensagem recebida.");message.setTextColor(UiTheme.color(this,MUTED));
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
-  rosoutEpoch++;rosoutConsole.clearNow();
+  rosoutEpoch++;rosoutConsole.clearNow();refreshDashboard();
  }
  @Override protected void onResume(){super.onResume();robotPanel.view.setScreenActive(resumed&&selectedSection==2);}
  @Override protected void onPause(){robotPanel.view.setScreenActive(false);super.onPause();}
@@ -839,7 +840,7 @@ public final class MainActivity extends Activity {
     text=String.format(Locale.ROOT,"%s · %s\n%d msgs · %.1f Hz recebidos · idade %s · %d compatíveis\n%s\n%s",f.request.wire.substring(2),fresh?"RECEBENDO":state,w.optLong("count"),w.optDouble("hz"),age<0?"—":String.format(Locale.ROOT,"%.1f s",age),w.optInt("matched"),w.optString("qos"),w.optString("last"));
    }
    boolean treeVisible=!f.pending&&f.error.isEmpty()&&!f.request.wire.isEmpty()&&w!=null&&w.optString("error").isEmpty()&&w.optBoolean("readerActive")&&w.optLong("count")>0;
-   watchStructured[i].update(treeVisible?w.optJSONObject("message"):null,fresh);dashboardValues[i]=treeVisible?w.optString("last"):"";dashboardFresh[i]=fresh;dashboardOwners[i]=f.request;
+   watchStructured[i].update(treeVisible?w.optJSONObject("message"):null,fresh);dashboardValues[i]=treeVisible?w.optString("last"):"";dashboardNumeric[i]=treeVisible?w.optJSONArray("numericFields"):null;dashboardFresh[i]=fresh;dashboardOwners[i]=f.request;
    watchText[i].setText("Watch "+(i+1)+" · geração "+(w==null?"—":Long.toString(w.optLong("generation")))+" · "+text);watchText[i].setTextColor(UiTheme.color(this,fresh?ACCENT:WARNING));
   }
  }
