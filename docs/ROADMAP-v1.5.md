@@ -22,6 +22,10 @@ Implementar dashboards por perfil e uma página própria de mapa/pose. Android n
 - Não extrapola, estima localização ou inventa pose na origem. TF ausente, inválido, conflitante ou vencido remove o marcador. Timestamps repetidos não renovam a idade. Mapa retido pode continuar válido enquanto a pose expira; a UI distingue esses fatos.
 - Pan/pinça, enquadrar, zoom e seguir robô são ações de viewport, nunca comandos. Troca de página, seleção, perfil, conexão e lifecycle invalidam dados/decodes/poses antigos. Uma mudança de publicador de mapa exige seleção explícita nova.
 
+## Acabamento adicional autorizado
+
+O incremento de operação está descrito em [OPERATOR-POLISH-v1.5.md](OPERATOR-POLISH-v1.5.md): cabeçalho/identidade, botão flutuante, estado TF legível, fontes recolhíveis, diagnóstico e rastro opcional. O aceite físico anterior não se transfere aos novos bytes.
+
 ## Validação e limites
 
 TDD dos comportamentos centrais; testes de Views/persistência/codec/gerações; Canvas Android host em phone/tablet e claro/escuro com fixtures sintéticas restritas aos testes. Capturas reais de publicadores ROS em Fast DDS/Cyclone DDS passam pelo leitor nativo e decoder Android host, incluindo mapa retido anterior ao leitor e TF sem URDF. Fixtures isoladas, sem hardware do robô.

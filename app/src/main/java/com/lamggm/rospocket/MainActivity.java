@@ -90,6 +90,8 @@ public final class MainActivity extends Activity {
  private TextView sessionSummary;
  private TextView dashboardSubtitle;
  private TextView dashboardTitle;
+ private Button addReadingFab;
+ private String observedRobotName="";private LinearLayout headerRobotIdentity;private TextView headerBrand,appliedProfile;
  private ScheduledFuture<?> robotTicker;
  private final RobotContext robotContext=new RobotContext();
  private RobotPanel robotPanel;
@@ -139,6 +141,7 @@ public final class MainActivity extends Activity {
  private void showSection(int selected){
   if(selected==5&&selectedSection!=5){robotContext.fenceSelection();if(robotPanel!=null)robotPanel.invalidatePose();}
   selectedSection=selected;
+  if(addReadingFab!=null)addReadingFab.setVisibility(selected==2?View.VISIBLE:View.GONE);
   if(dashboardBoard!=null&&selected!=2)dashboardBoard.cancel();
   if(robotPanel!=null)robotPanel.view.setScreenActive(resumed&&selected==2);
   if(sensorPanel!=null)sensorPanel.visible(selected==2);
@@ -161,24 +164,24 @@ public final class MainActivity extends Activity {
   boolean wide=getResources().getConfiguration().screenWidthDp>=600;
   LinearLayout header=new LinearLayout(this);header.setGravity(android.view.Gravity.CENTER_VERTICAL);header.setPadding(dp(wide?24:16),dp(10),dp(wide?20:12),dp(10));
   ImageView logo=new ImageView(this);logo.setTag("brand-icon");logo.setImageDrawable(new PocketIcons("graph",VisualButton.accent(this),dp(26)));header.addView(logo,new LinearLayout.LayoutParams(dp(32),dp(40)));
-  LinearLayout identity=column();identity.setPadding(dp(10),0,dp(8),0);identity.addView(label("ROS Pocket",wide?21:18,FG));identity.addView(label("Somente leitura",11,MUTED));TextView version=label("v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA",12,MUTED);version.setVisibility(View.GONE);identity.addView(version);
+  LinearLayout identity=column();identity.setPadding(dp(10),0,dp(8),0);headerBrand=label("ROS Pocket",wide?21:15,FG);headerBrand.setTag("brand-title");identity.addView(headerBrand);identity.addView(label("Somente leitura",11,MUTED));TextView version=label("v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA",12,MUTED);version.setVisibility(View.GONE);identity.addView(version);
   header.addView(identity,new LinearLayout.LayoutParams(0,-2,1));
-  sessionSummary=label("Sem descoberta DDS",12,MUTED);sessionSummary.setSingleLine(true);sessionSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionSummary.setPadding(0,0,dp(20),0);header.addView(sessionSummary);if(!wide)sessionSummary.setVisibility(View.GONE);
+  sessionSummary=label("Sem descoberta DDS",11,MUTED);sessionSummary.setSingleLine(true);sessionSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionSummary.setVisibility(View.GONE);identity.addView(sessionSummary);
   String[] sectionNames={"connection","topics","monitor","logs","graph","location"};String[] sectionLabels={"Conexão","Explorar","Painel","Logs","Grafo","Localização"};
   LinearLayout nav=new LinearLayout(this);nav.setTag("primary-navigation");nav.setOrientation(wide?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
   for(int i=0;i<sectionNames.length;i++){
-   final int selected=i;Button button=new VisualButton(this,i==0?"connection":"nav",new String[]{"connection","explore","panel","logs","graph","location"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph,R.id.nav_location}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
+   final int selected=i;Button button=new VisualButton(this,i==0?(wide?"connection":"icon"):"nav",new String[]{"connection","explore","panel","logs","graph","location"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph,R.id.nav_location}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
   }
   nav.setPadding(dp(8),dp(wide?16:4),dp(8),dp(4));
   for(int index:new int[]{2,5,1,4,3}){LinearLayout.LayoutParams n=wide?new LinearLayout.LayoutParams(-1,dp(76)):new LinearLayout.LayoutParams(0,dp(68),1);if(wide)n.bottomMargin=dp(8);nav.addView(sectionButtons[index],n);}
-  LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER_VERTICAL);actions.addView(sectionButtons[0],new LinearLayout.LayoutParams(dp(wide?190:134),dp(50)));
-  Button appearance=new VisualButton(this,"icon","more");appearance.setTag("appearance-menu");appearance.setText("Aparência");appearance.setTooltipText("ROS Pocket v"+BuildConfig.VERSION_NAME+" · Aparência");appearance.setContentDescription("Aparência: Sistema, Claro ou Escuro");appearance.setOnClickListener(v->showAppearance());actions.addView(appearance,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(actions);root.addView(header,new LinearLayout.LayoutParams(-1,dp(wide?78:72)));
-  LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(LinearLayout.HORIZONTAL);root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
-  if(wide)workspace.addView(nav,new LinearLayout.LayoutParams(dp(88),-1));
+  LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER_VERTICAL);actions.addView(sectionButtons[0],new LinearLayout.LayoutParams(dp(wide?190:48),dp(50)));
+  Button appearance=new VisualButton(this,"icon","more");appearance.setTag("appearance-menu");appearance.setText("Aparência");appearance.setTooltipText("ROS Pocket v"+BuildConfig.VERSION_NAME+" · Aparência");appearance.setContentDescription("Aparência: Sistema, Claro ou Escuro");appearance.setOnClickListener(v->showAppearance());actions.addView(appearance,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(actions);FrameLayout headerFrame=new FrameLayout(this);headerFrame.setTag("operator-header");headerFrame.addView(header,new FrameLayout.LayoutParams(-1,-1));headerRobotIdentity=column();headerRobotIdentity.setGravity(android.view.Gravity.CENTER);dashboardTitle=label("desconectado",wide?21:12,FG);dashboardTitle.setTag("dashboard-title");dashboardTitle.setGravity(android.view.Gravity.CENTER);dashboardTitle.setSingleLine(true);dashboardTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);headerRobotIdentity.addView(dashboardTitle,new LinearLayout.LayoutParams(-1,-2));appliedProfile=label("Sem perfil aplicado",wide?11:9,MUTED);appliedProfile.setTag("applied-profile");appliedProfile.setGravity(android.view.Gravity.CENTER);appliedProfile.setSingleLine(true);appliedProfile.setEllipsize(android.text.TextUtils.TruncateAt.END);headerRobotIdentity.addView(appliedProfile,new LinearLayout.LayoutParams(-1,-2));headerFrame.addView(headerRobotIdentity,new FrameLayout.LayoutParams(dp(wide?260:92),-2,android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL));root.addView(headerFrame,new LinearLayout.LayoutParams(-1,dp(wide?78:72)));
+  LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(LinearLayout.HORIZONTAL);FrameLayout workspaceLayer=new FrameLayout(this);workspaceLayer.addView(workspace,new FrameLayout.LayoutParams(-1,-1));root.addView(workspaceLayer,new LinearLayout.LayoutParams(-1,0,1));
+  if(wide)workspace.addView(nav,new LinearLayout.LayoutParams(dp(112),-1));
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);workspace.addView(scroll,new LinearLayout.LayoutParams(0,-1,1));
   if(!wide)root.addView(nav);
 
-  LinearLayout body=column();body.setPadding(dp(wide?24:16),dp(22),dp(wide?24:16),dp(20));scroll.addView(body);
+  LinearLayout body=column();body.setPadding(dp(wide?24:16),dp(22),dp(wide?24:16),dp(88));scroll.addView(body);
   for(int i=0;i<sectionNames.length;i++){
    sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph,R.id.section_location}[i]);body.addView(sections[i]);
   }
@@ -210,11 +213,11 @@ public final class MainActivity extends Activity {
   });connection.addView(profiles);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
   topicList=new ExplorerView(this,this::readFromExplorer);topicList.setId(R.id.topics);graphCard.addView(topicList);sections[1].addView(graphCard);
-  LinearLayout panelHeading=new LinearLayout(this);panelHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);LinearLayout panelIdentity=column();dashboardTitle=label("Seu painel",27,FG);dashboardTitle.setTag("dashboard-title");panelIdentity.addView(dashboardTitle);dashboardSubtitle=label("Suas leituras, num só lugar.",13,MUTED);panelIdentity.addView(dashboardSubtitle);panelHeading.addView(panelIdentity,new LinearLayout.LayoutParams(0,-2,1));Button addReading=new VisualButton(this,"secondary","add");addReading.setText("Adicionar");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));panelHeading.addView(addReading,new LinearLayout.LayoutParams(dp(130),dp(48)));LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(20);sections[2].addView(panelHeading,headingParams);
+  LinearLayout panelHeading=new LinearLayout(this);panelHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);LinearLayout panelIdentity=column();dashboardSubtitle=label("Suas leituras, num só lugar.",13,MUTED);panelIdentity.addView(dashboardSubtitle);panelHeading.addView(panelIdentity,new LinearLayout.LayoutParams(0,-2,1));Button addReading=new VisualButton(this,"fab","add");addReadingFab=addReading;addReading.setText("+");addReading.setContentDescription("Adicionar leitura");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));FrameLayout.LayoutParams floating=new FrameLayout.LayoutParams(dp(56),dp(56),android.view.Gravity.END|android.view.Gravity.BOTTOM);floating.setMargins(dp(16),dp(16),dp(16),dp(16));workspaceLayer.addView(addReading,floating);LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(20);sections[2].addView(panelHeading,headingParams);
   dashboardBoard=new DashboardBoard(this);sections[2].addView(dashboardBoard);
   for(int i=0;i<4;i++){final int slot=i;MetricCard metric=new MetricCard(this);metric.setTag("watch-card:"+slot);metric.setOnClickListener(v->{chooseWatch(slot);if((slot==0?selectedWire:watchSlots.get(slot).wire).isEmpty())showSection(1);else watchDetails.setVisibility(View.VISIBLE);});watchCards[slot]=metric;dashboardBoard.addCard("watch"+slot,"Watch "+(slot+1),metric,null);}
   TextView cardHint=label("Toque numa leitura para ver os detalhes e QoS.",11,MUTED);cardHint.setPadding(0,0,0,dp(18));sections[2].addView(cardHint);
-  robotPanel=new RobotPanel(this,robotContext,name->{if(!android.text.TextUtils.equals(dashboardTitle.getText(),name))dashboardTitle.setText(name);});robotPanel.tileMode();dashboardBoard.addCard("robot","Modelo 3D",robotPanel,null);
+  robotPanel=new RobotPanel(this,robotContext,name->{observedRobotName=name==null?"":name;refreshDashboard();});robotPanel.tileMode();dashboardBoard.addCard("robot","Modelo 3D",robotPanel,null);
   LinearLayout echo=card();watchDetails=echo;echo.setVisibility(View.GONE);Button closeDetails=new VisualButton(this,"secondary",null);closeDetails.setText("Fechar detalhes");closeDetails.setOnClickListener(v->watchDetails.setVisibility(View.GONE));echo.addView(closeDetails);selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
@@ -572,7 +575,7 @@ public final class MainActivity extends Activity {
   dashboardFresh[0]=false;
   dashboardPeers=Math.max(0,snapshot.optInt("ddsPeers"));
   JSONArray topics=snapshot.optJSONArray("topics");if(topics==null)topics=new JSONArray();
-  topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
+  locationPanel.discovery(topics);topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
   String connection=snapshot.optString("connectionState","offline");
   String connectionLabel="connected".equals(connection)?"CONECTADO":("reconnecting".equals(connection)?"RECONECTANDO":("discovering".equals(connection)?"DESCOBERTA":"ERRO/OFFLINE"));
   status.setText(connectionLabel+" · domínio "+config.domain+" · "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; conexão não garante dados.":""));
@@ -624,6 +627,7 @@ public final class MainActivity extends Activity {
   if(counts==null||watchCards[0]==null||watchText[1]==null)return;
   if(sessionSummary!=null){boolean discovered=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(sessionSummary,discovered?"● DDS descoberto":"Sem descoberta DDS");sessionSummary.setTextColor(discovered?VisualButton.accent(this):VisualButton.muted(this));}
   if(sectionButtons[0]!=null){Config c=requested;setDashboardText(sectionButtons[0],"Conexão\n"+(c!=null&&"vpn".equals(c.networkMode)?"VPN":"Wi-Fi")+" · D"+(c==null?domain.getText():c.domain));}
+  boolean robotConnected=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(dashboardTitle,!robotConnected?"desconectado":observedRobotName.trim().isEmpty()?"desconhecido":observedRobotName);if(appliedProfile!=null){BenchProfiles.Profile p=profiles.applied();String caption=p==null?"Sem perfil aplicado":"Perfil: "+p.name;if(p!=null)try{if(!java.util.Arrays.equals(BenchProfiles.exportProfile(captureProfile(p.id,p.name)),BenchProfiles.exportProfile(p)))caption+=" · configuração não salva";}catch(Exception invalid){caption+=" · configuração em edição";}if(dashboardBoard!=null&&dashboardBoard.editing())caption+=" · painel em edição";setDashboardText(appliedProfile,caption);}if(headerRobotIdentity!=null&&headerBrand!=null&&headerBrand.isLaidOut()){int[] b=new int[2],h=new int[2];headerBrand.getLocationOnScreen(b);((View)headerRobotIdentity.getParent()).getLocationOnScreen(h);float target=b[1]-h[1];if(headerRobotIdentity.getY()!=target)headerRobotIdentity.setY(target);}
   int occupied=0;for(int i=0;i<4;i++)if(!(i==0?selectedWire:watchSlots.get(i).wire).isEmpty())occupied++;
   setDashboardText(dashboardSubtitle,occupied+"/4 leituras configuradas");
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);String wire=i==0?selectedWire:r.wire,type=i==0?selectedType:r.type;TextView stateView=i==0?counts:watchText[i];String state=stateView.getText().toString();boolean fresh=!wire.isEmpty()&&dashboardFresh[i]&&dashboardOwners[i]==r;MetricCard b=(MetricCard)watchCards[i];b.bind(i,occupied,wire,type,state,i==0?message.getText().toString():dashboardValues[i],fresh);if(b.isSelected()!=(activeWatch==i)){b.setSelected(activeWatch==i);UiTheme.apply(b);}b.setContentDescription(b.getText()+" · abrir detalhes e QoS");}
@@ -704,6 +708,7 @@ public final class MainActivity extends Activity {
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(UiTheme.color(this,MUTED));
  }
  private void disconnect(){
+  dashboardPeers=0;
   locationPanel.invalidateStream("Desconectado · sem mapa/pose desta sessão");
   robotContext.select("");robotPanel.clear("Desconectado · sem descrição desta sessão");
   dashboardPeers=0;
