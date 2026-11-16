@@ -81,6 +81,16 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type),text(e,mode),text(e,format)));}
  catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
 }
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startMap(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring w,jboolean reliable,jboolean retained,jstring mode,jstring format){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!w||!mode||!format||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(w)>256||e->GetStringUTFLength(mode)>3||e->GetStringUTFLength(format)>6){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração de mapa inválida\"}");}
+ try{return bytes(e,sensor.start(d,text(e,a),text(e,p),text(e,w),"nav_msgs::msg::dds_::OccupancyGrid_",text(e,mode),text(e,format),reliable,retained));}catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar mapa\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startLocationTf(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring dynamic,jstring fixed,jstring mode,jstring format){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!dynamic||!fixed||!mode||!format||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(dynamic)>256||e->GetStringUTFLength(fixed)>256||e->GetStringUTFLength(mode)>3||e->GetStringUTFLength(format)>6){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração TF de localização inválida\"}");}
+ try{auto opened=description.start(d,text(e,a),text(e,p),"",false,false,text(e,mode),text(e,format),true);if(opened.find("\"ok\":true")==std::string::npos)return bytes(e,opened);auto result=description.start_tf(text(e,dynamic),text(e,fixed),true,true);if(result.find("\"ok\":true")==std::string::npos)description.stop();return bytes(e,result);}catch(const std::exception&){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha TF de localização\"}");}
+}
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollSensor(JNIEnv* e,jclass){
  std::lock_guard<std::mutex> lock(mutex);
  try{

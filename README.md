@@ -1,5 +1,10 @@
 # ROS Pocket
 
+> **DEV v1.5 — em desenvolvimento, não publicada:** dashboards por perfil e página
+> Localização com OccupancyGrid/pose TF somente leitura. [Escopo e uso](docs/ROADMAP-v1.5.md).
+> A última distribuição publicada abaixo continua sendo a v1.4; testes host não
+> equivalem a instalação ou aceite físico deste novo DEV.
+
 > **v1.4 — CAD offline, TF observado e painel editável:** URDF seguro, malhas
 > locais vinculadas à descrição, GLES2/tela cheia e cards redimensionáveis.
 > [Uso](docs/UI-v1.4.md) · [Artefatos e aceite](docs/RELEASE-v1.4.md).
@@ -119,8 +124,10 @@ Domínios mistos, outras distribuições e tipos não exercitados não herdam su
 
 O APK atual é ARM64, usa IPv4 em LAN ou no modo VPN explícito e decodifica uma lista definida de
 tipos padrão, incluindo [sensores visuais com limites explícitos](docs/SENSOR-VIEWS.md).
-Tipos customizados, mapas, parâmetros, serviços/actions e teleop continuam fora do escopo.
-TF passivo é limitado ao [modelo URDF/CAD](docs/CAD-TF-VIEWER.md), não navegação ou RViz completo.
+Tipos customizados, parâmetros, serviços/actions e teleop continuam fora do escopo.
+O DEV v1.5 adiciona mapa OccupancyGrid e pose TF em Localização, sem destinos,
+costmaps ou comandos. O [modelo URDF/CAD](docs/CAD-TF-VIEWER.md) e Localização
+alternam os leitores TF; isso não é navegação ou RViz completo.
 Consulte os [tipos suportados e limites](docs/COMPATIBILITY.md).
 
 <a id="development-sequence"></a>

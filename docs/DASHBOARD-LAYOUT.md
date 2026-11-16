@@ -1,4 +1,10 @@
-# Painel editável nativo — DEV v1.4
+# Painel editável nativo — DEV v1.5
+
+A v1.5 acrescenta layout por perfil e migração do layout global, sem alterar os
+sete cards ou criar leitores. Aplicar um perfil troca seu layout confirmado;
+selecionar no spinner não aplica. Salvar o painel atualiza catálogo e snapshot
+aplicado numa gravação de perfis confirmada. Exportação/importação schema6 leva
+o layout; schemas anteriores continuam admitidos. [Contrato v1.5](ROADMAP-v1.5.md).
 
 ## Escopo
 
@@ -8,18 +14,18 @@ Personalização local de apresentação, não edição do robô. Preserva C++/C
 
 - **Editar painel** cria um rascunho. Cada card ganha uma faixa própria de edição, sem cobrir nem diminuir seu conteúdo: alça pontilhada para arrastar e soltar antes de outro card, botão central com nome/tamanho, e alça diagonal para redimensionar por gesto. O botão central abre medidas e ações equivalentes de mover antes/depois, sem depender de gestos.
 - **Salvar** valida e persiste; **Cancelar** ou Back descarta. **Padrão** muda apenas o rascunho até Salvar. Sair da seção ou do primeiro plano descarta alterações não salvas.
-- Sete cards existentes: quatro watches, modelo 3D, LiDAR/câmera e gráfico. Não há cards extras, exclusão, dashboard por perfil ou câmera e LiDAR simultâneos neste incremento.
+- Sete cards existentes: quatro watches, modelo 3D, LiDAR/câmera e gráfico. Não há cards extras, exclusão ou câmera e LiDAR simultâneos. Localização é uma página separada e alterna o leitor visual com esse card.
 - Larguras/alturas lógicas de 1 a 4 unidades; visuais têm mínimo 2×2. Padrão: watches 1×1, modelo 4×3, sensor e gráfico 2×2. Unidade vertical 160dp, escalada para fontes grandes; espaçamento 12dp.
 - Grade adaptativa de 4, 2 ou 1 colunas. Larguras limitadas somente na renderização em telas menores, sem alterar o tamanho lógico salvo. Ordem estável por linhas; não é posicionamento livre com células vazias.
 - Redimensionar muda os viewports reais. Controles técnicos do modelo ficam em **⋮**; indicação de pose permanece no card. Opções longas de sensores/gráfico rolam dentro dos respectivos cards. Tela cheia do modelo preservada.
 
 ## Estado e limites
 
-`dashboard-layout-v1.json` privado e independente dos perfis/conexões/tema/meshes. Schema1, até4096bytes, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Leitura inválida usa padrão sem apagar o arquivo. Escrita AtomicFile, readback exato antes de confirmar. Falha anterior ao fechamento mantém edição e informa preservação do anterior. Falha durante/depois do fechamento é resultado incerto: o arquivo pode ter mudado; não promete rollback. O aviso permanece mesmo após Cancelar/Back, que descartam somente o rascunho em memória. Uma nova gravação confirmada ou reinício com releitura estabelece o layout salvo. Não é promessa contra falha física do armazenamento.
+Sem perfil aplicado, `dashboard-layout-v1.json` privado mantém o painel anônimo e serve de origem para migração em memória dos perfis antigos. Com perfil aplicado, o layout mora no catálogo `bench-profiles-v1.json`, inclusive no snapshot aplicado. O codec de cada layout permanece schema1, até4096bytes, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Arquivos antigos/corrompidos não são apagados ao carregar. Escritas usam AtomicFile/readback; resultado incerto mantém aviso mesmo após Cancelar/Back, sem promessa fictícia de rollback. Falha do catálogo exige reabertura para observar o estado real. Não é promessa contra falha física do armazenamento.
 
 Reordenar/redimensionar não remove e reinsere as Views de conteúdo: modelo, buffers, câmera, filtros, histórico e seleção permanecem nos mesmos owners. Diálogos/gestos antigos são cercados pela identidade do rascunho. Fontes de dados continuam independentes da edição.
 
-## Verificação
+## Verificação histórica v1.4
 
 JUnit/Robolectric: modelo imutável/codec, falha real AtomicFile, rascunho/salvar/cancelar/padrão, menu nativo, gesto de resize, evento antigo, persistência, Back/seção/lifecycle, viewports reais, identidade do modelo/zoom/readers, layouts phone/tablet e temas. Ajuste de projeção preserva enquadramento no lado menor de cards altos, sem mudar geometria. Imagens host usam fixtures explicitamente sintéticas, somente testes; não entram no APK.
 

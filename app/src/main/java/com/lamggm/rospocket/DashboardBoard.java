@@ -12,6 +12,8 @@ import java.util.*;
 final class DashboardBoard extends LinearLayout {
  interface Sizing {void size(int height);}
  private final DashboardStore store;
+ interface Persistence {void save(DashboardLayout layout)throws IOException;}
+ private Persistence persistence;
  private DashboardLayout committed,draft;
  private Object editOwner;
  private final Grid grid;
@@ -34,12 +36,14 @@ final class DashboardBoard extends LinearLayout {
  private float font(){return Math.max(1,getResources().getConfiguration().fontScale);}
  void addCard(String id,String title,View view,Sizing size){if(!DashboardLayout.IDS.contains(id)||grid.cards.containsKey(id))throw new IllegalArgumentException("Card duplicado ou desconhecido");grid.register(id,title,view,size);}
  DashboardLayout layout(){return editing()?draft:committed;}
+ DashboardLayout savedLayout(){return committed;}
+ void bind(DashboardLayout layout,Persistence save){cancel();committed=java.util.Objects.requireNonNull(layout);persistence=save;changed();}
  boolean editing(){return editOwner!=null;}
  void edit(){if(disposed||editing())return;draft=committed;editOwner=new Object();editButton.setVisibility(GONE);controls.setVisibility(VISIBLE);notice.setVisibility(VISIBLE);changed();}
  void cancel(){if(!editing())return;endEdit();}
  private void reset(){if(editing()){draft=DashboardLayout.defaults();changed();notice.setText(persistenceUncertain?UNCERTAIN:"Padrão no rascunho · Salve para aplicar");}}
  private void endEdit(){if(options!=null){options.dismiss();options=null;}draft=null;editOwner=null;editButton.setVisibility(VISIBLE);controls.setVisibility(GONE);notice.setVisibility(persistenceUncertain?VISIBLE:GONE);if(persistenceUncertain)notice.setText(UNCERTAIN);changed();}
- boolean save(){if(!editing()||disposed)return false;try{store.save(draft);committed=draft;persistenceUncertain=false;endEdit();return true;}catch(IOException e){if(e instanceof DashboardStore.Unconfirmed)persistenceUncertain=true;notice.setText(persistenceUncertain?UNCERTAIN:"Falha ao salvar · Layout anterior preservado · Tente novamente ou cancele");notice.announceForAccessibility(notice.getText());return false;}}
+ boolean save(){if(!editing()||disposed)return false;try{if(persistence==null)store.save(draft);else persistence.save(draft);committed=draft;persistenceUncertain=false;endEdit();return true;}catch(IOException e){if(e instanceof DashboardStore.Unconfirmed)persistenceUncertain=true;notice.setText(persistenceUncertain?UNCERTAIN:"Falha ao salvar · Layout anterior preservado · "+e.getMessage());notice.announceForAccessibility(notice.getText());return false;}}
  void resize(String id,int w,int h){if(!editing()||disposed)return;draft=draft.resize(id,w,h);changed();}
  void moveBefore(String id,String target){if(!editing()||disposed)return;draft=draft.before(id,target);changed();}
  private void changed(){if(editing())notice.setText(persistenceUncertain?UNCERTAIN:"Rascunho local · Segure a alça para mover · Arraste a alça diagonal ou toque no tamanho para posição e medidas");grid.refresh();}

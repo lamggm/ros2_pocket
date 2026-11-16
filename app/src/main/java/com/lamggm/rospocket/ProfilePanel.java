@@ -41,13 +41,20 @@ final class ProfilePanel extends LinearLayout {
    public void onItemSelected(android.widget.AdapterView<?> parent,View v,int position,long id){if(refreshing||position!=select.getSelectedItemPosition())return;selected=position==0?"":book.profiles.get(position-1).id;name.setText(position==0?"":book.profiles.get(position-1).name);}
    public void onNothingSelected(android.widget.AdapterView<?> parent){}
   });
-  try{book=store.load();refresh(book.applied==null?"":book.applied.id);notice("Perfis locais: "+book.profiles.size()+". Selecionar não aplica nem conecta.");}
+  try{book=store.load();DashboardLayout legacy=new DashboardStore(context.getFilesDir()).load();List<BenchProfiles.Profile> migrated=new ArrayList<>();for(BenchProfiles.Profile p:book.profiles)migrated.add(p.dashboard==null?p.withDashboard(legacy):p);BenchProfiles.Profile applied=book.applied;book=new BenchProfiles(migrated,applied==null?null:applied.dashboard==null?applied.withDashboard(legacy):applied);refresh(book.applied==null?"":book.applied.id);notice("Perfis locais: "+book.profiles.size()+". Selecionar não aplica nem conecta.");}
   catch(Exception ex){failed=true;transfer.dispose();for(int i=0;i<getChildCount();i++){View child=getChildAt(i);if(child instanceof Button||child instanceof EditText||child instanceof Spinner)child.setEnabled(false);}notice("Perfis indisponíveis: "+ex.getMessage()+". Nada foi apagado; conexão automática bloqueada.");}
  }
  boolean result(int request,int code,android.content.Intent data){return transfer.result(request,code,data);}
  void dispose(){transfer.dispose();}
  boolean catalogExists(){return exists||failed;}
  BenchProfiles.Profile applied(){return book.applied;}
+ void saveDashboard(String owner,DashboardLayout layout)throws java.io.IOException{
+  if(failed)throw new java.io.IOException("Reabra o app para recarregar os perfis");
+  BenchProfiles.Profile applied=book.applied,saved=book.find(owner);
+  if(applied==null||!applied.id.equals(owner)||saved==null)throw new java.io.IOException("Perfil não está mais aplicado; aplique um perfil salvo");
+  try{persist(book.save(saved.withDashboard(layout)).apply(applied.withDashboard(layout)));}
+  catch(Exception e){failed=true;throw new DashboardStore.Unconfirmed(e);}
+ }
  private BenchProfiles.Profile chosen(){BenchProfiles.Profile p=book.find(selected);if(p==null)throw new IllegalStateException("Selecione um perfil salvo.");return p;}
  private interface Operation {void run()throws Exception;}
  private void attempt(Operation operation){try{if(failed)throw new IllegalStateException("Reabra o app para recarregar os perfis");operation.run();}catch(Exception ex){notice("Perfil não alterado/aplicado: "+ex.getMessage());}}

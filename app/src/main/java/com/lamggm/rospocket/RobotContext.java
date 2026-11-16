@@ -31,6 +31,7 @@ final class RobotContext {
   try{if(!admitted.getAsBoolean()||selection!=owner)return;JSONObject answer=NativeBridge.Api.json(api.startTf(d==null?"":d.wire,s==null?"":s.wire,s!=null&&s.reliable,s!=null&&s.retained));if(!admitted.getAsBoolean()||selection!=owner){api.stopTf();return;}if(!answer.optBoolean("ok")){tfError=answer.optString("error","TF indisponível");return;}tfKey=key;tfBoundKey=key;tfDynamic=d;tfStatic=s;tfSources=(d==null?"":d.name)+(s==null?"":" + "+s.name);}catch(Exception e){api.stopTf();tfError="TF indisponível";}
  }
  void select(String wire){selection=new Selection(wire);}
+ void fenceSelection(){Selection prior=selection;selection=new Selection(prior.wire);}
  boolean current(Snapshot s){return s!=null&&s.owner==selection;}
  private String applied="",parseError="";private long sequence=-1;private Selection appliedSelection;private RobotDescription model;
  void resetWorker(){applied="";sequence=-1;model=null;parseError="";appliedSelection=null;tfKey="";tfError="";tfSources="";}

@@ -16,13 +16,14 @@ final class SensorPacket {
  }
  static boolean supports(String type){return type.equals("sensor_msgs::msg::dds_::LaserScan_")||type.equals("sensor_msgs::msg::dds_::Image_")||type.equals("sensor_msgs::msg::dds_::CompressedImage_");}
  static final class Decoded {
-  Bitmap image;float[] xy;JSONObject meta;long capturedNs;long initialAgeMs;
+  Bitmap image;MapGrid map;float[] xy;JSONObject meta;long capturedNs;long initialAgeMs;
   boolean fresh(long now){return initialAgeMs>=0&&now>=capturedNs&&initialAgeMs+(now-capturedNs)/1000000<3000;}
  }
  private static void dimensions(int w,int h){if(w<=0||h<=0||w>1280||h>1280||(long)w*h>MAX_PIXELS)throw new IllegalArgumentException("Imagem excede 921600 pixels/1280 por lado");}
  Decoded decode()throws Exception{
   Decoded d=new Decoded();d.meta=meta;d.capturedNs=capturedNs;d.initialAgeMs=meta.optLong("ageMs",-1);
   switch(meta.optString("kind")){
+   case "map":{d.map=new MapGrid(meta,data);d.image=d.map.bitmap;break;}
    case "scan":{
     int n=meta.getInt("points");double range=meta.getDouble("rangeMax");
     if(n<0||n>4096||data.length!=n*8||!Double.isFinite(range)||range<=0)throw new IllegalArgumentException("Pontos LaserScan inválidos");

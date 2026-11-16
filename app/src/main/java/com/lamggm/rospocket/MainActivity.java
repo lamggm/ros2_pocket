@@ -42,6 +42,11 @@ public final class MainActivity extends Activity {
  private PlotView plotView;
  private PlotExportPanel plotExport;
  private SensorPanel sensorPanel;
+ private LocationPanel locationPanel;
+ private LocationPanel.Request appliedLocationMap,failedLocationMap,appliedLocationTf;
+ private long appliedLocationEpoch=-1,failedLocationEpoch=-1,locationRetryAt,appliedLocationTfEpoch=-1;
+ private boolean localizationMetadata,locationTfStarted;
+ private RobotTf locationTree=new RobotTf();private String locationTfError="";
  private DashboardBoard dashboardBoard;
  private ScheduledFuture<?> sensorTicker;
  // Applied state is confined to the same process-wide DDS queue as telemetry.
@@ -129,13 +134,15 @@ public final class MainActivity extends Activity {
  private EditText input(String hint,String value,int id,int type){
   EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setId(id);e.setSingleLine(true);e.setTextColor(UiTheme.color(this,FG));e.setHintTextColor(UiTheme.color(this,MUTED));e.setTextSize(16);e.setInputType(type);e.setSelectAllOnFocus(true);return e;
  }
- private final LinearLayout[] sections=new LinearLayout[5];
- private final Button[] sectionButtons=new Button[5];
+ private final LinearLayout[] sections=new LinearLayout[6];
+ private final Button[] sectionButtons=new Button[6];
  private void showSection(int selected){
+  if(selected==5&&selectedSection!=5){robotContext.fenceSelection();if(robotPanel!=null)robotPanel.invalidatePose();}
   selectedSection=selected;
   if(dashboardBoard!=null&&selected!=2)dashboardBoard.cancel();
   if(robotPanel!=null)robotPanel.view.setScreenActive(resumed&&selected==2);
   if(sensorPanel!=null)sensorPanel.visible(selected==2);
+  if(locationPanel!=null)locationPanel.visible(selected==5);
   for(int i=0;i<sections.length;i++){
    sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
    sectionButtons[i].setSelected(i==selected);
@@ -157,13 +164,13 @@ public final class MainActivity extends Activity {
   LinearLayout identity=column();identity.setPadding(dp(10),0,dp(8),0);identity.addView(label("ROS Pocket",wide?21:18,FG));identity.addView(label("Somente leitura",11,MUTED));TextView version=label("v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA",12,MUTED);version.setVisibility(View.GONE);identity.addView(version);
   header.addView(identity,new LinearLayout.LayoutParams(0,-2,1));
   sessionSummary=label("Sem descoberta DDS",12,MUTED);sessionSummary.setSingleLine(true);sessionSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionSummary.setPadding(0,0,dp(20),0);header.addView(sessionSummary);if(!wide)sessionSummary.setVisibility(View.GONE);
-  String[] sectionNames={"connection","topics","monitor","logs","graph"};String[] sectionLabels={"Conexão","Explorar","Painel","Logs","Grafo"};
+  String[] sectionNames={"connection","topics","monitor","logs","graph","location"};String[] sectionLabels={"Conexão","Explorar","Painel","Logs","Grafo","Localização"};
   LinearLayout nav=new LinearLayout(this);nav.setTag("primary-navigation");nav.setOrientation(wide?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
   for(int i=0;i<sectionNames.length;i++){
-   final int selected=i;Button button=new VisualButton(this,i==0?"connection":"nav",new String[]{"connection","explore","panel","logs","graph"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
+   final int selected=i;Button button=new VisualButton(this,i==0?"connection":"nav",new String[]{"connection","explore","panel","logs","graph","location"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph,R.id.nav_location}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
   }
   nav.setPadding(dp(8),dp(wide?16:4),dp(8),dp(4));
-  for(int index:new int[]{2,1,4,3}){LinearLayout.LayoutParams n=wide?new LinearLayout.LayoutParams(-1,dp(76)):new LinearLayout.LayoutParams(0,dp(68),1);if(wide)n.bottomMargin=dp(8);nav.addView(sectionButtons[index],n);}
+  for(int index:new int[]{2,5,1,4,3}){LinearLayout.LayoutParams n=wide?new LinearLayout.LayoutParams(-1,dp(76)):new LinearLayout.LayoutParams(0,dp(68),1);if(wide)n.bottomMargin=dp(8);nav.addView(sectionButtons[index],n);}
   LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER_VERTICAL);actions.addView(sectionButtons[0],new LinearLayout.LayoutParams(dp(wide?190:134),dp(50)));
   Button appearance=new VisualButton(this,"icon","more");appearance.setTag("appearance-menu");appearance.setText("Aparência");appearance.setTooltipText("ROS Pocket v"+BuildConfig.VERSION_NAME+" · Aparência");appearance.setContentDescription("Aparência: Sistema, Claro ou Escuro");appearance.setOnClickListener(v->showAppearance());actions.addView(appearance,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(actions);root.addView(header,new LinearLayout.LayoutParams(-1,dp(wide?78:72)));
   LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(LinearLayout.HORIZONTAL);root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
@@ -173,7 +180,7 @@ public final class MainActivity extends Activity {
 
   LinearLayout body=column();body.setPadding(dp(wide?24:16),dp(22),dp(wide?24:16),dp(20));scroll.addView(body);
   for(int i=0;i<sectionNames.length;i++){
-   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph}[i]);body.addView(sections[i]);
+   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph,R.id.section_location}[i]);body.addView(sections[i]);
   }
   LinearLayout connection=sections[0];
   LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.addView(label("Domain ID",15,MUTED));
@@ -238,6 +245,7 @@ public final class MainActivity extends Activity {
   plotExport=new PlotExportPanel(this,plotView);((LinearLayout)plotView.findViewWithTag("plot-configuration")).addView(plotExport);
   rosoutConsole=new RosoutConsoleView(this,this::clearRosout);sections[3].addView(rosoutConsole);
   rosGraph=new RosGraphPanel(this);sections[4].addView(rosGraph);
+  locationPanel=new LocationPanel(this);sections[5].addView(locationPanel);
   showSection(2);
   setContentView(root);applyAppearance();root.getViewTreeObserver().addOnGlobalLayoutListener(this::refreshDashboard);refreshDashboard();
  }
@@ -255,10 +263,25 @@ public final class MainActivity extends Activity {
  private void tickRobot(int token){tickRobotPose(token);}
  private void tickRobotPose(int token){
   final Config config=workerConfig;final long epoch=policy.generation();if(!nativeRunning||config==null||!connectionCurrent(token,config,epoch))return;
+  metadataMode(locationPanel.visible());
+  if(localizationMetadata){tickLocationPose(token,config,epoch);return;}
   RobotContext.PoseSnapshot pose=robotContext.pollTf(bridge,System.nanoTime());if(pose==null||!connectionCurrent(token,config,epoch))return;
   ui(token,epoch,()->{if(connectionCurrent(token,config,epoch))robotPanel.updatePose(pose);});
  }
+ private void metadataMode(boolean location){if(localizationMetadata==location)return;bridge.stopDescription();robotContext.resetWorker();appliedLocationTf=null;appliedLocationTfEpoch=-1;locationTfStarted=false;locationTfError="";locationTree=new RobotTf();localizationMetadata=location;}
+ private void tickLocationPose(int token,Config config,long epoch){
+  final LocationPanel.Request desired=locationPanel.desired();final long visualEpoch=locationPanel.epoch();
+  if(appliedLocationTf!=desired||appliedLocationTfEpoch!=visualEpoch){
+   bridge.stopDescription();locationTfStarted=false;locationTfError="";locationTree=new RobotTf();appliedLocationTf=desired;appliedLocationTfEpoch=visualEpoch;
+   if(desired!=null){LocationConfig c=desired.config;try{if(c.dynamicTf.isEmpty()&&c.staticTf.isEmpty())locationTfError="TF não selecionado";else {JSONObject result=NativeBridge.Api.json(bridge.startLocationTf(config.domain,workerAddress,config.peer,c.dynamicTf,c.staticTf,config.networkMode,config.graphFormat));if(!connectionCurrent(token,config,epoch)||!locationPanel.current(desired,visualEpoch)){bridge.stopDescription();appliedLocationTf=null;return;}locationTfStarted=result.optBoolean("ok");if(!locationTfStarted)locationTfError=result.optString("error","TF indisponível");}}catch(Exception e){bridge.stopDescription();locationTfError="TF de localização indisponível";}}
+  }
+  if(desired==null)return;long now=System.nanoTime();
+  if(locationTfStarted)try{JSONObject raw=NativeBridge.Api.json(bridge.pollTf());if(!raw.optBoolean("running")||!raw.optString("error").isEmpty()){locationTree.accept(null,now);locationTfError=raw.optString("error","TF indisponível");}else {locationTree.accept(raw.optJSONArray("rows"),now);locationTfError="";}}catch(Exception e){locationTree.accept(null,now);locationTfError="Falha na leitura TF";}
+  final MapGrid map=locationPanel.map();if(map==null)return;RobotTf.Pose solved=locationTree.solve(map.frame,java.util.Collections.singleton(desired.config.robotFrame),now);final RobotTf.Pose pose=locationTfError.isEmpty()?solved:new RobotTf.Pose(false,locationTfError,0,0,java.util.Collections.emptyMap());
+  ui(token,epoch,()->{if(connectionCurrent(token,config,epoch))locationPanel.pose(desired,visualEpoch,map,pose);});
+ }
  private void requestConnection(boolean resetSelection){
+  locationPanel.invalidateStream("Aguardando mapa desta conexão");
   robotContext.select("");robotPanel.clear("Aguardando descrição desta conexão");
   dashboardPeers=0;
   DeviceTestHooks.invalidate();
@@ -320,6 +343,7 @@ public final class MainActivity extends Activity {
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
   robotContext.resetWorker();
+  localizationMetadata=false;locationTfStarted=false;appliedLocationTf=null;appliedLocationMap=null;failedLocationMap=null;appliedLocationTfEpoch=appliedLocationEpoch=failedLocationEpoch=-1;locationTree=new RobotTf();locationPanel.invalidateStream("Conexão indisponível · sem mapa/pose desta sessão");
   sensorPanel.invalidateStream();appliedSensor=null;failedSensor=null;sensorRetryAt=0;
   try{if(owns){try{bridge.stopSensor();}finally{bridge.stop();}}}finally{
    nativeRunning=false;workerConfig=null;workerAddress="";
@@ -422,7 +446,8 @@ public final class MainActivity extends Activity {
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
    JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
-   final RobotContext.Snapshot robotSnapshot=robotContext.observe(bridge,config.domain,address,config.peer,config.networkMode,config.graphFormat,snapshot.optJSONArray("topics"),()->connectionCurrent(token,config,epoch));
+   if(!connectionCurrent(token,config,epoch))return;metadataMode(locationPanel.visible());
+   final RobotContext.Snapshot robotSnapshot=localizationMetadata?null:robotContext.observe(bridge,config.domain,address,config.peer,config.networkMode,config.graphFormat,snapshot.optJSONArray("topics"),()->connectionCurrent(token,config,epoch));
    policy.recovered();
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" · "+binding+" · domínio "+config.domain;
    // Intake runs for every real poll, regardless of display throttling/pause.
@@ -438,7 +463,7 @@ public final class MainActivity extends Activity {
     }
    }
    long paint=System.nanoTime();
-   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
+   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(robotSnapshot!=null&&!locationPanel.visible())robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
   }catch(Throwable ex){
    String e=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());
    try{stopSession();}catch(Throwable cleanup){android.util.Log.w("RosPocket","DDS teardown: "+cleanup.getClass().getSimpleName());}
@@ -451,6 +476,8 @@ public final class MainActivity extends Activity {
  private void tickSensor(int token){
   if(foregroundActivity.get()!=this||!resumed||generation!=token||nativeOwner.get()!=this)return;
   final Config config=requested;final long epoch=policy.generation();
+  if(locationPanel.visible()){if(appliedSensor!=null){bridge.stopSensor();appliedSensor=null;appliedSensorEpoch=-1;}tickLocationMap(token,config,epoch);return;}
+  if(appliedLocationMap!=null){bridge.stopSensor();appliedLocationMap=null;appliedLocationEpoch=-1;}
   final SensorPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?sensorPanel.desired():null;
   final long visualEpoch=sensorPanel.epoch();
   if(desired!=null&&failedSensor==desired&&failedSensorEpoch==visualEpoch&&monotonicMillis()<sensorRetryAt)return;
@@ -470,6 +497,13 @@ public final class MainActivity extends Activity {
    if(desired!=null)sensorPanel.error(desired,String.valueOf(ex.getMessage()),()->connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch));
    try{bridge.stopSensor();}catch(Exception ignored){android.util.Log.w("RosPocket","Falha ao parar sensor visual");}
   }
+ }
+ private void tickLocationMap(int token,Config config,long epoch){
+  final LocationPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?locationPanel.desired():null;final long visualEpoch=locationPanel.epoch();
+  if(desired!=null&&failedLocationMap==desired&&failedLocationEpoch==visualEpoch&&monotonicMillis()<locationRetryAt)return;
+  try{if(appliedLocationMap!=desired||appliedLocationEpoch!=visualEpoch){bridge.stopSensor();appliedLocationMap=desired;appliedLocationEpoch=visualEpoch;if(desired!=null){LocationConfig c=desired.config;JSONObject answer=NativeBridge.Api.json(bridge.startMap(config.domain,workerAddress,config.peer,c.wire,c.reliable,c.retained,config.networkMode,config.graphFormat));if(!connectionCurrent(token,config,epoch)||!locationPanel.current(desired,visualEpoch)){bridge.stopSensor();appliedLocationMap=null;return;}if(!answer.optBoolean("ok"))throw new IllegalStateException(answer.optString("error","Falha no mapa"));failedLocationMap=null;}}
+   if(desired!=null){byte[] data=bridge.pollSensor();if(connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch)&&!locationPanel.accept(desired,visualEpoch,data,()->connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch)))throw new IllegalStateException("Leitor de mapa indisponível");}
+  }catch(Exception ex){appliedLocationMap=null;appliedLocationEpoch=-1;failedLocationMap=desired;failedLocationEpoch=visualEpoch;locationRetryAt=monotonicMillis()+1000;if(desired!=null)locationPanel.error(desired,visualEpoch,String.valueOf(ex.getMessage()),()->connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch));try{bridge.stopSensor();}catch(Exception ignored){android.util.Log.w("RosPocket","Falha ao parar mapa");}}
  }
  @Override public void dump(String prefix,java.io.FileDescriptor fd,java.io.PrintWriter writer,String[] args){
   if(args!=null&&args.length==1&&"--pocket-qa-v1".equals(args[0])){
@@ -596,6 +630,7 @@ public final class MainActivity extends Activity {
  }
  private static void setDashboardText(TextView view,String text){if(!android.text.TextUtils.equals(view.getText(),text))view.setText(text);}
  private void readFromExplorer(JSONObject topic){
+  if(MapGrid.TYPE.equals(topic.optString("wireType"))){showSection(5);locationPanel.select(topic.optString("wireName"));return;}
   if(!connectWanted){Toast.makeText(this,"Conecte a sessão antes de iniciar uma leitura.",Toast.LENGTH_SHORT).show();return;}
   if(SensorPacket.supports(topic.optString("wireType"))){select(topic);return;}
   if(!topic.optBoolean("supported"))return;
@@ -611,6 +646,7 @@ public final class MainActivity extends Activity {
  }
  private boolean validExplorerChoice(JSONObject topic,Config config,int token,long choiceEpoch){return policy.accepts(choiceEpoch)&&resumed&&connectWanted&&requested==config&&generation==token&&topicList.containsTopic(topic.optString("wireName"),topic.optString("wireType"));}
  private void select(JSONObject topic){
+  if(MapGrid.TYPE.equals(topic.optString("wireType"))){showSection(5);locationPanel.select(topic.optString("wireName"));return;}
   if(!connectWanted)return;
   if(SensorPacket.supports(topic.optString("wireType"))){sensorPanel.select(topic.optString("wireName"),topic.optString("wireType"));showSection(2);return;}
   if(!topic.optBoolean("supported")){Toast.makeText(this,"Tipo descoberto, mas ainda sem decodificador: "+topic.optString("type"),Toast.LENGTH_LONG).show();return;}
@@ -649,10 +685,12 @@ public final class MainActivity extends Activity {
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
   String format=connectWanted&&requested!=null?requested.graphFormat:selectedGraphFormat();
   String mode=connectWanted&&requested!=null?requested.networkMode:selectedNetworkMode();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode);
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode,dashboardBoard.savedLayout(),locationPanel.profile());
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
+  locationPanel.configure(p.localization);
+  dashboardBoard.bind(p.dashboard==null?new DashboardStore(getFilesDir()).load():p.dashboard,value->profiles.saveDashboard(p.id,value));
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
   profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);graphFormat.setSelection("humble".equals(p.graphFormat)?1:0);graphFormat.setEnabled(true);networkMode.setSelection("vpn".equals(p.networkMode)?1:0);networkMode.setEnabled(true);
   plots.configureProfile(p);
@@ -666,6 +704,7 @@ public final class MainActivity extends Activity {
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(UiTheme.color(this,MUTED));
  }
  private void disconnect(){
+  locationPanel.invalidateStream("Desconectado · sem mapa/pose desta sessão");
   robotContext.select("");robotPanel.clear("Desconectado · sem descrição desta sessão");
   dashboardPeers=0;
   rosGraph.clear("Desconectado · nenhuma topologia atual");
@@ -689,6 +728,7 @@ public final class MainActivity extends Activity {
  @Override protected void onResume(){super.onResume();robotPanel.view.setScreenActive(resumed&&selectedSection==2);}
  @Override protected void onPause(){robotPanel.view.setScreenActive(false);super.onPause();}
  @Override protected void onStop(){
+  locationPanel.invalidateStream("Suspenso · aguardando nova sessão");
   robotContext.select("");robotPanel.clear("Suspenso · aguardando nova sessão");robotPanel.view.setScreenActive(false);
   rosGraph.clear("Suspenso · aplicativo fora do primeiro plano");
   sensorPanel.available(false);
@@ -712,7 +752,7 @@ public final class MainActivity extends Activity {
   if(profiles!=null)profiles.result(request,result,data);
   if(robotPanel!=null)robotPanel.result(request,result,data);
  }
- @Override protected void onDestroy(){dashboardBoard.dispose();profiles.dispose();plotExport.dispose();sensorPanel.dispose();robotPanel.dispose();super.onDestroy();}
+ @Override protected void onDestroy(){dashboardBoard.dispose();profiles.dispose();plotExport.dispose();sensorPanel.dispose();locationPanel.dispose();robotPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);

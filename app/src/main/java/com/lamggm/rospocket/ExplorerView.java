@@ -82,7 +82,7 @@ public final class ExplorerView extends LinearLayout {
    CheckBox star=new CheckBox(getContext());star.setTag("favorite:"+key);star.setText("");star.setContentDescription("Favorito "+name);star.setButtonDrawable(new PocketIcons("star",VisualButton.muted(getContext()),dp(22)));star.setTextColor(UiTheme.color(getContext(),0xffe6edf3));star.setChecked(favorites.contains(key));card.addView(star,new LinearLayout.LayoutParams(dp(48),dp(48)));
    Button more=new VisualButton(getContext(),"icon","chevron");more.setTag("details:"+key);more.setText("Detalhes / QoS · "+name);more.setContentDescription("Inspecionar "+name);card.addView(more,new LinearLayout.LayoutParams(dp(48),dp(48)));
    more.setOnClickListener(v->inspect(key));
-   boolean visual=SensorPacket.supports(topic.optString("wireType"));
+   boolean visual=(SensorPacket.supports(topic.optString("wireType"))||MapGrid.TYPE.equals(topic.optString("wireType")));
    Button read=new VisualButton(getContext(),"icon","add");read.setTag("read:"+key);read.setText(visual?"Visualizar · "+name:topic.optBoolean("supported")?"Ler · "+name:"Sem decodificador · "+name);read.setContentDescription(read.getText());read.setEnabled(visual||topic.optBoolean("supported"));card.addView(read,new LinearLayout.LayoutParams(dp(48),dp(48)));
    read.setOnClickListener(v->listener.read(topic));
    text.setContentDescription("Tópico "+name);text.setOnClickListener(v->inspect(key));
@@ -96,14 +96,14 @@ public final class ExplorerView extends LinearLayout {
   renderDetails();UiTheme.apply(this);
  }
  private void inspect(String key){detailKey=key;for(int i=0;i<rows.getChildCount();i++){android.view.View row=rows.getChildAt(i);boolean selected=("explorer-topic:"+key).equals(row.getTag());row.setSelected(selected);row.setBackground(UiTheme.surface(getContext(),selected));}renderDetails();if(!wide){listPane.setVisibility(GONE);detailPane.setVisibility(VISIBLE);}UiTheme.apply(this);}
- private void readSelected(){for(int i=0;i<topics.length();i++){JSONObject t=topics.optJSONObject(i);if(t!=null&&identity(t).equals(detailKey)&&(t.optBoolean("supported")||SensorPacket.supports(t.optString("wireType")))){listener.read(t);return;}}}
+ private void readSelected(){for(int i=0;i<topics.length();i++){JSONObject t=topics.optJSONObject(i);if(t!=null&&identity(t).equals(detailKey)&&(t.optBoolean("supported")||(SensorPacket.supports(t.optString("wireType"))||MapGrid.TYPE.equals(t.optString("wireType"))))){listener.read(t);return;}}}
  boolean containsTopic(String wire,String kind){for(int i=0;i<topics.length();i++){JSONObject t=topics.optJSONObject(i);if(t!=null&&wire.equals(t.optString("wireName"))&&kind.equals(t.optString("wireType")))return true;}return false;}
  private void renderDetails(){
   if(detailKey.isEmpty()){selectedRead.setEnabled(false);return;}
   JSONObject topic=null;
   for(int i=0;i<topics.length();i++){JSONObject candidate=topics.optJSONObject(i);if(candidate!=null&&identity(candidate).equals(detailKey)){topic=candidate;break;}}
   if(topic==null){selectedRead.setEnabled(false);details.setText("Tópico não está anunciado nesta sessão. Aguardando redescoberta.");return;}
-  boolean visual=SensorPacket.supports(topic.optString("wireType"));selectedRead.setEnabled(visual||topic.optBoolean("supported"));selectedRead.setText(visual?"Visualizar":"Monitorar");
+  boolean visual=(SensorPacket.supports(topic.optString("wireType"))||MapGrid.TYPE.equals(topic.optString("wireType")));selectedRead.setEnabled(visual||topic.optBoolean("supported"));selectedRead.setText(visual?"Visualizar":"Monitorar");
   StringBuilder text=new StringBuilder(topic.optString("name")).append("\n").append(topic.optString("type"));
   text.append("\nQoS anunciado: oferecido pelo publicador / solicitado pelo assinante.");
   JSONArray endpoints=topic.optJSONArray("endpoints");

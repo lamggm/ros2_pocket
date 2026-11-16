@@ -4,6 +4,9 @@
 #include <cstring>
 #include <algorithm>
 #include <limits>
+#include <sstream>
+#include <iomanip>
+#include <cctype>
 namespace pocket {
 namespace {
 SensorFrame rejected(const char* reason){SensorFrame f;f.error=reason;return f;}
@@ -47,5 +50,17 @@ SensorFrame compressed_frame(const sensor_msgs_msg_dds__CompressedImage_& s) {
  if(!s.data._buffer||s.data._length<4||s.data._length>1024*1024)return rejected("Imagem comprimida vazia ou maior que 1MiB");
  SensorFrame f;f.payload.assign(s.data._buffer,s.data._buffer+s.data._length);
  f.metadata="{\"kind\":\"compressed\","+frame_header(s.header)+",\"format\":"+json_quote(format)+"}";return f;
+}
+SensorFrame map_frame(const nav_msgs_msg_dds__OccupancyGrid_& s){
+ const auto& m=s.info;const uint64_t cells=uint64_t(m.width)*m.height;
+ if(!m.width||!m.height||m.width>2048||m.height>2048||cells>1048576||cells!=s.data._length||!s.data._buffer)return rejected("Dimensões/buffer de mapa fora dos limites");
+ if(!std::isfinite(m.resolution)||m.resolution<.000001f||m.resolution>1000)return rejected("Resolução de mapa inválida");
+ if(!s.header.frame_id||!s.header.frame_id[0]||strnlen(s.header.frame_id,257)>256||s.header.frame_id[0]=='/'||s.header.stamp.sec<0||s.header.stamp.nanosec>=1000000000)return rejected("Frame/timestamp de mapa inválido");
+ for(const unsigned char* c=reinterpret_cast<const unsigned char*>(s.header.frame_id);*c;c++)if(std::isspace(*c)||*c<32||*c==127)return rejected("Frame de mapa inválido");
+ const auto& p=m.origin.position;const auto& q=m.origin.orientation;
+ if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z)||std::abs(p.x)>1e6||std::abs(p.y)>1e6||std::abs(p.z)>1e6||!std::isfinite(q.x)||!std::isfinite(q.y)||!std::isfinite(q.z)||!std::isfinite(q.w)||std::abs(q.x)>1e-6||std::abs(q.y)>1e-6||std::abs(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w-1)>.001)return rejected("Origem/quaternion de mapa inválido ou não planar");
+ for(uint32_t i=0;i<s.data._length;i++)if(s.data._buffer[i]<-1||s.data._buffer[i]>100)return rejected("Ocupação de mapa fora de -1/0–100");
+ const double n=std::sqrt(q.z*q.z+q.w*q.w),z=q.z/n,w=q.w/n;const double yaw=std::atan2(2*w*z,1-2*z*z);
+ SensorFrame f;f.payload.assign(s.data._buffer,s.data._buffer+s.data._length);std::ostringstream j;j<<std::setprecision(17)<<"{\"kind\":\"map\","<<frame_header(s.header)<<",\"width\":"<<m.width<<",\"height\":"<<m.height<<",\"resolution\":"<<m.resolution<<",\"originX\":"<<p.x<<",\"originY\":"<<p.y<<",\"originYaw\":"<<yaw<<"}";f.metadata=j.str();return f;
 }
 }

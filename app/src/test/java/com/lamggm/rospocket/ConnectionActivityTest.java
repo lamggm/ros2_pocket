@@ -19,6 +19,7 @@ import static org.robolectric.Shadows.shadowOf;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=31) @LooperMode(LooperMode.Mode.PAUSED)
 public class ConnectionActivityTest {
  MainActivity a; Fake bridge; ShadowConnectivityManager cm; Network wifi;
+ org.robolectric.android.controller.ActivityController<MainActivity> controller;
  static class Fake implements NativeBridge.Api {
   int starts,stops,subscriptions,polls,rosoutClears;boolean failStart,failSubscribe,throwSubscribe;
   volatile CountDownLatch pollEntered,pollRelease;
@@ -43,7 +44,7 @@ public class ConnectionActivityTest {
  String text(int id){return textOf(a.findViewById(id));}
  void address(String value)throws Exception{LinkProperties lp=new LinkProperties();lp.setInterfaceName("wlan-test");lp.setLinkAddresses(java.util.Collections.singletonList(org.robolectric.util.ReflectionHelpers.callConstructor(LinkAddress.class,org.robolectric.util.ReflectionHelpers.ClassParameter.from(String.class,value+"/24"))));cm.setLinkProperties(wifi,lp);}
  @Before public void setup()throws Exception{
-  a=Robolectric.buildActivity(MainActivity.class).create().get();bridge=new Fake();set("bridge",bridge);
+  controller=Robolectric.buildActivity(MainActivity.class).create();a=controller.get();bridge=new Fake();set("bridge",bridge);
   a.getSharedPreferences("connection",Context.MODE_PRIVATE).edit().clear().commit();
   cm=shadowOf((ConnectivityManager)a.getSystemService(Context.CONNECTIVITY_SERVICE));cm.clearAllNetworks();
   wifi=ShadowNetwork.newInstance(42);cm.addNetwork(wifi,null);

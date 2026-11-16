@@ -75,7 +75,7 @@ class ToolTests(unittest.TestCase):
             (root / 'host/bin').mkdir(parents=True)
             shutil.copy(root / 'bin/idlc', root / 'host/bin/idlc')
             docker = root / 'bin/docker'
-            docker.write_text('#!/bin/sh\nprintf "%s " "$@" >> "$DOCKER_CALLS"\nprintf "\\n" >> "$DOCKER_CALLS"\ncase "$*" in *"/tmp/sensor-records/"*) printf "synthetic packet transport control";; esac\n')
+            docker.write_text('#!/bin/sh\nprintf "%s " "$@" >> "$DOCKER_CALLS"\nprintf "\\n" >> "$DOCKER_CALLS"\ncase "$*" in *"/tmp/sensor-records/"*|*"/tmp/pocket-location/"*) printf "synthetic packet transport control";; esac\n')
             docker.chmod(0o755)
             calls = root / 'docker-calls'
             result = subprocess.run(['bash', str(root / 'tools/test.sh'), '--fixture'],
@@ -196,7 +196,7 @@ class ToolTests(unittest.TestCase):
                     self.assertEqual([call for call in calls if call[0] == 'rm'],
                                      [['rm', '-f', name] for name in names])
                     self.assertEqual(sum(call[0] == 'exec' and call[2] == 'cat'
-                                         for call in calls), 10)
+                                         for call in calls), 16)
 
     def assert_fixture_failure_cleanup(self, calls):
         runs = [call for call in calls if call[0] == 'run']
@@ -222,6 +222,9 @@ class ToolTests(unittest.TestCase):
             (root / 'container-tmp/sensor-records').mkdir()
             for packet in ('scan', 'image', 'compressed'):
                 (root / 'container-tmp/sensor-records' / (packet+'.packet')).write_bytes(b'synthetic packet transport control')
+            (root / 'container-tmp/pocket-location').mkdir()
+            for packet in ('map.packet','tf.json','result.json'):
+                (root / 'container-tmp/pocket-location' / packet).write_bytes(b'synthetic location transport control')
             (root / 'tests/fixture.Dockerfile').write_text('test recipe')
             (root / 'tests/fixture.py').write_text('test publisher')
             (root / 'tests/fixture-loopback.xml').write_text('test discovery')
@@ -266,6 +269,7 @@ if args[0] == 'exec':
             sys.exit(77)
         # Only relocate the container tmpfs; preserve/execute the runner's shell.
         command = [arg.replace('/tmp/sensor-records', os.environ['CONTAINER_TMP'] + '/sensor-records')
+                   .replace('/tmp/pocket-location', os.environ['CONTAINER_TMP'] + '/pocket-location')
                    .replace('/tmp/native', os.environ['CONTAINER_TMP'] + '/native')
                    .replace('/tmp/fixture.xml', os.environ['CONTAINER_TMP'] + '/fixture.xml')
                    .replace('/tmp/rosout.xml', os.environ['CONTAINER_TMP'] + '/rosout.xml')
@@ -274,6 +278,7 @@ if args[0] == 'exec':
         if os.environ['GATE_SCENARIO'] == 'report-failure':
             sys.exit(78)
         command = [arg.replace('/tmp/sensor-records', os.environ['CONTAINER_TMP'] + '/sensor-records')
+                   .replace('/tmp/pocket-location', os.environ['CONTAINER_TMP'] + '/pocket-location')
                    .replace('/tmp/native', os.environ['CONTAINER_TMP'] + '/native')
                    .replace('/tmp/fixture.xml', os.environ['CONTAINER_TMP'] + '/fixture.xml')
                    .replace('/tmp/rosout.xml', os.environ['CONTAINER_TMP'] + '/rosout.xml')

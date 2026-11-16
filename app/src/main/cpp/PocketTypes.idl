@@ -27,6 +27,18 @@ module tf2_msgs { module msg { module dds_ {
 @final struct TFMessage_ { sequence<geometry_msgs::msg::dds_::TransformStamped_> transforms; };
 }; }; };
 module nav_msgs { module msg { module dds_ {
+@final struct MapMetaData_ {
+ builtin_interfaces::msg::dds_::Time_ map_load_time;
+ float resolution;
+ unsigned long width;
+ unsigned long height;
+ geometry_msgs::msg::dds_::Pose_ origin;
+};
+@final struct OccupancyGrid_ {
+ std_msgs::msg::dds_::Header_ header;
+ MapMetaData_ info;
+ sequence<int8> data;
+};
 @final struct Odometry_ {
  std_msgs::msg::dds_::Header_ header;
  string child_frame_id;
