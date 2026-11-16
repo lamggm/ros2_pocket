@@ -15,7 +15,7 @@ Personalização local de apresentação, não edição do robô. Preserva C++/C
 - **Editar painel** cria um rascunho. Cada card ganha uma faixa própria de edição, sem cobrir nem diminuir seu conteúdo: alça pontilhada para arrastar e soltar antes de outro card, botão central com nome/tamanho, e alça diagonal para redimensionar por gesto. O botão central abre medidas e ações equivalentes de mover antes/depois, sem depender de gestos.
 - **Salvar** valida e persiste; **Cancelar** ou Back descarta. **Padrão** muda apenas o rascunho até Salvar. Sair da seção ou do primeiro plano descarta alterações não salvas.
 - Sete cards existentes: quatro watches, modelo 3D, LiDAR/câmera e gráfico. Não há cards extras, exclusão ou câmera e LiDAR simultâneos. Localização é uma página separada e alterna o leitor visual com esse card.
-- Larguras/alturas lógicas de 1 a 4 unidades; visuais têm mínimo 2×2. Padrão: watches 1×1, modelo 4×3, sensor e gráfico 2×2. Unidade vertical 160dp, escalada para fontes grandes; espaçamento 12dp.
+- Larguras/alturas lógicas de 1 a 4 unidades; visuais têm mínimo 2×2. Padrão: watches 1×1, modelo 4×3, sensor e gráfico 2×2. Unidade vertical120dp nas leituras e160dp nos demais cards, escalada para fontes grandes; espaçamento12dp.
 - Grade adaptativa de 4, 2 ou 1 colunas. Larguras limitadas somente na renderização em telas menores, sem alterar o tamanho lógico salvo. Ordem estável por linhas; não é posicionamento livre com células vazias.
 - Redimensionar muda os viewports reais. Controles técnicos do modelo ficam em **⋮**; indicação de pose permanece no card. Opções longas de sensores/gráfico rolam dentro dos respectivos cards. Tela cheia do modelo preservada.
 
@@ -31,7 +31,11 @@ Gauge/barra usam o caminho exato (por exemplo `data`, `linear.x`, `pose.pose.pos
 
 Somente valores numéricos finitos e atuais alimentam o indicador. Campo inexistente/incompatível/não finito aparece indisponível, nunca zero. Limites devem ser finitos e crescentes, com amplitude representável. Valor fora da escala satura apenas o desenho, preservando o número e o aviso **Fora da escala**. O histórico continua no card Gráfico já existente; gauges não armazenam amostras.
 
-As opções seguem o mesmo rascunho, Salvar/Cancelar, owner do perfil, restart e transferência do layout. Layouts schema1 migram em memória para visualização numérica, sem regravar no load. O catálogo continua schema6; o layout embutido tem versão própria. Versões antigas do app não devem receber layouts schema2. Gauge/barra reservam pelo menos duas unidades de altura na renderização para evitar colisão entre escala/ponteiro/valor; a altura lógica salva é preservada.
+As opções seguem o mesmo rascunho, Salvar/Cancelar, owner do perfil, restart e transferência do layout. Layouts schema1 migram em memória para visualização numérica, sem regravar no load. O catálogo continua schema6; o layout embutido tem versão própria. Versões antigas do app não devem receber layouts schema2. Leituras numéricas, gauges e barras respeitam a altura lógica escolhida: uma unidade agora mede 120dp (escalada pela fonte), sem mínimo oculto de duas unidades. Os demais cards visuais continuam com unidade160dp. Gauge/barra usam desenho compacto no 1×1 e expandido em alturas maiores; posição e layout salvo não mudam.
+
+## Tela cheia do aplicativo
+
+A Activity inicia em modo imersivo e o reaplica ao retornar ao primeiro plano ou recuperar foco após diálogo. Barras de status/navegação Android ficam ocultas; gestos de borda podem revelá-las transitoriamente. Não é kiosk, bloqueio de Home/Back nem alteração da política do tablet. Insets de recortes físicos são respeitados. Diálogos/teclado podem mostrar controles do sistema enquanto ativos.
 
 ## Estado e limites
 
