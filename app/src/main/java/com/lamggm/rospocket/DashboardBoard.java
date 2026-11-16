@@ -65,7 +65,7 @@ final class DashboardBoard extends LinearLayout {
    }
   }).setNegativeButton("Voltar",null).create();options.show();UiTheme.dialog(options);
  }
- private EditText displayField(LinearLayout form,String caption,String tag,String value){TextView label=new TextView(getContext());label.setText(caption);form.addView(label);EditText field=new EditText(getContext());field.setSingleLine(true);field.setTag(tag);field.setContentDescription(caption);field.setText(value);form.addView(field,new LayoutParams(-1,dp(48)));return field;}
+ private EditText displayField(LinearLayout form,String caption,String tag,String value){TextView label=new TextView(getContext());label.setText(caption);form.addView(label);EditText field=new EditText(getContext());field.setSingleLine(true);field.setTextColor(UiTheme.color(getContext(),0xffe6edf3));field.setHintTextColor(UiTheme.color(getContext(),0xff9aa9bc));field.setTag(tag);field.setContentDescription(caption);field.setText(value);form.addView(field,new LayoutParams(-1,dp(48)));return field;}
  private void displayMenu(String id){
   if(!editing()||disposed)return;Object owner=editOwner;DashboardLayout.Display old=layout().get(id).display;
   LinearLayout form=new LinearLayout(getContext());form.setOrientation(VERTICAL);form.setPadding(dp(16),dp(8),dp(16),dp(8));Spinner mode=new Spinner(getContext());mode.setTag("display-mode");mode.setContentDescription("Tipo de visualização da leitura");String[] modes={"number","gauge","bar"};mode.setAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item,new String[]{"Número / mensagem","Gauge semicircular","Barra horizontal"}));mode.setSelection(Arrays.asList(modes).indexOf(old.mode));form.addView(mode,new LayoutParams(-1,dp(48)));
