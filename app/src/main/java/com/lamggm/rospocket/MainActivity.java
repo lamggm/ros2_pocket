@@ -705,8 +705,8 @@ public final class MainActivity extends Activity {
  private void onRobotObserved(RobotContext.Snapshot snapshot){
   if(!resumed||!connectWanted||requested==null||!robotContext.current(snapshot))return;robotObservation=snapshot;BenchProfiles.Robot robot=currentRobot();Config config=requested;if(robot==null||autoProfileAttempted==config)return;autoProfileAttempted=config;
   BenchProfiles.Profile known=profiles.recognize(config.domain,config.peer,config.graphFormat,config.networkMode,robot);if(known==null){profiles.autoNotice("Robô identificado, sem associação única. Selecione/salve um perfil para associar; nada foi trocado.");return;}
-  BenchProfiles.Profile applied=profiles.applied();if(applied!=null&&applied.id.equals(known.id))return;
-  if(dashboardBoard.editing()||unsavedPresentation(applied)){profiles.autoNotice("Perfil conhecido: "+known.name+" · carregamento adiado: edição não salva. Nada foi descartado; salve/cancele e reconecte.");return;}
+  BenchProfiles.Profile applied=profiles.applied();try{if(applied!=null&&java.util.Arrays.equals(BenchProfiles.exportProfile(applied),BenchProfiles.exportProfile(known)))return;}catch(org.json.JSONException invalid){return;}
+  if(dashboardBoard.editing()||(unsavedPresentation(applied)&&unsavedPresentation(known))){profiles.autoNotice("Perfil conhecido: "+known.name+" · carregamento adiado: edição não salva. Nada foi descartado; salve/cancele e reconecte.");return;}
   try{disconnect();profiles.applyKnown(known);requestConnection(false);robotContext.select(robot.wire);refreshDashboard();Toast.makeText(this,"Perfil automático: "+known.name,Toast.LENGTH_SHORT).show();}
   catch(Exception failed){status.setText("Não foi possível carregar o perfil automático; conecte/aplique manualmente. "+failed.getMessage());status.setTextColor(UiTheme.color(this,WARNING));}
  }
