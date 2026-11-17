@@ -13,8 +13,8 @@ final class MetricCard extends VisualButton {
  void display(DashboardLayout.Display d){boolean same=display.mode.equals(d.mode)&&display.path.equals(d.path)&&display.unit.equals(d.unit)&&display.min==d.min&&display.max==d.max;display=d;if(!same)numeric=null;invalidate();}
  void title(String name){if(this.name.equals(name))return;this.name=name;bind(slot,occupied,wire,type,state,value,fresh);}
  void sample(org.json.JSONArray fields,boolean current){numeric=null;if(current&&fresh&&BenchProfiles.numeric(type,display.path)&&fields!=null)for(int i=0;i<Math.min(PlotController.MAX_FIELDS,fields.length());i++){org.json.JSONObject f=fields.optJSONObject(i);if(f!=null&&display.path.equals(f.optString("path"))){Object v=f.opt("value");if("finite".equals(f.optString("state"))&&v instanceof Number&&Double.isFinite(((Number)v).doubleValue()))numeric=((Number)v).doubleValue();break;}}describe();invalidate();}
- private void describe(){String detail="number".equals(display.mode)?"": " · "+display.mode+" · "+display.path+" · "+(numeric==null?"Sem dados atuais":format(numeric)+" "+display.unit+(numeric<display.min||numeric>display.max?" · Fora da escala":""));setContentDescription(getText()+detail+" · abrir detalhes e QoS");}
- private static String format(double n){return String.format(java.util.Locale.ROOT,"%.5g",n);}
+ private void describe(){String detail="number".equals(display.mode)&&!BenchProfiles.numeric(type,display.path)?"": " · "+display.mode+" · "+display.path+" · "+(numeric==null?"Sem dados atuais":format(numeric)+" "+display.unit+(numeric<display.min||numeric>display.max?" · Fora da escala":""));setContentDescription(getText()+detail+" · abrir detalhes e QoS");}
+ private String format(double n){if(display.decimals<0)return String.format(java.util.Locale.ROOT,"%.5g",n);String text=String.format(java.util.Locale.ROOT,"%."+display.decimals+"f",n);if(text.startsWith("-")&&text.substring(1).matches("0(\\.0+)?"))text=text.substring(1);return text;}
  private boolean compact(){return getHeight()<dp(180*Math.max(1,getResources().getConfiguration().fontScale));}
  private void compactInstrument(Canvas c,float w,float h,float pad,int fg,int muted){
   float d=getResources().getDisplayMetrics().density*Math.max(1,getResources().getConfiguration().fontScale);boolean valid=numeric!=null;double fraction=valid?Math.max(0,Math.min(1,(numeric-display.min)/(display.max-display.min))):0;float valueY=h-17*d,limitY=h-31*d,top=55*d;String shown=valid?format(numeric)+(display.unit.isEmpty()?"":" "+display.unit):"—";
@@ -50,7 +50,7 @@ final class MetricCard extends VisualButton {
   String name=this.name.isEmpty()?(wire.startsWith("rt/")?wire.substring(2):wire):this.name;
   line(c,name,pad,compact()?47*yd:59*d,compact()? 13:15,fg,w-2*pad,true);
   if(!"number".equals(display.mode)){instrument(c,w,h,pad,fg,muted);return;}
-  String shown=fresh?value.trim():"—";if(shown.startsWith("{")||shown.startsWith("["))shown="Ver campos";if(shown.isEmpty())shown="—";
+  String shown=BenchProfiles.numeric(type,display.path)?(numeric==null?"—":format(numeric)+(display.unit.isEmpty()?"":" "+display.unit)):(fresh?value.trim():"—");if(shown.startsWith("{")||shown.startsWith("["))shown="Ver campos";if(shown.isEmpty())shown="—";
   line(c,shown,pad,compact()?84*yd:103*d,compact()? 26:32,fg,w-2*pad,true);
   int split=type.lastIndexOf("::");String shortType=split<0?type:type.substring(split+2);if(shortType.endsWith("_"))shortType=shortType.substring(0,shortType.length()-1);
   line(c,shortType,pad,compact()?h-10*yd:133*d,11,muted,w-2*pad,false);

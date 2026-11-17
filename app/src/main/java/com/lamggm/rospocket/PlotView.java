@@ -74,13 +74,15 @@ final class PlotView extends LinearLayout {
    }
    visible=Collections.unmodifiableList(retained);
   }
+  visible=controller.presentation(visible);
   revision=observedRevision;
   choices.removeAllViews();
   for(PlotController.Field f:controller.fields()){
-   CheckBox check=new CheckBox(getContext());check.setTag("plot-field:"+f.id());check.setText(f.watch+" · "+f.path+(f.unit==null?" [unidade desconhecida]":" ["+f.unit+"]"));check.setTextColor(UiTheme.color(getContext(),0xffe6edf3));check.setChecked(controller.selected(f.id()));
+   CheckBox check=new CheckBox(getContext());check.setTag("plot-field:"+f.id());String shownUnit=controller.unit(f);check.setText(f.watch+" · "+f.path+(shownUnit==null?" [unidade desconhecida]":" ["+shownUnit+"]"));check.setTextColor(UiTheme.color(getContext(),0xffe6edf3));check.setChecked(controller.selected(f.id()));
    check.setOnCheckedChangeListener((b,on)->{if(on){if(!controller.select(f.watch,f.path)){check.setChecked(false);Toast.makeText(getContext(),"Limite de quatro séries",Toast.LENGTH_SHORT).show();}}else {removeSeries(f.id());}refresh();});choices.addView(check);
   }
   for(PlotHistory.Series s:controller.history.snapshot()){
+   Button unit=new Button(getContext());unit.setText("Unidade · "+s.id.replace('\n',' '));unit.setTag("plot-unit:"+s.id);unit.setOnClickListener(v->unitMenu(s));choices.addView(unit);
    Button remove=new Button(getContext());remove.setText("Remover "+s.id.replace('\n',' '));remove.setTag("plot-remove:"+s.id);
    remove.setOnClickListener(v->{removeSeries(s.id);refresh();});choices.addView(remove);
   }
@@ -92,6 +94,11 @@ final class PlotView extends LinearLayout {
   if(visible.isEmpty())labels.append("Sem série selecionada / sem dados numéricos atuais.");
   for(String field:controller.pendingProfileFields())labels.append("\nPERFIL · campo pendente: ").append(field);
   legend.setText(labels);sourceLabel.setText(visible.isEmpty()?"Selecione campos no menu ⋯":visible.size()==1?visible.get(0).id.replace('\n',' '):visible.size()+" séries selecionadas");StringBuilder shortLabel=new StringBuilder(paused?"PAUSADO · ":"");if(visible.isEmpty())shortLabel.append("Sem histórico selecionado");else for(PlotHistory.Series s:visible){if(shortLabel.length()>0)shortLabel.append("  ·  ");shortLabel.append(s.id.replace('\n',' ')).append(": ");PlotHistory.Point last=s.points.isEmpty()?null:s.points.get(s.points.size()-1);shortLabel.append(last==null||last.value==null?"—":last.value.toString()).append(s.unit==null?" [unidade desconhecida]":" "+s.unit);}summary.setText(shortLabel);summary.setTextColor(UiTheme.color(getContext(),paused?0xffffa97d:0xff9aa9bc));chart.invalidate();
+ }
+ private void unitMenu(PlotHistory.Series series){
+  Object owner=controller.unitOwner(series);LinearLayout form=new LinearLayout(getContext());form.setOrientation(VERTICAL);form.setPadding(dp(16),dp(8),dp(16),dp(8));TextView hint=new TextView(getContext());hint.setText("Unidade declarada, sem conversão de valores. Vazio herda o instrumento do mesmo campo, quando disponível. Salve a configuração do perfil para persistir.");form.addView(hint);
+  EditText input=new EditText(getContext());input.setTag("plot-series-unit");input.setContentDescription("Unidade da série (vazio para automático)");input.setSingleLine(true);input.setText(controller.declaredUnit(series));input.setTextColor(UiTheme.color(getContext(),0xffe6edf3));input.setHintTextColor(UiTheme.color(getContext(),0xff9aa9bc));form.addView(input,new LayoutParams(-1,dp(48)));TextView error=new TextView(getContext());form.addView(error);
+  android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(getContext()).setTitle("Unidade da série").setView(form).setPositiveButton("Usar",null).setNegativeButton("Cancelar",null).create();dialog.show();UiTheme.dialog(dialog);dialog.getButton(-1).setOnClickListener(v->{try{if(controller.setUnit(series,owner,input.getText().toString().trim()))refresh();dialog.dismiss();}catch(IllegalArgumentException invalid){error.setText("Máximo 24 caracteres, sem controles. Valores não são convertidos.");}});
  }
  private void removeSeries(String id){
   controller.removeSelection(id);

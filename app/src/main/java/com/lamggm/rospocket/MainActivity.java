@@ -91,6 +91,7 @@ public final class MainActivity extends Activity {
  private TextView dashboardSubtitle;
  private TextView dashboardTitle;
  private Button addReadingFab;
+ private RobotContext.Snapshot robotObservation;private Config autoProfileAttempted;private BenchProfiles.Profile connectionBaseline;
  private String observedRobotName="";private LinearLayout headerRobotIdentity;private TextView headerBrand,appliedProfile;
  private ScheduledFuture<?> robotTicker;
  private final RobotContext robotContext=new RobotContext();
@@ -210,6 +211,7 @@ public final class MainActivity extends Activity {
   profiles=new ProfilePanel(this,new ProfilePanel.Actions(){
    public BenchProfiles.Profile capture(String id,String name){return captureProfile(id,name);}
    public boolean connected(){return connectWanted;}
+   public BenchProfiles.Robot observedRobot(){return currentRobot();}
    public void apply(BenchProfiles.Profile profile){loadProfile(profile);}
   });connection.addView(profiles);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
@@ -307,6 +309,7 @@ public final class MainActivity extends Activity {
    prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putString("graphFormat",format).putString("networkMode",mode).putBoolean("wanted",true).apply();
    domain.setEnabled(false);peer.setEnabled(false);graphFormat.setEnabled(false);networkMode.setEnabled(false);connect.setText("Desconectar");
    status.setText("Iniciando DDS no domínio "+d+"…");status.setTextColor(UiTheme.color(this,MUTED));
+   try{connectionBaseline=captureProfile("00000000-0000-0000-0000-000000000000","Estado da conexão");}catch(RuntimeException invalid){connectionBaseline=null;}
   }catch(Exception ex){
    disconnect();status.setText(String.valueOf(ex.getMessage()));status.setTextColor(UiTheme.color(this,WARNING));
   }
@@ -363,7 +366,7 @@ public final class MainActivity extends Activity {
  }
  private void inactive(String state){
   dashboardFresh[0]=false;
-  if(plotView!=null)plotView.refresh();
+  if(plotView!=null)refreshPlot();
   structured.update(null,false);
   counts.setText(state);counts.setTextColor(UiTheme.color(this,WARNING));message.setTextColor(UiTheme.color(this,MUTED));
   message.setText("Aguardando nova mensagem desta sessão.");
@@ -467,7 +470,7 @@ public final class MainActivity extends Activity {
     }
    }
    long paint=System.nanoTime();
-   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(robotSnapshot!=null&&!locationPanel.visible())robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
+   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(robotSnapshot!=null&&!locationPanel.visible())robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));if(robotSnapshot!=null)onRobotObserved(robotSnapshot);}});}
   }catch(Throwable ex){
    String e=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());
    try{stopSession();}catch(Throwable cleanup){android.util.Log.w("RosPocket","DDS teardown: "+cleanup.getClass().getSimpleName());}
@@ -593,7 +596,7 @@ public final class MainActivity extends Activity {
    if("unsupported".equals(graphState)||!graphError.isEmpty())nodes.setText("Grafo não suportado no formato "+graphLabel+": "+graphError);
    else nodes.setText(text.length()==0?"Grafo não confirmado · "+graphLabel+" (manual).\nSem nós anunciados em ros_discovery_info; confira o formato selecionado.\nDescoberta de tópicos e grafo de nós são mecanismos distintos.":text.toString().trim());
   }
-  plotView.refresh();
+  refreshPlot();
   String failure=pendingError.isEmpty()?snapshot.optString("error"):pendingError;
   String subscription=snapshot.optString("subscription");
   String subscriptionState=snapshot.optString("subscriptionState","inactive");
@@ -624,6 +627,7 @@ public final class MainActivity extends Activity {
    message.setText("Nenhuma mensagem recebida.");
   }
  }
+ private void refreshPlot(){if(plotView!=null){if(dashboardBoard!=null)plots.dashboardUnits(dashboardBoard.savedLayout());plotView.refresh();}}
  private void refreshDashboard(){
   if(counts==null||watchCards[0]==null||watchText[1]==null)return;
   if(sessionSummary!=null){boolean discovered=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(sessionSummary,discovered?"● DDS descoberto":"Sem descoberta DDS");sessionSummary.setTextColor(discovered?VisualButton.accent(this):VisualButton.muted(this));}
@@ -690,7 +694,21 @@ public final class MainActivity extends Activity {
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
   String format=connectWanted&&requested!=null?requested.graphFormat:selectedGraphFormat();
   String mode=connectWanted&&requested!=null?requested.networkMode:selectedNetworkMode();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode,dashboardBoard.savedLayout(),locationPanel.profile());
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode,dashboardBoard.savedLayout(),locationPanel.profile(),profiles.robot(id));
+ }
+ private BenchProfiles.Robot currentRobot(){
+  RobotContext.Snapshot s=robotObservation;return resumed&&connectWanted&&!localizationMetadata&&s!=null&&s.live&&s.model!=null&&robotContext.current(s)?new BenchProfiles.Robot(s.wire,s.model.fingerprint):null;
+ }
+ private boolean unsavedPresentation(BenchProfiles.Profile applied){
+  if(applied==null)applied=connectionBaseline;if(applied==null)return true;try{BenchProfiles.Profile actual=captureProfile(applied.id,applied.name);BenchProfiles.Profile normalized=new BenchProfiles.Profile(applied.id,applied.name,applied.domain,applied.peer,actual.watches,actual.plots,actual.visual,applied.graphFormat,applied.networkMode,actual.dashboard,actual.localization,applied.robot);return !java.util.Arrays.equals(BenchProfiles.exportProfile(normalized),BenchProfiles.exportProfile(applied));}catch(Exception invalid){return true;}
+ }
+ private void onRobotObserved(RobotContext.Snapshot snapshot){
+  if(!resumed||!connectWanted||requested==null||!robotContext.current(snapshot))return;robotObservation=snapshot;BenchProfiles.Robot robot=currentRobot();Config config=requested;if(robot==null||autoProfileAttempted==config)return;autoProfileAttempted=config;
+  BenchProfiles.Profile known=profiles.recognize(config.domain,config.peer,config.graphFormat,config.networkMode,robot);if(known==null){profiles.autoNotice("Robô identificado, sem associação única. Selecione/salve um perfil para associar; nada foi trocado.");return;}
+  BenchProfiles.Profile applied=profiles.applied();if(applied!=null&&applied.id.equals(known.id))return;
+  if(dashboardBoard.editing()||unsavedPresentation(applied)){profiles.autoNotice("Perfil conhecido: "+known.name+" · carregamento adiado: edição não salva. Nada foi descartado; salve/cancele e reconecte.");return;}
+  try{disconnect();profiles.applyKnown(known);requestConnection(false);robotContext.select(robot.wire);refreshDashboard();Toast.makeText(this,"Perfil automático: "+known.name,Toast.LENGTH_SHORT).show();}
+  catch(Exception failed){status.setText("Não foi possível carregar o perfil automático; conecte/aplique manualmente. "+failed.getMessage());status.setTextColor(UiTheme.color(this,WARNING));}
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
@@ -702,7 +720,7 @@ public final class MainActivity extends Activity {
   sensorPanel.available(false);sensorPanel.configure(p.visual);
   for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
   BenchProfiles.Watch primary=p.watches.get(0);selectedWire=primary.wire;selectedType=primary.type;reliableValue=primary.reliable;transientValue=primary.transientLocal;chooseWatch(0);
-  plotView.refresh();rosoutEpoch++;rosoutConsole.clearNow();
+  refreshPlot();rosoutEpoch++;rosoutConsole.clearNow();
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"sem tópico":selectedWire.substring(2)));
   counts.setText("PERFIL APLICADO · desconectado; assinatura pendente");counts.setTextColor(UiTheme.color(this,MUTED));message.setText("Nenhuma mensagem recebida.");message.setTextColor(UiTheme.color(this,MUTED));
   extrasInactive("PERFIL APLICADO · desconectado; assinatura pendente");
@@ -720,7 +738,7 @@ public final class MainActivity extends Activity {
   extrasInactive("Desconectado · sem assinatura ativa");
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watchSlots.request(i,profileConfigured?r.wire:"",profileConfigured?r.type:"",profileConfigured&&r.reliable,profileConfigured&&r.transientLocal);}
   structured.update(null,false);
-  policy.reset();plots.reset(policy.generation());plotView.refresh();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
+  policy.reset();plots.reset(policy.generation());refreshPlot();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   // A poll already holding policy/slots may publish after the early invalidation.
   // policy.reset() fences that poll; clear once more before returning to the UI.
   qa.invalidate();
@@ -777,7 +795,7 @@ public final class MainActivity extends Activity {
   WatchSlots.Request next;
   synchronized(watchSlots){next=watchSlots.request(slot,wire,type,r,t);plots.requestSlot(slot);}
   qa.invalidate();
-  plotView.refresh();
+  refreshPlot();
   watchStructured[slot].update(null,false);
   watchText[slot].setText("Watch "+(slot+1)+" · assinatura pendente");watchText[slot].setTextColor(UiTheme.color(this,WARNING));
   final Config expected=requested;final int token=generation;
@@ -813,7 +831,7 @@ public final class MainActivity extends Activity {
   final WatchSlots.Request removal;
   synchronized(watchSlots){removal=watchSlots.request(0,"","",false,false);plots.requestSlot(0);}
   qa.invalidate();
-  policy.invalidate();long epoch=policy.generation();plotView.refresh();
+  policy.invalidate();long epoch=policy.generation();refreshPlot();
   structured.update(null,false);
   counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");
   final int token=generation;final Config expected=requested;

@@ -31,14 +31,14 @@ public class PortableProfilesTest {
  @Test public void schemaTwoRoundTripPreservesBothSensorsAndActiveMode() throws Exception {
   BenchProfiles book=BenchProfiles.decode(schemaTwo(visual()));
   JSONObject out=new JSONObject(new String(book.encode(),StandardCharsets.UTF_8));
-  assertEquals(6,out.getInt("schema"));
+  assertEquals(7,out.getInt("schema"));
   assertEquals(visual().toString(),out.getJSONArray("profiles").getJSONObject(0).getJSONObject("visual").toString());
   assertEquals(visual().toString(),out.getJSONObject("applied").getJSONObject("visual").toString());
  }
  @Test public void schemaOneLoadPreservesOldBytesUntilAnExplicitCommit() throws Exception {
   byte[] old=BenchProfilesTest.catalog(BenchProfilesTest.profile());File file=new File(tmp.getRoot(),"profiles.json");Files.write(file.toPath(),old);
   ProfileStore store=new ProfileStore(file);BenchProfiles book=store.load();assertArrayEquals(old,Files.readAllBytes(file.toPath()));
-  store.commit(book);JSONObject out=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));assertEquals(6,out.getInt("schema"));
+  store.commit(book);JSONObject out=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));assertEquals(7,out.getInt("schema"));
   JSONObject v=out.getJSONObject("applied").getJSONObject("visual");assertEquals("scan",v.getString("mode"));assertTrue(v.isNull("scan"));assertTrue(v.isNull("camera"));
  }
  @Test public void wrongVisualModeTypesAndUnknownFieldsCannotBeImportedAsConfiguration() throws Exception {

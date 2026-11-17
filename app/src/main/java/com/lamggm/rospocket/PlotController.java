@@ -28,6 +28,24 @@ final class PlotController {
  private final LinkedHashMap<String,Long> sequences=new LinkedHashMap<>();
  private final Map<String,PlotHistory.Source> sources=new HashMap<>();
  private BenchProfiles.Profile profile;
+ private DashboardLayout dashboardUnits;private final Map<String,Object> unitOwners=new HashMap<>();private final Map<String,String> adHocUnits=new HashMap<>();
+ synchronized void dashboardUnits(DashboardLayout layout){if(layout==dashboardUnits)return;dashboardUnits=layout;}
+ synchronized Object unitOwner(PlotHistory.Series series){return unitOwners.computeIfAbsent(series.id,k->new Object());}
+ private String presentationUnit(int slot,String path,String fallback){
+  for(BenchProfiles.Series c:profileChoices)if(c.slot==slot&&c.path.equals(path)&&!c.unit.isEmpty())return c.unit;
+  if(dashboardUnits!=null&&slot>=0&&slot<4){DashboardLayout.Display d=dashboardUnits.get("watch"+slot).display;if(d.path.equals(path)&&!d.unit.isEmpty())return d.unit;}return fallback;
+ }
+ synchronized String unit(Field field){String explicit=adHocUnits.get(field.id());if(explicit!=null)return explicit;PlotHistory.Source source=sources.get(field.watch);return source==null?field.unit:presentationUnit(source.slot,field.path,field.unit);}
+ synchronized List<PlotHistory.Series> presentation(List<PlotHistory.Series> frozen){
+  Map<String,PlotHistory.Series> raw=new HashMap<>();for(PlotHistory.Series s:history.snapshot())raw.put(s.id,s);List<PlotHistory.Series> result=new ArrayList<>();
+  for(PlotHistory.Series s:frozen){PlotHistory.Series original=raw.get(s.id);String fallback=original!=null&&original.provenance.same(s.provenance)?original.unit:null;String unit=adHocUnits.containsKey(s.id)?adHocUnits.get(s.id):presentationUnit(s.provenance.slot,s.path,fallback);result.add(Objects.equals(s.unit,unit)?s:new PlotHistory.Series(s.id,s.path,unit,s.points,s.provenance));}return Collections.unmodifiableList(result);
+ }
+ synchronized String declaredUnit(PlotHistory.Series series){if(adHocUnits.containsKey(series.id))return adHocUnits.get(series.id);for(BenchProfiles.Series c:profileChoices)if(c.slot==series.provenance.slot&&c.path.equals(series.path))return c.unit;return "";}
+ synchronized boolean setUnit(PlotHistory.Series expected,Object owner,String unit){
+  if(owner!=unitOwners.get(expected.id)||expected.provenance.slot<0||expected.provenance.slot>=4)return false;
+  boolean current=false;for(PlotHistory.Series s:history.snapshot())if(s.id.equals(expected.id)&&s.provenance.same(expected.provenance))current=true;if(!current)return false;
+  BenchProfiles.Series choice=new BenchProfiles.Series(expected.provenance.slot,expected.path,unit);boolean configured=false;for(int i=0;i<profileChoices.size();i++)if(profileChoices.get(i).key().equals(choice.key())){profileChoices.set(i,choice);configured=true;break;}if(!configured){if(unit.isEmpty())adHocUnits.remove(expected.id);else adHocUnits.put(expected.id,unit);}revision++;return true;
+ }
  private long numericEpoch;
  static final class NumericSelection {
   final long epoch;final List<BenchProfiles.Series> fields;
@@ -47,7 +65,7 @@ final class PlotController {
  private final List<BenchProfiles.Series> profileChoices=new ArrayList<>();
  synchronized void configureProfile(BenchProfiles.Profile p){
   for(PlotHistory.Series s:history.snapshot())history.remove(s.id);
-  profile=p;profileChoices.clear();profileChoices.addAll(p.plots);resetRevision=++revision;numericEpoch++;
+  profile=p;dashboardUnits=p.dashboard;unitOwners.clear();adHocUnits.clear();profileChoices.clear();profileChoices.addAll(p.plots);resetRevision=++revision;numericEpoch++;
  }
  private boolean profileWatch(BenchProfiles.Series choice,String watch){
   if(profile==null)return false;
@@ -57,7 +75,7 @@ final class PlotController {
  synchronized List<BenchProfiles.Series> profileSelection(){
   LinkedHashMap<String,BenchProfiles.Series> selected=new LinkedHashMap<>();
   for(BenchProfiles.Series s:profileChoices)selected.put(s.key(),s);
-  for(PlotHistory.Series s:history.snapshot())if(s.provenance.slot>=0){BenchProfiles.Series choice=new BenchProfiles.Series(s.provenance.slot,s.path);selected.put(choice.key(),choice);}
+  for(PlotHistory.Series s:history.snapshot())if(s.provenance.slot>=0){BenchProfiles.Series choice=new BenchProfiles.Series(s.provenance.slot,s.path,adHocUnits.getOrDefault(s.id,""));selected.putIfAbsent(choice.key(),choice);}
   return new ArrayList<>(selected.values());
  }
  synchronized List<String> pendingProfileFields(){
@@ -66,8 +84,8 @@ final class PlotController {
   return pending;
  }
  synchronized void removeSelection(String id){
-  int split=id.indexOf('\n');if(split>=0){String watch=id.substring(0,split),path=id.substring(split+1);profileChoices.removeIf(s->s.path.equals(path)&&profileWatch(s,watch));}
-  history.remove(id);revision++;numericEpoch++;
+  int split=id.indexOf('\n');if(split>=0){String watch=id.substring(0,split),path=id.substring(split+1);int slot=-1;PlotHistory.Source source=sources.get(watch);if(source!=null)slot=source.slot;for(PlotHistory.Series current:history.snapshot())if(current.id.equals(id))slot=current.provenance.slot;final int removedSlot=slot;profileChoices.removeIf(s->s.path.equals(path)&&(s.slot==removedSlot||profileWatch(s,watch)));}
+  history.remove(id);unitOwners.remove(id);adHocUnits.remove(id);revision++;numericEpoch++;
  }
  private long nativeSession=-1,nativeReader=-1;
  private final long[] readers={-1,-1,-1,-1},minimumReaders={-1,-1,-1,-1};
@@ -99,11 +117,11 @@ final class PlotController {
   return result;
  }
  synchronized void reset(long epoch) {
-  if(epoch<nativeEpoch)return;nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(knownDiscard,-1);Arrays.fill(slotWatches,"");sequences.clear();sources.clear();available.clear();history.clear();resetRevision=++revision;
+  if(epoch<nativeEpoch)return;unitOwners.clear();adHocUnits.clear();nativeEpoch=epoch;nativeSession=-1;nativeReader=-1;nativeIdentity="";Arrays.fill(readers,-1);Arrays.fill(minimumReaders,-1);Arrays.fill(knownDiscard,-1);Arrays.fill(slotWatches,"");sequences.clear();sources.clear();available.clear();history.clear();resetRevision=++revision;
  }
  synchronized List<Field> fields(){return new ArrayList<>(available.values());}
  synchronized void retire(String watch) {
-  sequences.remove(watch);sources.remove(watch);available.entrySet().removeIf(e->e.getValue().watch.equals(watch));
+  unitOwners.keySet().removeIf(id->id.startsWith(watch+"\n"));adHocUnits.keySet().removeIf(id->id.startsWith(watch+"\n"));sequences.remove(watch);sources.remove(watch);available.entrySet().removeIf(e->e.getValue().watch.equals(watch));
   for(PlotHistory.Series s:history.snapshot())if(s.id.startsWith(watch+"\n"))history.remove(s.id);
   revision++;
  }

@@ -24,9 +24,10 @@ public class BenchProfilesTest {
   org.json.JSONObject p=profile();BenchProfiles book=BenchProfiles.decode(catalog(p));
   org.json.JSONObject result=new org.json.JSONObject(new String(book.encode(),StandardCharsets.UTF_8));
   assertEquals(1,result.getJSONArray("profiles").length());
-  assertEquals(6,result.getInt("schema"));
+  assertEquals(7,result.getInt("schema"));
   p.put("visual",new org.json.JSONObject().put("mode","scan").put("scan",org.json.JSONObject.NULL).put("camera",org.json.JSONObject.NULL));
   p.put("graphFormat","jazzy").put("networkMode","lan").put("dashboard",org.json.JSONObject.NULL).put("localization",new LocationConfig().json());
+  p.put("robot",org.json.JSONObject.NULL);for(int i=0;i<p.getJSONArray("plots").length();i++)p.getJSONArray("plots").getJSONObject(i).put("unit","");
   assertEquals(p.toString(),result.getJSONArray("profiles").getJSONObject(0).toString());
   assertEquals(p.toString(),result.getJSONObject("applied").toString());
  }
@@ -69,6 +70,6 @@ public class BenchProfilesTest {
   BenchProfiles book=BenchProfiles.decode(json);
   assertNotNull("Schema v1 must load rather than discard the catalog",book);
   assertTrue(book.profiles.isEmpty());assertNull(book.applied);
-  assertEquals("{\"schema\":6,\"profiles\":[],\"applied\":null}",new String(book.encode(),StandardCharsets.UTF_8));
+  assertEquals("{\"schema\":7,\"profiles\":[],\"applied\":null}",new String(book.encode(),StandardCharsets.UTF_8));
  }
 }
