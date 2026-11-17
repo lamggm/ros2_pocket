@@ -15,8 +15,8 @@ Personalização local de apresentação, não edição do robô. Preserva C++/C
 - **Editar painel** cria um rascunho. Cada card ganha uma faixa própria de edição, sem cobrir nem diminuir seu conteúdo: alça pontilhada para arrastar e soltar antes de outro card, botão central com nome/tamanho, e alça diagonal para redimensionar por gesto. O botão central abre medidas e ações equivalentes de mover antes/depois, sem depender de gestos.
 - **Salvar** valida e persiste; **Cancelar** ou Back descarta. **Padrão** muda apenas o rascunho até Salvar. Sair da seção ou do primeiro plano descarta alterações não salvas.
 - Sete cards existentes: quatro watches, modelo 3D, LiDAR/câmera e gráfico. Não há cards extras, exclusão ou câmera e LiDAR simultâneos. Localização é uma página separada e alterna o leitor visual com esse card.
-- Larguras/alturas lógicas de 1 a 4 unidades; visuais têm mínimo 2×2. Padrão: watches 1×1, modelo 4×3, sensor e gráfico 2×2. Unidade vertical120dp nas leituras e160dp nos demais cards, escalada para fontes grandes; espaçamento12dp.
-- Grade adaptativa de 4, 2 ou 1 colunas. Larguras limitadas somente na renderização em telas menores, sem alterar o tamanho lógico salvo. Ordem estável por linhas; não é posicionamento livre com células vazias.
+- Larguras/alturas lógicas de 1 a 4 unidades; visuais têm mínimo 2×2. Padrão: watches 1×1, modelo 4×3, sensor e gráfico 2×2. Célula quadrada de120dp ×120dp, escalada uniformemente pela fonte; espaçamento12dp. Assim1×1 é quadrado, e2×1 mede duas células mais um espaço na horizontal. A faixa de edição fica fora dessa área de conteúdo.
+- Grade adaptativa com tantas colunas quadradas compactas quanto couberem na largura disponível. Não estica1×1 para preencher a linha; o espaço remanescente fica ao fim dela. Larguras limitadas somente na renderização em telas menores, sem alterar o tamanho lógico salvo. Ordem estável por linhas; não é posicionamento livre com células vazias.
 - Redimensionar muda os viewports reais. Controles técnicos do modelo ficam em **⋮**; indicação de pose permanece no card. Opções longas de sensores/gráfico rolam dentro dos respectivos cards. Tela cheia do modelo preservada.
 
 ## Visualizações das leituras
@@ -31,7 +31,13 @@ Gauge/barra usam o caminho exato (por exemplo `data`, `linear.x`, `pose.pose.pos
 
 Somente valores numéricos finitos e atuais alimentam o indicador. Campo inexistente/incompatível/não finito aparece indisponível, nunca zero. Limites devem ser finitos e crescentes, com amplitude representável. Valor fora da escala satura apenas o desenho, preservando o número e o aviso **Fora da escala**. O histórico continua no card Gráfico já existente; gauges não armazenam amostras.
 
-As opções seguem o mesmo rascunho, Salvar/Cancelar, owner do perfil, restart e transferência do layout. Layouts schema1 migram em memória para visualização numérica, sem regravar no load. O catálogo continua schema6; o layout embutido tem versão própria. Versões antigas do app não devem receber layouts schema2. Leituras numéricas, gauges e barras respeitam a altura lógica escolhida: uma unidade agora mede 120dp (escalada pela fonte), sem mínimo oculto de duas unidades. Os demais cards visuais continuam com unidade160dp. Gauge/barra usam desenho compacto no 1×1 e expandido em alturas maiores; posição e layout salvo não mudam.
+As opções seguem o mesmo rascunho, Salvar/Cancelar, owner do perfil, restart e transferência do layout. Layouts schema1 migram em memória para visualização numérica; schemas1/2 carregam nomes vazios, sem regravar no load. O catálogo continua schema6; o layout embutido tem versão própria. Versões antigas do app não devem receber layouts schema3. Leituras numéricas, gauges e barras usam a mesma célula quadrada, sem mínimo oculto de duas unidades. Gauge/barra mantêm desenho compacto no1×1; a unidade de resize por gesto coincide com a célula renderizada.
+
+## Nome manual do card
+
+Em **Editar painel → tamanho/posição do card → Nome do card…**, digite um nome opcional de até64 caracteres e confirme **Usar no rascunho → Salvar**. Disponível nos sete cards. Vazio restaura o nome padrão; Cancelar não altera o confirmado. O nome é salvo no layout do perfil, acompanha exportação/importação e restart, sem renomear tópico, robô, leitor ou perfil.
+
+Nas leituras, o nome substitui o tópico no espaço limitado do card; textos longos são truncados com reticências. O tópico completo e o tipo continuam na descrição acessível e nos detalhes existentes. Nos demais cards, o nome opcional ganha uma faixa dentro do viewport, sem reparentar as Views nem alterar seus owners.
 
 ## Tela cheia do aplicativo
 
@@ -39,7 +45,7 @@ A Activity inicia em modo imersivo e o reaplica ao retornar ao primeiro plano ou
 
 ## Estado e limites
 
-Sem perfil aplicado, `dashboard-layout-v1.json` privado mantém o painel anônimo e serve de origem para migração em memória dos perfis antigos. Com perfil aplicado, o layout mora no catálogo `bench-profiles-v1.json`, inclusive no snapshot aplicado. O codec de cada layout escreve schema2 e lê schema1/2, até4096bytes, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Arquivos antigos/corrompidos não são apagados ao carregar. Escritas usam AtomicFile/readback; resultado incerto mantém aviso mesmo após Cancelar/Back, sem promessa fictícia de rollback. Falha do catálogo exige reabertura para observar o estado real. Não é promessa contra falha física do armazenamento.
+Sem perfil aplicado, `dashboard-layout-v1.json` privado mantém o painel anônimo e serve de origem para migração em memória dos perfis antigos. Com perfil aplicado, o layout mora no catálogo `bench-profiles-v1.json`, inclusive no snapshot aplicado. O codec de cada layout escreve schema3 e lê schema1/2/3, até4096caracteres, sete IDs conhecidos, únicos e tamanhos inteiros válidos. Arquivos antigos/corrompidos não são apagados ao carregar. Escritas usam AtomicFile/readback; resultado incerto mantém aviso mesmo após Cancelar/Back, sem promessa fictícia de rollback. Falha do catálogo exige reabertura para observar o estado real. Não é promessa contra falha física do armazenamento.
 
 Reordenar/redimensionar não remove e reinsere as Views de conteúdo: modelo, buffers, câmera, filtros, histórico e seleção permanecem nos mesmos owners. Diálogos/gestos antigos são cercados pela identidade do rascunho. Fontes de dados continuam independentes da edição.
 

@@ -8,10 +8,12 @@ import android.text.*;
 @android.annotation.SuppressLint("ViewConstructor")
 final class MetricCard extends VisualButton {
  private final TextPaint p=new TextPaint(Paint.ANTI_ALIAS_FLAG);
- private String wire="",type="",value="",state="";private int slot,occupied;private boolean fresh;
+ private String name="",wire="",type="",value="",state="";private int slot,occupied;private boolean fresh;
  private DashboardLayout.Display display=DashboardLayout.Display.defaults();private Double numeric;
  void display(DashboardLayout.Display d){boolean same=display.mode.equals(d.mode)&&display.path.equals(d.path)&&display.unit.equals(d.unit)&&display.min==d.min&&display.max==d.max;display=d;if(!same)numeric=null;invalidate();}
- void sample(org.json.JSONArray fields,boolean current){numeric=null;if(current&&fresh&&BenchProfiles.numeric(type,display.path)&&fields!=null)for(int i=0;i<Math.min(PlotController.MAX_FIELDS,fields.length());i++){org.json.JSONObject f=fields.optJSONObject(i);if(f!=null&&display.path.equals(f.optString("path"))){Object v=f.opt("value");if("finite".equals(f.optString("state"))&&v instanceof Number&&Double.isFinite(((Number)v).doubleValue()))numeric=((Number)v).doubleValue();break;}}String detail="number".equals(display.mode)?"": " · "+display.mode+" · "+display.path+" · "+(numeric==null?"Sem dados atuais":format(numeric)+" "+display.unit+(numeric<display.min||numeric>display.max?" · Fora da escala":""));setContentDescription(getText()+detail+" · abrir detalhes e QoS");invalidate();}
+ void title(String name){if(this.name.equals(name))return;this.name=name;bind(slot,occupied,wire,type,state,value,fresh);}
+ void sample(org.json.JSONArray fields,boolean current){numeric=null;if(current&&fresh&&BenchProfiles.numeric(type,display.path)&&fields!=null)for(int i=0;i<Math.min(PlotController.MAX_FIELDS,fields.length());i++){org.json.JSONObject f=fields.optJSONObject(i);if(f!=null&&display.path.equals(f.optString("path"))){Object v=f.opt("value");if("finite".equals(f.optString("state"))&&v instanceof Number&&Double.isFinite(((Number)v).doubleValue()))numeric=((Number)v).doubleValue();break;}}describe();invalidate();}
+ private void describe(){String detail="number".equals(display.mode)?"": " · "+display.mode+" · "+display.path+" · "+(numeric==null?"Sem dados atuais":format(numeric)+" "+display.unit+(numeric<display.min||numeric>display.max?" · Fora da escala":""));setContentDescription(getText()+detail+" · abrir detalhes e QoS");}
  private static String format(double n){return String.format(java.util.Locale.ROOT,"%.5g",n);}
  private boolean compact(){return getHeight()<dp(180*Math.max(1,getResources().getConfiguration().fontScale));}
  private void compactInstrument(Canvas c,float w,float h,float pad,int fg,int muted){
@@ -29,7 +31,7 @@ final class MetricCard extends VisualButton {
   p.setStyle(Paint.Style.FILL);String shown=valid?format(numeric)+(display.unit.isEmpty()?"":" "+display.unit):"—";float valueY="gauge".equals(display.mode)?Math.min(bottom-16*d,top+(bottom-top)*.82f):Math.min(bottom-16*d,top+76*d);line(c,shown,pad,valueY,22,fg,w-2*pad,true);String status=!valid?(fresh?"Campo indisponível":"Sem dados atuais"):numeric<display.min||numeric>display.max?"Fora da escala":display.path;line(c,status,pad,h-8*d,10,muted,w-2*pad,false);
  }
  MetricCard(Context c){super(c,"metric",null);setTextSize(32);setPadding(0,0,0,0);}
- void bind(int slot,int occupied,String wire,String type,String state,String value,boolean fresh){this.slot=slot;this.occupied=occupied;this.wire=wire;this.type=type;this.state=state;this.value=value.length()>96?value.substring(0,96)+"…":value;this.fresh=fresh;String label="Leitura "+(slot+1)+" · "+(wire.isEmpty()?"Livre":wire+"\n"+type+"\n"+(fresh?state.split("\n",2)[0]+"\n"+this.value:"Sem dados atuais"));if(!getText().toString().equals(label))setText(label);invalidate();}
+ void bind(int slot,int occupied,String wire,String type,String state,String value,boolean fresh){this.slot=slot;this.occupied=occupied;this.wire=wire;this.type=type;this.state=state;this.value=value.length()>96?value.substring(0,96)+"…":value;this.fresh=fresh;String label="Leitura "+(slot+1)+" · "+(name.isEmpty()?"":name+" · ")+(wire.isEmpty()?"Livre":wire+"\n"+type+"\n"+(fresh?state.split("\n",2)[0]+"\n"+this.value:"Sem dados atuais"));if(!getText().toString().equals(label))setText(label);describe();invalidate();}
  @Override void skin(){super.skin();setTextSize(32);setPadding(0,0,0,0);}
  private float sp(float size){return size*getResources().getDisplayMetrics().scaledDensity;}
  private void line(Canvas c,String s,float x,float y,float size,int color,float width,boolean bold){p.setTextSize(sp(size));p.setColor(color);p.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",Typeface.NORMAL));p.setStyle(Paint.Style.FILL);p.setPathEffect(null);c.drawText(TextUtils.ellipsize(s.replace('\n',' '),p,Math.max(1,width),TextUtils.TruncateAt.END).toString(),x,y,p);}
@@ -37,15 +39,15 @@ final class MetricCard extends VisualButton {
   int fg=ink(getContext()),muted=muted(getContext()),accent=accent(getContext());float d=getResources().getDisplayMetrics().density,w=getWidth(),h=getHeight(),pad=16*d;
   p.setColor(isSelected()?accent:border(getContext()));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(d);p.setPathEffect(wire.isEmpty()?new DashPathEffect(new float[]{5*d,4*d},0):null);c.drawRoundRect(d,d,w-d,h-d,14*d,14*d,p);p.setPathEffect(null);
   if(wire.isEmpty()){
-   int size=dp(26),x=(getWidth()-size)/2,y=dp(33);PocketIcons icon=new PocketIcons("add",muted,size);icon.setBounds(x,y,x+size,y+size);icon.draw(c);
+   if(!name.isEmpty())line(c,name,pad,27*d,13,fg,w-2*pad,true);int size=dp(26),x=(getWidth()-size)/2,y=dp(33);PocketIcons icon=new PocketIcons("add",muted,size);icon.setBounds(x,y,x+size,y+size);icon.draw(c);
    p.setTextAlign(Paint.Align.CENTER);line(c,"Adicionar leitura",w/2,92*d,15,fg,w-2*pad,true);line(c,"Explorar tópicos",w/2,117*d,11,muted,w-2*pad,false);p.setTextAlign(Paint.Align.LEFT);return;
   }
   float yd=compact()?d*Math.max(1,getResources().getConfiguration().fontScale):d;
   String badge=fresh?"Recebendo":"Sem dados atuais";p.setTextSize(sp(9));float bw=p.measureText(badge)+16*d;
   p.setStyle(Paint.Style.FILL);p.setColor(fresh?(UiTheme.dark(getContext())?0xff263e37:0xffdcefe8):bg(getContext()));c.drawRoundRect(w-pad-bw,13*yd,w-pad,33*yd,9*d,9*d,p);
   line(c,badge,w-pad-bw+8*d,27*yd,9,fresh?accent:muted,bw-12*d,false);
-  line(c,"LEITURA "+(slot+1),pad,27*yd,10,muted,Math.max(1,w-2*pad-bw-8*d),true);
-  String name=wire.startsWith("rt/")?wire.substring(2):wire;
+  if(!compact()&&w-2*pad-bw-8*d>=dp(50))line(c,"LEITURA "+(slot+1),pad,27*yd,10,muted,w-2*pad-bw-8*d,true);
+  String name=this.name.isEmpty()?(wire.startsWith("rt/")?wire.substring(2):wire):this.name;
   line(c,name,pad,compact()?47*yd:59*d,compact()? 13:15,fg,w-2*pad,true);
   if(!"number".equals(display.mode)){instrument(c,w,h,pad,fg,muted);return;}
   String shown=fresh?value.trim():"—";if(shown.startsWith("{")||shown.startsWith("["))shown="Ver campos";if(shown.isEmpty())shown="—";
