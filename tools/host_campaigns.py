@@ -169,7 +169,8 @@ def main():
     out.mkdir(parents=True)
     (out/'multiwatch').mkdir()
     env = dict(os.environ, POCKET_TOOLCHAINS=str(toolchains), POCKET_PLOT_DDS_RECORDS=str(out/'plots'),
-               POCKET_SENSOR_PACKETS=str(ROOT/'build/sensor-dds-records'))
+               POCKET_SENSOR_PACKETS=str(ROOT/'build/sensor-dds-records'),
+               POCKET_LOCATION_DDS_RECORDS=str(ROOT/'build/location-dds-records'))
     # Snapshot the actual working source, not only its branch label.
     def source():
         return subprocess.run([sys.executable, 'tools/artifact_metadata.py', '--source'], cwd=ROOT,
