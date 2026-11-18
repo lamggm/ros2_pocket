@@ -1,0 +1,1 @@
+Câmera e LiDAR juntos no painel. Layout por perfil, gráfico com título editável, escalas e legenda, previews ampliados e localização somente leitura por OccupancyGrid/TF.
