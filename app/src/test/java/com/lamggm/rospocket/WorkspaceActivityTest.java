@@ -42,9 +42,9 @@ public class WorkspaceActivityTest extends ConnectionActivityTest {
   confirm.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick();paint();
   assertEquals("Delayed confirmation must retain newer slot ownership","rt/newer",((WatchSlots)get("watchSlots")).get(2).wire);
  }
- @Test @Config(qualifiers="w1000dp-h700dp") public void tabletUsesFourSideDestinationsAndGlobalConnection() {
+ @Test @Config(qualifiers="w1000dp-h700dp") public void tabletUsesFiveSideDestinationsAndGlobalConnection() {
   LinearLayout nav=a.getWindow().getDecorView().findViewWithTag("primary-navigation");
-  assertNotNull("Four-destination shell is missing",nav);assertEquals(4,nav.getChildCount());
+  assertNotNull("Five-destination shell is missing",nav);assertEquals(5,nav.getChildCount());assertSame(nav,a.findViewById(R.id.nav_location).getParent());assertEquals("Localização",((Button)a.findViewById(R.id.nav_location)).getText().toString());
   assertEquals(LinearLayout.VERTICAL,nav.getOrientation());
   assertNotSame(nav,a.findViewById(R.id.nav_connection).getParent());
   assertEquals("Painel",((Button)a.findViewById(R.id.nav_monitor)).getText().toString());

@@ -11,7 +11,7 @@ import static org.junit.Assert.*;
 public class AppearanceCanvasTest {
  @Test public void sameSensorCanvasFollowsThemeWithoutReaderReplacement() {
   Context c=RuntimeEnvironment.getApplication();c.getSharedPreferences("appearance",0).edit().putString("mode","light").commit();
-  SensorPanel p=new SensorPanel(c);View canvas=p.findViewWithTag("sensor-surface");canvas.layout(0,0,300,200);
+  SensorPanel p=new SensorPanel(c,false);View canvas=p.findViewWithTag("sensor-surface");canvas.layout(0,0,300,200);
   Bitmap light=Bitmap.createBitmap(300,200,Bitmap.Config.ARGB_8888);canvas.draw(new Canvas(light));assertEquals(0xffeaf1f4,light.getPixel(2,2));
   c.getSharedPreferences("appearance",0).edit().putString("mode","dark").commit();
   Bitmap dark=Bitmap.createBitmap(300,200,Bitmap.Config.ARGB_8888);canvas.draw(new Canvas(dark));assertEquals(0xff101820,dark.getPixel(2,2));p.dispose();

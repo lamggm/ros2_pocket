@@ -9,11 +9,16 @@ struct SensorFrame { std::string metadata="{}"; std::vector<uint8_t> payload; st
 SensorFrame scan_frame(const sensor_msgs_msg_dds__LaserScan_& scan);
 SensorFrame image_frame(const sensor_msgs_msg_dds__Image_& image);
 SensorFrame compressed_frame(const sensor_msgs_msg_dds__CompressedImage_& image);
+SensorFrame map_frame(const nav_msgs_msg_dds__OccupancyGrid_& map);
 class SensorSession {
  struct Impl; std::unique_ptr<Impl> impl;
  public:
- SensorSession(); ~SensorSession();
- std::string start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode="lan",const std::string& graph_format="jazzy");
+ enum class Channel { SensorOrMap, Camera };
+ explicit SensorSession(Channel channel=Channel::SensorOrMap); ~SensorSession();
+ private:
+ const Channel channel;
+ public:
+ std::string start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode="lan",const std::string& graph_format="jazzy",bool reliable=false,bool retained=false);
  SensorFrame poll(); void stop();
 };
 }

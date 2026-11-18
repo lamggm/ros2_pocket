@@ -1,0 +1,1 @@
+Run camera and LiDAR together in the dashboard. Per-profile layouts, editable chart title with scales and legend, large previews, and read-only OccupancyGrid/TF localization.

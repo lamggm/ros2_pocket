@@ -14,10 +14,11 @@ struct SensorSession::Impl {
  dds_entity_t domain=0,participant=0,topic=0,reader=0;
  RosReaderAnnouncement announcement;
  uint64_t count=0,received=0;int kind=0;std::string error;
+ uint64_t map_writer=0;bool map_revoked=false;
 };
-SensorSession::SensorSession():impl(new Impl){} SensorSession::~SensorSession(){stop();}
+SensorSession::SensorSession(Channel c):impl(new Impl),channel(c){} SensorSession::~SensorSession(){stop();}
 void SensorSession::stop(){auto& s=*impl;s.announcement.stop();if(s.participant>0)dds_delete(s.participant);if(s.domain>0)dds_delete(s.domain);impl.reset(new Impl);}
-std::string SensorSession::start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode,const std::string& graph_format){
+std::string SensorSession::start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode,const std::string& graph_format,bool reliable,bool retained){
  stop();auto& s=*impl;
  auto rejected=[&](const std::string& why){stop();impl->error=why;return fail(why);};
  if(graph_format!="jazzy"&&graph_format!="humble")return rejected("Formato de grafo visual desconhecido");
@@ -28,10 +29,13 @@ std::string SensorSession::start(int domain,const std::string& address,const std
  if(type=="sensor_msgs::msg::dds_::LaserScan_"){descriptor=&sensor_msgs_msg_dds__LaserScan__desc;s.kind=1;}
  else if(type=="sensor_msgs::msg::dds_::Image_"){descriptor=&sensor_msgs_msg_dds__Image__desc;s.kind=2;}
  else if(type=="sensor_msgs::msg::dds_::CompressedImage_"){descriptor=&sensor_msgs_msg_dds__CompressedImage__desc;s.kind=3;}
+ else if(type=="nav_msgs::msg::dds_::OccupancyGrid_"){descriptor=&nav_msgs_msg_dds__OccupancyGrid__desc;s.kind=4;}
  else return rejected("Tipo de sensor não suportado");
  // A private Cyclone domain with the same wire domain avoids raising telemetry's
  // immutable 64KiB admission ceiling. No discovery/readers other than this sensor.
- const int internal=1000+domain;
+ if(channel==Channel::Camera&&s.kind!=2&&s.kind!=3)return rejected("Tipo de câmera não suportado");
+ // Sensor/map uses 1000; URDF/TF uses 2000; camera has an independent local domain.
+ const int internal=(channel==Channel::Camera?3000:1000)+domain;
  const bool vpn=network_mode=="vpn";
  std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\""+(vpn?"false":"true")+"\"/></Interfaces><AllowMulticast>"+(vpn?"false":"spdp")+"</AllowMulticast><DontRoute>"+(vpn?"false":"true")+"</DontRoute></General><Discovery><ExternalDomainId>"+std::to_string(domain)+"</ExternalDomainId><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";
@@ -39,7 +43,7 @@ std::string SensorSession::start(int domain,const std::string& address,const std
  s.domain=dds_create_domain(internal,config.c_str());if(s.domain<0)return rejected("Falha no domínio visual DDS: "+std::string(dds_strretcode(s.domain)));
  s.participant=dds_create_participant(internal,nullptr,nullptr);if(s.participant<0)return rejected("Falha no participante visual DDS");
  s.topic=dds_create_topic(s.participant,descriptor,topic.c_str(),nullptr,nullptr);if(s.topic<0)return rejected("Falha no tópico visual DDS");
- auto q=dds_create_qos();dds_qset_reliability(q,DDS_RELIABILITY_BEST_EFFORT,0);dds_qset_durability(q,DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,1);dds_qset_resource_limits(q,1,1,1);
+ auto q=dds_create_qos();dds_qset_reliability(q,s.kind==4&&reliable?DDS_RELIABILITY_RELIABLE:DDS_RELIABILITY_BEST_EFFORT,s.kind==4&&reliable?DDS_MSECS(100):0);dds_qset_durability(q,s.kind==4&&retained?DDS_DURABILITY_TRANSIENT_LOCAL:DDS_DURABILITY_VOLATILE);dds_qset_history(q,DDS_HISTORY_KEEP_LAST,1);dds_qset_resource_limits(q,1,1,1);
  s.reader=dds_create_reader(s.participant,s.topic,q,nullptr);dds_delete_qos(q);if(s.reader<0)return rejected("Falha no leitor visual DDS");
  if(!s.announcement.start(s.participant,"sensor",graph_format)||!s.announcement.update({s.reader}))return rejected("Falha ao anunciar leitor visual ROS");
  return "{\"ok\":true}";
@@ -54,6 +58,10 @@ SensorFrame SensorSession::poll(){
     if(info.valid_data){
      if(s.kind==1)frame=scan_frame(*static_cast<sensor_msgs_msg_dds__LaserScan_*>(sample));
      else if(s.kind==2)frame=image_frame(*static_cast<sensor_msgs_msg_dds__Image_*>(sample));
+     else if(s.kind==4){
+      if(s.map_revoked||!info.publication_handle||(s.map_writer&&s.map_writer!=info.publication_handle)){s.map_revoked=true;frame.error="Autoridade do mapa mudou/ambígua · toque Observar novamente";}
+      else {frame=map_frame(*static_cast<nav_msgs_msg_dds__OccupancyGrid_*>(sample));if(frame.error.empty())s.map_writer=info.publication_handle;}
+     }
      else frame=compressed_frame(*static_cast<sensor_msgs_msg_dds__CompressedImage_*>(sample));
      s.error=frame.error;
      if(s.error.empty()){++s.count;s.received=now_ns();}

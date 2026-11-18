@@ -41,14 +41,22 @@ public final class MainActivity extends Activity {
  private final QaSnapshot qa=new QaSnapshot();
  private PlotView plotView;
  private PlotExportPanel plotExport;
- private SensorPanel sensorPanel;
+ private SensorPanel sensorPanel,cameraPanel;
+ private String profileSensorMode="scan";
+ private LocationPanel locationPanel;
+ private LocationPanel.Request appliedLocationMap,failedLocationMap,appliedLocationTf;
+ private long appliedLocationEpoch=-1,failedLocationEpoch=-1,locationRetryAt,appliedLocationTfEpoch=-1;
+ private boolean localizationMetadata,locationTfStarted;
+ private RobotTf locationTree=new RobotTf();private String locationTfError="";
  private DashboardBoard dashboardBoard;
  private ScheduledFuture<?> sensorTicker;
  // Applied state is confined to the same process-wide DDS queue as telemetry.
- private SensorPanel.Request appliedSensor;
- private long appliedSensorEpoch=-1;
- private SensorPanel.Request failedSensor;
- private long failedSensorEpoch=-1,sensorRetryAt=0;
+ private static final class VisualSlot {
+  final boolean camera;SensorPanel.Request applied,failed;long appliedEpoch=-1,failedEpoch=-1,retryAt;
+  VisualSlot(boolean camera){this.camera=camera;}
+  void reset(){applied=failed=null;appliedEpoch=failedEpoch=-1;retryAt=0;}
+ }
+ private final VisualSlot scanSlot=new VisualSlot(false),cameraSlot=new VisualSlot(true);
  private StructuredMessageView structured;
  private final StructuredMessageView[] watchStructured=new StructuredMessageView[4];
  private RosoutConsoleView rosoutConsole;
@@ -85,11 +93,15 @@ public final class MainActivity extends Activity {
  private TextView sessionSummary;
  private TextView dashboardSubtitle;
  private TextView dashboardTitle;
+ private Button addReadingFab;
+ private RobotContext.Snapshot robotObservation;private Config autoProfileAttempted;private BenchProfiles.Profile connectionBaseline;
+ private String observedRobotName="";private LinearLayout headerRobotIdentity;private TextView headerBrand,appliedProfile;
  private ScheduledFuture<?> robotTicker;
  private final RobotContext robotContext=new RobotContext();
  private RobotPanel robotPanel;
  private int selectedSection=2;
  private final String[] dashboardValues={"","","",""};
+ private final JSONArray[] dashboardNumeric=new JSONArray[4];
  private final boolean[] dashboardFresh=new boolean[4];
  private final WatchSlots.Request[] dashboardOwners=new WatchSlots.Request[4];
  private int dashboardPeers;
@@ -129,51 +141,53 @@ public final class MainActivity extends Activity {
  private EditText input(String hint,String value,int id,int type){
   EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setId(id);e.setSingleLine(true);e.setTextColor(UiTheme.color(this,FG));e.setHintTextColor(UiTheme.color(this,MUTED));e.setTextSize(16);e.setInputType(type);e.setSelectAllOnFocus(true);return e;
  }
- private final LinearLayout[] sections=new LinearLayout[5];
- private final Button[] sectionButtons=new Button[5];
+ private final LinearLayout[] sections=new LinearLayout[6];
+ private final Button[] sectionButtons=new Button[6];
  private void showSection(int selected){
+  if(selected==5&&selectedSection!=5){robotContext.fenceSelection();if(robotPanel!=null)robotPanel.invalidatePose();}
   selectedSection=selected;
-  if(dashboardBoard!=null&&selected!=2)dashboardBoard.cancel();
+  if(addReadingFab!=null)addReadingFab.setVisibility(selected==2?View.VISIBLE:View.GONE);
+  if(dashboardBoard!=null&&selected!=2){dashboardBoard.closePreviews();dashboardBoard.cancel();}
   if(robotPanel!=null)robotPanel.view.setScreenActive(resumed&&selected==2);
-  if(sensorPanel!=null)sensorPanel.visible(selected==2);
+  if(sensorPanel!=null){sensorPanel.visible(selected==2);cameraPanel.visible(selected==2);}
+  if(locationPanel!=null)locationPanel.visible(selected==5);
   for(int i=0;i<sections.length;i++){
    sections[i].setVisibility(i==selected?View.VISIBLE:View.GONE);
    sectionButtons[i].setSelected(i==selected);
    if(sectionButtons[i].getParent()!=null)UiTheme.apply(sectionButtons[i]);
   }
  }
- private ScrollView dashboardScroll(View content){ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setNestedScrollingEnabled(true);scroll.addView(content,new ScrollView.LayoutParams(-1,-2));return scroll;}
  @Override public void onBackPressed(){if(dashboardBoard!=null&&dashboardBoard.editing()){dashboardBoard.cancel();return;}super.onBackPressed();}
  private void makeUi(){
   LinearLayout root=column();root.setTag("app-root");root.setBackgroundColor(VisualButton.bg(this));
   root.setOnApplyWindowInsetsListener((v,insets)->{
-   if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(i.left,i.top,i.right,i.bottom);}
+   if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());v.setPadding(i.left,i.top,i.right,i.bottom);}
    else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
    return insets;
   });
   boolean wide=getResources().getConfiguration().screenWidthDp>=600;
   LinearLayout header=new LinearLayout(this);header.setGravity(android.view.Gravity.CENTER_VERTICAL);header.setPadding(dp(wide?24:16),dp(10),dp(wide?20:12),dp(10));
   ImageView logo=new ImageView(this);logo.setTag("brand-icon");logo.setImageDrawable(new PocketIcons("graph",VisualButton.accent(this),dp(26)));header.addView(logo,new LinearLayout.LayoutParams(dp(32),dp(40)));
-  LinearLayout identity=column();identity.setPadding(dp(10),0,dp(8),0);identity.addView(label("ROS Pocket",wide?21:18,FG));identity.addView(label("Somente leitura",11,MUTED));TextView version=label("v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA",12,MUTED);version.setVisibility(View.GONE);identity.addView(version);
+  LinearLayout identity=column();identity.setPadding(dp(10),0,dp(8),0);headerBrand=label("ROS Pocket",wide?21:15,FG);headerBrand.setTag("brand-title");identity.addView(headerBrand);identity.addView(label("Somente leitura",11,MUTED));TextView version=label("v"+BuildConfig.VERSION_NAME+" · DDS · SOMENTE LEITURA",12,MUTED);version.setVisibility(View.GONE);identity.addView(version);
   header.addView(identity,new LinearLayout.LayoutParams(0,-2,1));
-  sessionSummary=label("Sem descoberta DDS",12,MUTED);sessionSummary.setSingleLine(true);sessionSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionSummary.setPadding(0,0,dp(20),0);header.addView(sessionSummary);if(!wide)sessionSummary.setVisibility(View.GONE);
-  String[] sectionNames={"connection","topics","monitor","logs","graph"};String[] sectionLabels={"Conexão","Explorar","Painel","Logs","Grafo"};
+  sessionSummary=label("Sem descoberta DDS",11,MUTED);sessionSummary.setSingleLine(true);sessionSummary.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionSummary.setVisibility(View.GONE);identity.addView(sessionSummary);
+  String[] sectionNames={"connection","topics","monitor","logs","graph","location"};String[] sectionLabels={"Conexão","Explorar","Painel","Logs","Grafo","Localização"};
   LinearLayout nav=new LinearLayout(this);nav.setTag("primary-navigation");nav.setOrientation(wide?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
   for(int i=0;i<sectionNames.length;i++){
-   final int selected=i;Button button=new VisualButton(this,i==0?"connection":"nav",new String[]{"connection","explore","panel","logs","graph"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
+   final int selected=i;Button button=new VisualButton(this,i==0?(wide?"connection":"icon"):"nav",new String[]{"connection","explore","panel","logs","graph","location"}[i]);button.setId(new int[]{R.id.nav_connection,R.id.nav_topics,R.id.nav_monitor,R.id.nav_logs,R.id.nav_graph,R.id.nav_location}[i]);button.setText(sectionLabels[i]);button.setContentDescription("Abrir seção "+sectionLabels[i]);button.setOnClickListener(v->showSection(selected));sectionButtons[i]=button;
   }
   nav.setPadding(dp(8),dp(wide?16:4),dp(8),dp(4));
-  for(int index:new int[]{2,1,4,3}){LinearLayout.LayoutParams n=wide?new LinearLayout.LayoutParams(-1,dp(76)):new LinearLayout.LayoutParams(0,dp(68),1);if(wide)n.bottomMargin=dp(8);nav.addView(sectionButtons[index],n);}
-  LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER_VERTICAL);actions.addView(sectionButtons[0],new LinearLayout.LayoutParams(dp(wide?190:134),dp(50)));
-  Button appearance=new VisualButton(this,"icon","more");appearance.setTag("appearance-menu");appearance.setText("Aparência");appearance.setTooltipText("ROS Pocket v"+BuildConfig.VERSION_NAME+" · Aparência");appearance.setContentDescription("Aparência: Sistema, Claro ou Escuro");appearance.setOnClickListener(v->showAppearance());actions.addView(appearance,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(actions);root.addView(header,new LinearLayout.LayoutParams(-1,dp(wide?78:72)));
-  LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(LinearLayout.HORIZONTAL);root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
-  if(wide)workspace.addView(nav,new LinearLayout.LayoutParams(dp(88),-1));
+  for(int index:new int[]{2,5,1,4,3}){LinearLayout.LayoutParams n=wide?new LinearLayout.LayoutParams(-1,dp(76)):new LinearLayout.LayoutParams(0,dp(68),1);if(wide)n.bottomMargin=dp(8);nav.addView(sectionButtons[index],n);}
+  LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER_VERTICAL);actions.addView(sectionButtons[0],new LinearLayout.LayoutParams(dp(wide?190:48),dp(50)));
+  Button appearance=new VisualButton(this,"icon","more");appearance.setTag("appearance-menu");appearance.setText("Aparência");appearance.setTooltipText("ROS Pocket v"+BuildConfig.VERSION_NAME+" · Aparência");appearance.setContentDescription("Aparência: Sistema, Claro ou Escuro");appearance.setOnClickListener(v->showAppearance());actions.addView(appearance,new LinearLayout.LayoutParams(dp(48),dp(48)));header.addView(actions);FrameLayout headerFrame=new FrameLayout(this);headerFrame.setTag("operator-header");headerFrame.addView(header,new FrameLayout.LayoutParams(-1,-1));headerRobotIdentity=column();headerRobotIdentity.setGravity(android.view.Gravity.CENTER);dashboardTitle=label("desconectado",wide?21:12,FG);dashboardTitle.setTag("dashboard-title");dashboardTitle.setGravity(android.view.Gravity.CENTER);dashboardTitle.setSingleLine(true);dashboardTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);headerRobotIdentity.addView(dashboardTitle,new LinearLayout.LayoutParams(-1,-2));appliedProfile=label("Sem perfil aplicado",wide?11:9,MUTED);appliedProfile.setTag("applied-profile");appliedProfile.setGravity(android.view.Gravity.CENTER);appliedProfile.setSingleLine(true);appliedProfile.setEllipsize(android.text.TextUtils.TruncateAt.END);headerRobotIdentity.addView(appliedProfile,new LinearLayout.LayoutParams(-1,-2));headerFrame.addView(headerRobotIdentity,new FrameLayout.LayoutParams(dp(wide?260:92),-2,android.view.Gravity.TOP|android.view.Gravity.CENTER_HORIZONTAL));root.addView(headerFrame,new LinearLayout.LayoutParams(-1,dp(wide?78:72)));
+  LinearLayout workspace=new LinearLayout(this);workspace.setOrientation(LinearLayout.HORIZONTAL);FrameLayout workspaceLayer=new FrameLayout(this);workspaceLayer.addView(workspace,new FrameLayout.LayoutParams(-1,-1));root.addView(workspaceLayer,new LinearLayout.LayoutParams(-1,0,1));
+  if(wide)workspace.addView(nav,new LinearLayout.LayoutParams(dp(112),-1));
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);workspace.addView(scroll,new LinearLayout.LayoutParams(0,-1,1));
   if(!wide)root.addView(nav);
 
-  LinearLayout body=column();body.setPadding(dp(wide?24:16),dp(22),dp(wide?24:16),dp(20));scroll.addView(body);
+  LinearLayout body=column();body.setPadding(dp(wide?24:16),dp(22),dp(wide?24:16),dp(88));scroll.addView(body);
   for(int i=0;i<sectionNames.length;i++){
-   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph}[i]);body.addView(sections[i]);
+   sections[i]=column();sections[i].setId(new int[]{R.id.section_connection,R.id.section_topics,R.id.section_monitor,R.id.section_logs,R.id.section_graph,R.id.section_location}[i]);body.addView(sections[i]);
   }
   LinearLayout connection=sections[0];
   LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.addView(label("Domain ID",15,MUTED));
@@ -199,15 +213,16 @@ public final class MainActivity extends Activity {
   profiles=new ProfilePanel(this,new ProfilePanel.Actions(){
    public BenchProfiles.Profile capture(String id,String name){return captureProfile(id,name);}
    public boolean connected(){return connectWanted;}
+   public BenchProfiles.Robot observedRobot(){return currentRobot();}
    public void apply(BenchProfiles.Profile profile){loadProfile(profile);}
   });connection.addView(profiles);
   LinearLayout graphCard=card();topicTitle=label("TÓPICOS · 0",14,ACCENT);graphCard.addView(topicTitle);
   topicList=new ExplorerView(this,this::readFromExplorer);topicList.setId(R.id.topics);graphCard.addView(topicList);sections[1].addView(graphCard);
-  LinearLayout panelHeading=new LinearLayout(this);panelHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);LinearLayout panelIdentity=column();dashboardTitle=label("Seu painel",27,FG);dashboardTitle.setTag("dashboard-title");panelIdentity.addView(dashboardTitle);dashboardSubtitle=label("Suas leituras, num só lugar.",13,MUTED);panelIdentity.addView(dashboardSubtitle);panelHeading.addView(panelIdentity,new LinearLayout.LayoutParams(0,-2,1));Button addReading=new VisualButton(this,"secondary","add");addReading.setText("Adicionar");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));panelHeading.addView(addReading,new LinearLayout.LayoutParams(dp(130),dp(48)));LinearLayout.LayoutParams headingParams=new LinearLayout.LayoutParams(-1,-2);headingParams.bottomMargin=dp(20);sections[2].addView(panelHeading,headingParams);
-  dashboardBoard=new DashboardBoard(this);sections[2].addView(dashboardBoard);
+  Button addReading=new VisualButton(this,"fab","add");addReadingFab=addReading;addReading.setText("+");addReading.setContentDescription("Adicionar leitura");addReading.setTag("add-reading");addReading.setOnClickListener(v->showSection(1));FrameLayout.LayoutParams floating=new FrameLayout.LayoutParams(dp(56),dp(56),android.view.Gravity.END|android.view.Gravity.BOTTOM);floating.setMargins(dp(16),dp(16),dp(16),dp(16));workspaceLayer.addView(addReading,floating);
+  dashboardBoard=new DashboardBoard(this);dashboardSubtitle=dashboardBoard.summary();sections[2].addView(dashboardBoard);
   for(int i=0;i<4;i++){final int slot=i;MetricCard metric=new MetricCard(this);metric.setTag("watch-card:"+slot);metric.setOnClickListener(v->{chooseWatch(slot);if((slot==0?selectedWire:watchSlots.get(slot).wire).isEmpty())showSection(1);else watchDetails.setVisibility(View.VISIBLE);});watchCards[slot]=metric;dashboardBoard.addCard("watch"+slot,"Watch "+(slot+1),metric,null);}
   TextView cardHint=label("Toque numa leitura para ver os detalhes e QoS.",11,MUTED);cardHint.setPadding(0,0,0,dp(18));sections[2].addView(cardHint);
-  robotPanel=new RobotPanel(this,robotContext,name->{if(!android.text.TextUtils.equals(dashboardTitle.getText(),name))dashboardTitle.setText(name);});robotPanel.tileMode();dashboardBoard.addCard("robot","Modelo 3D",robotPanel,null);
+  robotPanel=new RobotPanel(this,robotContext,name->{observedRobotName=name==null?"":name;refreshDashboard();});robotPanel.tileMode();dashboardBoard.addCard("robot","Modelo 3d",new DashboardPreview(this,"robot","Modelo 3d",robotPanel,robotPanel::previewMode,robotPanel::closeDetails),null);
   LinearLayout echo=card();watchDetails=echo;echo.setVisibility(View.GONE);Button closeDetails=new VisualButton(this,"secondary",null);closeDetails.setText("Fechar detalhes");closeDetails.setOnClickListener(v->watchDetails.setVisibility(View.GONE));echo.addView(closeDetails);selectedTitle=label("LEITURA · Watch 1 · selecione um tópico acima",16,ACCENT);echo.addView(selectedTitle);
   echo.addView(label("WATCHES · até quatro · escolha o slot e depois um tópico no Explorer",13,ACCENT));
   LinearLayout slots=new LinearLayout(this);
@@ -233,13 +248,16 @@ public final class MainActivity extends Activity {
    watchStructured[i]=new StructuredMessageView(this);watchStructured[i].setTag("structuredMessage:"+i);echo.addView(watchStructured[i]);
   }
   sections[2].addView(echo);
-  sensorPanel=new SensorPanel(this);sensorPanel.setPadding(dp(18),dp(18),dp(18),dp(18));sensorPanel.tileResize(()->dashboardBoard.editSize("sensors"));dashboardBoard.addCard("sensors","LiDAR / Câmera",dashboardScroll(sensorPanel),sensorPanel::tileHeight);
-  LinearLayout chartCard=card();plotView=new PlotView(this,plots);chartCard.addView(plotView);dashboardBoard.addCard("plot","Gráfico",dashboardScroll(chartCard),height->plotView.tileHeight(height-chartCard.getPaddingTop()-chartCard.getPaddingBottom()));
+  sensorPanel=new SensorPanel(this,false);cameraPanel=new SensorPanel(this,true);
+  dashboardBoard.addCard("sensors","Lidar Scan",new DashboardPreview(this,"sensors","Lidar Scan",sensorPanel,sensorPanel::previewMode,()->{}),null);
+  dashboardBoard.addCard("camera","Camera",new DashboardPreview(this,"camera","Camera",cameraPanel,cameraPanel::previewMode,()->{}),null);
+  plotView=new PlotView(this,plots);dashboardBoard.addCard("plot","Gráfico",new DashboardPreview(this,"plot","Gráfico",plotView,plotView::previewMode,plotView::closeDetails),null);
   plotExport=new PlotExportPanel(this,plotView);((LinearLayout)plotView.findViewWithTag("plot-configuration")).addView(plotExport);
   rosoutConsole=new RosoutConsoleView(this,this::clearRosout);sections[3].addView(rosoutConsole);
   rosGraph=new RosGraphPanel(this);sections[4].addView(rosGraph);
+  locationPanel=new LocationPanel(this);sections[5].addView(locationPanel);
   showSection(2);
-  setContentView(root);applyAppearance();root.getViewTreeObserver().addOnGlobalLayoutListener(this::refreshDashboard);refreshDashboard();
+  setContentView(root);applyAppearance();enterFullscreen();root.getViewTreeObserver().addOnGlobalLayoutListener(this::refreshDashboard);refreshDashboard();
  }
  @Override protected void onStart(){
   super.onStart();foregroundActivity=new WeakReference<>(this);resumed=true;generation++;
@@ -248,17 +266,32 @@ public final class MainActivity extends Activity {
   final int token=generation;
   if(connectWanted)requestConnection(false);
   ticker=worker.scheduleWithFixedDelay(()->tick(token),0,500,TimeUnit.MILLISECONDS);
-  sensorPanel.available(connectWanted);
+  sensorsAvailable(connectWanted);
   sensorTicker=worker.scheduleWithFixedDelay(()->tickSensor(token),0,100,TimeUnit.MILLISECONDS);
    robotTicker=worker.scheduleWithFixedDelay(()->tickRobot(token),0,100,TimeUnit.MILLISECONDS);
  }
  private void tickRobot(int token){tickRobotPose(token);}
  private void tickRobotPose(int token){
   final Config config=workerConfig;final long epoch=policy.generation();if(!nativeRunning||config==null||!connectionCurrent(token,config,epoch))return;
+  metadataMode(locationPanel.visible());
+  if(localizationMetadata){tickLocationPose(token,config,epoch);return;}
   RobotContext.PoseSnapshot pose=robotContext.pollTf(bridge,System.nanoTime());if(pose==null||!connectionCurrent(token,config,epoch))return;
   ui(token,epoch,()->{if(connectionCurrent(token,config,epoch))robotPanel.updatePose(pose);});
  }
+ private void metadataMode(boolean location){if(localizationMetadata==location)return;bridge.stopDescription();robotContext.resetWorker();appliedLocationTf=null;appliedLocationTfEpoch=-1;locationTfStarted=false;locationTfError="";locationTree=new RobotTf();localizationMetadata=location;}
+ private void tickLocationPose(int token,Config config,long epoch){
+  final LocationPanel.Request desired=locationPanel.desired();final long visualEpoch=locationPanel.epoch();
+  if(appliedLocationTf!=desired||appliedLocationTfEpoch!=visualEpoch){
+   bridge.stopDescription();locationTfStarted=false;locationTfError="";locationTree=new RobotTf();appliedLocationTf=desired;appliedLocationTfEpoch=visualEpoch;
+   if(desired!=null){LocationConfig c=desired.config;try{if(c.dynamicTf.isEmpty()&&c.staticTf.isEmpty())locationTfError="TF não selecionado";else {JSONObject result=NativeBridge.Api.json(bridge.startLocationTf(config.domain,workerAddress,config.peer,c.dynamicTf,c.staticTf,config.networkMode,config.graphFormat));if(!connectionCurrent(token,config,epoch)||!locationPanel.current(desired,visualEpoch)){bridge.stopDescription();appliedLocationTf=null;return;}locationTfStarted=result.optBoolean("ok");if(!locationTfStarted)locationTfError=result.optString("error","TF indisponível");}}catch(Exception e){bridge.stopDescription();locationTfError="TF de localização indisponível";}}
+  }
+  if(desired==null)return;long now=System.nanoTime();
+  if(locationTfStarted)try{JSONObject raw=NativeBridge.Api.json(bridge.pollTf());if(!raw.optBoolean("running")||!raw.optString("error").isEmpty()){locationTree.accept(null,now);locationTfError=raw.optString("error","TF indisponível");}else {locationTree.accept(raw.optJSONArray("rows"),now);locationTfError="";}}catch(Exception e){locationTree.accept(null,now);locationTfError="Falha na leitura TF";}
+  final MapGrid map=locationPanel.map();if(map==null)return;RobotTf.Pose solved=locationTree.solve(map.frame,java.util.Collections.singleton(desired.config.robotFrame),now);final RobotTf.Pose pose=locationTfError.isEmpty()?solved:new RobotTf.Pose(false,locationTfError,0,0,java.util.Collections.emptyMap());
+  ui(token,epoch,()->{if(connectionCurrent(token,config,epoch))locationPanel.pose(desired,visualEpoch,map,pose);});
+ }
  private void requestConnection(boolean resetSelection){
+  locationPanel.invalidateStream("Aguardando mapa desta conexão");
   robotContext.select("");robotPanel.clear("Aguardando descrição desta conexão");
   dashboardPeers=0;
   DeviceTestHooks.invalidate();
@@ -274,12 +307,13 @@ public final class MainActivity extends Activity {
    if(resetSelection&&!profileConfigured){selectedWire="";selectedType="";watchSlots.request(0,"","",reliableValue,transientValue);topicList.update(new JSONArray());}
    else watchSlots.request(0,selectedWire,selectedType,reliableValue,transientValue);
    requested=new Config(d,p,format,mode);connectWanted=true;plots.reset(policy.generation());
-   sensorPanel.available(true);
+   sensorsAvailable(true);
    inactive("RECONECTANDO · aguardando dados desta sessão");
    extrasInactive("RECONECTANDO · aguardando dados desta sessão");
    prefs.edit().putString("domain",Integer.toString(d)).putString("peer",p).putString("graphFormat",format).putString("networkMode",mode).putBoolean("wanted",true).apply();
    domain.setEnabled(false);peer.setEnabled(false);graphFormat.setEnabled(false);networkMode.setEnabled(false);connect.setText("Desconectar");
    status.setText("Iniciando DDS no domínio "+d+"…");status.setTextColor(UiTheme.color(this,MUTED));
+   try{connectionBaseline=captureProfile("00000000-0000-0000-0000-000000000000","Estado da conexão");}catch(RuntimeException invalid){connectionBaseline=null;}
   }catch(Exception ex){
    disconnect();status.setText(String.valueOf(ex.getMessage()));status.setTextColor(UiTheme.color(this,WARNING));
   }
@@ -320,8 +354,9 @@ public final class MainActivity extends Activity {
   plots.reset(policy.generation());
   final boolean owns=nativeOwner.get()==this;
   robotContext.resetWorker();
-  sensorPanel.invalidateStream();appliedSensor=null;failedSensor=null;sensorRetryAt=0;
-  try{if(owns){try{bridge.stopSensor();}finally{bridge.stop();}}}finally{
+  localizationMetadata=false;locationTfStarted=false;appliedLocationTf=null;appliedLocationMap=null;failedLocationMap=null;appliedLocationTfEpoch=appliedLocationEpoch=failedLocationEpoch=-1;locationTree=new RobotTf();locationPanel.invalidateStream("Conexão indisponível · sem mapa/pose desta sessão");
+  sensorPanel.invalidateStream();cameraPanel.invalidateStream();scanSlot.reset();cameraSlot.reset();
+  try{if(owns){try{bridge.stopSensor();}finally{try{bridge.stopCamera();}finally{bridge.stop();}}}}finally{
    nativeRunning=false;workerConfig=null;workerAddress="";
    try{if(owns){nativeOwner=new WeakReference<>(null);((ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE)).bindProcessToNetwork(null);}}
    finally{workerNetwork=null;WifiManager.MulticastLock old=multicast;multicast=null;if(old!=null&&old.isHeld())old.release();}
@@ -335,7 +370,7 @@ public final class MainActivity extends Activity {
  }
  private void inactive(String state){
   dashboardFresh[0]=false;
-  if(plotView!=null)plotView.refresh();
+  if(plotView!=null)refreshPlot();
   structured.update(null,false);
   counts.setText(state);counts.setTextColor(UiTheme.color(this,WARNING));message.setTextColor(UiTheme.color(this,MUTED));
   message.setText("Aguardando nova mensagem desta sessão.");
@@ -422,7 +457,8 @@ public final class MainActivity extends Activity {
    JSONObject snapshot=NativeBridge.Api.json(bridge.poll());
    JSONObject nativeDiagnostic=NativeBridge.Api.json(bridge.diagnosticState());
    if(!snapshot.optBoolean("running"))throw new IllegalStateException(snapshot.optString("error","Sessão DDS inativa"));
-   final RobotContext.Snapshot robotSnapshot=robotContext.observe(bridge,config.domain,address,config.peer,config.networkMode,config.graphFormat,snapshot.optJSONArray("topics"),()->connectionCurrent(token,config,epoch));
+   if(!connectionCurrent(token,config,epoch))return;metadataMode(locationPanel.visible());
+   final RobotContext.Snapshot robotSnapshot=localizationMetadata?null:robotContext.observe(bridge,config.domain,address,config.peer,config.networkMode,config.graphFormat,snapshot.optJSONArray("topics"),()->connectionCurrent(token,config,epoch));
    policy.recovered();
    final String networkDisplay="Interface: "+iface+" · IPv4: "+address+"\nRede: "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" · "+binding+" · domínio "+config.domain;
    // Intake runs for every real poll, regardless of display throttling/pause.
@@ -438,7 +474,7 @@ public final class MainActivity extends Activity {
     }
    }
    long paint=System.nanoTime();
-   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));}});}
+   if(lastUi==0||paint-lastUi>=1_500_000_000L){lastUi=paint;ui(token,epoch,()->{if(connectWanted&&requested==config){wifiDisplay=address;render(snapshot,config,networkDisplay,failure,capturedNanos,pendingReader);renderExtras(snapshot,frames,capturedNanos);if(robotSnapshot!=null&&!locationPanel.visible())robotPanel.update(robotSnapshot);if(consoleEpoch==rosoutEpoch&&consoleEpoch==workerRosoutEpoch)rosoutConsole.update(snapshot.optJSONObject("rosout"));if(robotSnapshot!=null)onRobotObserved(robotSnapshot);}});}
   }catch(Throwable ex){
    String e=ex.getClass().getSimpleName()+": "+String.valueOf(ex.getMessage());
    try{stopSession();}catch(Throwable cleanup){android.util.Log.w("RosPocket","DDS teardown: "+cleanup.getClass().getSimpleName());}
@@ -448,28 +484,59 @@ public final class MainActivity extends Activity {
    ui(token,epoch,()->{if(connectWanted&&requested==config){unavailable("ERRO · dados indisponíveis","Falha DDS: "+e+" · nova tentativa em até "+policy.delayMillis()/1000+" s");diagnostics.setText(failedNetwork+"\nDDS peers: — · Nós ROS: —");}});
   }
  }
+ private void sensorsAvailable(boolean value){sensorPanel.available(value);cameraPanel.available(value);}
+ private void stopVisual(VisualSlot slot){if(slot.camera)bridge.stopCamera();else bridge.stopSensor();}
+ private void quietStopVisual(VisualSlot slot){
+  try{stopVisual(slot);}catch(Exception ex){android.util.Log.w("RosPocket","Falha ao parar sensor visual");}
+ }
+ private void retireVisual(VisualSlot slot){
+  if(slot.applied!=null)quietStopVisual(slot);
+  slot.reset();
+ }
  private void tickSensor(int token){
   if(foregroundActivity.get()!=this||!resumed||generation!=token||nativeOwner.get()!=this)return;
   final Config config=requested;final long epoch=policy.generation();
-  final SensorPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?sensorPanel.desired():null;
-  final long visualEpoch=sensorPanel.epoch();
-  if(desired!=null&&failedSensor==desired&&failedSensorEpoch==visualEpoch&&monotonicMillis()<sensorRetryAt)return;
+  if(locationPanel.visible()){
+   retireVisual(scanSlot);retireVisual(cameraSlot);tickLocationMap(token,config,epoch);return;
+  }
+  if(appliedLocationMap!=null){bridge.stopSensor();appliedLocationMap=null;appliedLocationEpoch=-1;}
+  tickVisual(scanSlot,sensorPanel,token,config,epoch);
+  tickVisual(cameraSlot,cameraPanel,token,config,epoch);
+ }
+ private void tickVisual(VisualSlot slot,SensorPanel panel,int token,Config config,long epoch){
+  final SensorPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?panel.desired():null;
+  final long visualEpoch=panel.epoch();
+  java.util.function.BooleanSupplier current=()->connectionCurrent(token,config,epoch)&&panel.current(desired,visualEpoch);
+  if(desired!=null&&slot.failed==desired&&slot.failedEpoch==visualEpoch&&monotonicMillis()<slot.retryAt)return;
   try{
-   if(appliedSensor!=desired||appliedSensorEpoch!=visualEpoch){
-    bridge.stopSensor();appliedSensor=desired;appliedSensorEpoch=visualEpoch;
+   if(slot.applied!=desired||slot.appliedEpoch!=visualEpoch){
+    if(slot.applied!=null)stopVisual(slot);
+    slot.applied=null;slot.appliedEpoch=visualEpoch;
     if(desired!=null){
-     JSONObject answer=NativeBridge.Api.json(bridge.startSensorConfigured(config.domain,workerAddress,config.peer,desired.wire,desired.type,config.networkMode,config.graphFormat));
-     if(!connectionCurrent(token,config,epoch)||!sensorPanel.current(desired,visualEpoch)){bridge.stopSensor();appliedSensor=null;return;}
+     if(!current.getAsBoolean())return;
+     byte[] started=slot.camera?bridge.startCamera(config.domain,workerAddress,config.peer,desired.wire,desired.type,config.networkMode,config.graphFormat):bridge.startSensorConfigured(config.domain,workerAddress,config.peer,desired.wire,desired.type,config.networkMode,config.graphFormat);
+     if(!current.getAsBoolean()){stopVisual(slot);return;}
+     JSONObject answer=NativeBridge.Api.json(started);
      if(!answer.optBoolean("ok"))throw new IllegalStateException(answer.optString("error","Falha no sensor"));
-     failedSensor=null;sensorRetryAt=0;
+     slot.applied=desired;slot.failed=null;slot.retryAt=0;
     }
    }
-   if(desired!=null){byte[] data=bridge.pollSensor();if(connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch)&&!sensorPanel.accept(desired,data,()->connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch)))throw new IllegalStateException("Leitor visual indisponível");}
+   if(desired!=null&&current.getAsBoolean()){
+    byte[] data=slot.camera?bridge.pollCamera():bridge.pollSensor();
+    if(current.getAsBoolean()&&!panel.accept(desired,data,current))throw new IllegalStateException("Leitor visual indisponível");
+   }
   }catch(Exception ex){
-   appliedSensor=null;appliedSensorEpoch=-1;failedSensor=desired;failedSensorEpoch=visualEpoch;sensorRetryAt=monotonicMillis()+1000;
-   if(desired!=null)sensorPanel.error(desired,String.valueOf(ex.getMessage()),()->connectionCurrent(token,config,epoch)&&sensorPanel.current(desired,visualEpoch));
-   try{bridge.stopSensor();}catch(Exception ignored){android.util.Log.w("RosPocket","Falha ao parar sensor visual");}
+   slot.applied=null;slot.appliedEpoch=-1;slot.failed=desired;slot.failedEpoch=visualEpoch;slot.retryAt=monotonicMillis()+1000;
+   if(desired!=null)panel.error(desired,String.valueOf(ex.getMessage()),current);
+   quietStopVisual(slot);
   }
+ }
+ private void tickLocationMap(int token,Config config,long epoch){
+  final LocationPanel.Request desired=connectWanted&&nativeRunning&&workerConfig==config?locationPanel.desired():null;final long visualEpoch=locationPanel.epoch();
+  if(desired!=null&&failedLocationMap==desired&&failedLocationEpoch==visualEpoch&&monotonicMillis()<locationRetryAt)return;
+  try{if(appliedLocationMap!=desired||appliedLocationEpoch!=visualEpoch){bridge.stopSensor();appliedLocationMap=desired;appliedLocationEpoch=visualEpoch;if(desired!=null){LocationConfig c=desired.config;JSONObject answer=NativeBridge.Api.json(bridge.startMap(config.domain,workerAddress,config.peer,c.wire,c.reliable,c.retained,config.networkMode,config.graphFormat));if(!connectionCurrent(token,config,epoch)||!locationPanel.current(desired,visualEpoch)){bridge.stopSensor();appliedLocationMap=null;return;}if(!answer.optBoolean("ok"))throw new IllegalStateException(answer.optString("error","Falha no mapa"));failedLocationMap=null;}}
+   if(desired!=null){byte[] data=bridge.pollSensor();if(connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch)&&!locationPanel.accept(desired,visualEpoch,data,()->connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch)))throw new IllegalStateException("Leitor de mapa indisponível");}
+  }catch(Exception ex){appliedLocationMap=null;appliedLocationEpoch=-1;failedLocationMap=desired;failedLocationEpoch=visualEpoch;locationRetryAt=monotonicMillis()+1000;if(desired!=null)locationPanel.error(desired,visualEpoch,String.valueOf(ex.getMessage()),()->connectionCurrent(token,config,epoch)&&locationPanel.current(desired,visualEpoch));try{bridge.stopSensor();}catch(Exception ignored){android.util.Log.w("RosPocket","Falha ao parar mapa");}}
  }
  @Override public void dump(String prefix,java.io.FileDescriptor fd,java.io.PrintWriter writer,String[] args){
   if(args!=null&&args.length==1&&"--pocket-qa-v1".equals(args[0])){
@@ -538,7 +605,7 @@ public final class MainActivity extends Activity {
   dashboardFresh[0]=false;
   dashboardPeers=Math.max(0,snapshot.optInt("ddsPeers"));
   JSONArray topics=snapshot.optJSONArray("topics");if(topics==null)topics=new JSONArray();
-  topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
+  locationPanel.discovery(topics);topicList.update(topics);topicTitle.setText("TÓPICOS · "+topics.length());
   String connection=snapshot.optString("connectionState","offline");
   String connectionLabel="connected".equals(connection)?"CONECTADO":("reconnecting".equals(connection)?"RECONECTANDO":("discovering".equals(connection)?"DESCOBERTA":"ERRO/OFFLINE"));
   status.setText(connectionLabel+" · domínio "+config.domain+" · "+("vpn".equals(config.networkMode)?"VPN":"Wi-Fi")+" "+wifiDisplay+("discovering".equals(connection)?" · Descoberta em andamento; conexão não garante dados.":""));
@@ -555,7 +622,7 @@ public final class MainActivity extends Activity {
    if("unsupported".equals(graphState)||!graphError.isEmpty())nodes.setText("Grafo não suportado no formato "+graphLabel+": "+graphError);
    else nodes.setText(text.length()==0?"Grafo não confirmado · "+graphLabel+" (manual).\nSem nós anunciados em ros_discovery_info; confira o formato selecionado.\nDescoberta de tópicos e grafo de nós são mecanismos distintos.":text.toString().trim());
   }
-  plotView.refresh();
+  refreshPlot();
   String failure=pendingError.isEmpty()?snapshot.optString("error"):pendingError;
   String subscription=snapshot.optString("subscription");
   String subscriptionState=snapshot.optString("subscriptionState","inactive");
@@ -576,7 +643,7 @@ public final class MainActivity extends Activity {
    String state=fresh?"RECEBENDO":(count==0?"AGUARDANDO":"SEM DADOS RECENTES");
    counts.setText(String.format(Locale.ROOT,"%s · %d msgs · %s Hz recebidos\n%d publicador(es) compatível(is) · idade %s\n%s",state,count,receivedRate(snapshot.optDouble("hz")),matched,age<0?"—":String.format(Locale.ROOT,"%.1f s",age),snapshot.optString("qos")));
    counts.setTextColor(UiTheme.color(this,fresh?ACCENT:WARNING));message.setTextColor(UiTheme.color(this,fresh?FG:MUTED));
-   dashboardFresh[0]=fresh;dashboardOwners[0]=watchSlots.get(0);
+   dashboardFresh[0]=fresh;dashboardOwners[0]=watchSlots.get(0);dashboardNumeric[0]=snapshot.optJSONArray("numericFields");
    message.setText(count>0?snapshot.optString("last"):"Nenhuma mensagem recebida. Confira publicadores e QoS.");
    structured.update(count>0?snapshot.optJSONObject("message"):null,fresh);
   }else{
@@ -586,16 +653,19 @@ public final class MainActivity extends Activity {
    message.setText("Nenhuma mensagem recebida.");
   }
  }
+ private void refreshPlot(){if(plotView!=null){if(dashboardBoard!=null)plots.dashboardUnits(dashboardBoard.savedLayout());plotView.refresh();}}
  private void refreshDashboard(){
   if(counts==null||watchCards[0]==null||watchText[1]==null)return;
   if(sessionSummary!=null){boolean discovered=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(sessionSummary,discovered?"● DDS descoberto":"Sem descoberta DDS");sessionSummary.setTextColor(discovered?VisualButton.accent(this):VisualButton.muted(this));}
   if(sectionButtons[0]!=null){Config c=requested;setDashboardText(sectionButtons[0],"Conexão\n"+(c!=null&&"vpn".equals(c.networkMode)?"VPN":"Wi-Fi")+" · D"+(c==null?domain.getText():c.domain));}
+  boolean robotConnected=resumed&&connectWanted&&dashboardPeers>0;setDashboardText(dashboardTitle,!robotConnected?"desconectado":observedRobotName.trim().isEmpty()?"desconhecido":observedRobotName);if(appliedProfile!=null){BenchProfiles.Profile p=profiles.applied();String caption=p==null?"Sem perfil aplicado":"Perfil: "+p.name;if(p!=null)try{if(!java.util.Arrays.equals(BenchProfiles.exportProfile(captureProfile(p.id,p.name)),BenchProfiles.exportProfile(p)))caption+=" · configuração não salva";}catch(Exception invalid){caption+=" · configuração em edição";}if(dashboardBoard!=null&&dashboardBoard.editing())caption+=" · painel em edição";setDashboardText(appliedProfile,caption);}if(headerRobotIdentity!=null&&headerBrand!=null&&headerBrand.isLaidOut()){int[] b=new int[2],h=new int[2];headerBrand.getLocationOnScreen(b);((View)headerRobotIdentity.getParent()).getLocationOnScreen(h);float target=b[1]-h[1];if(headerRobotIdentity.getY()!=target)headerRobotIdentity.setY(target);}
   int occupied=0;for(int i=0;i<4;i++)if(!(i==0?selectedWire:watchSlots.get(i).wire).isEmpty())occupied++;
   setDashboardText(dashboardSubtitle,occupied+"/4 leituras configuradas");
-  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);String wire=i==0?selectedWire:r.wire,type=i==0?selectedType:r.type;TextView stateView=i==0?counts:watchText[i];String state=stateView.getText().toString();boolean fresh=!wire.isEmpty()&&dashboardFresh[i]&&dashboardOwners[i]==r;MetricCard b=(MetricCard)watchCards[i];b.bind(i,occupied,wire,type,state,i==0?message.getText().toString():dashboardValues[i],fresh);if(b.isSelected()!=(activeWatch==i)){b.setSelected(activeWatch==i);UiTheme.apply(b);}b.setContentDescription(b.getText()+" · abrir detalhes e QoS");}
+  for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);String wire=i==0?selectedWire:r.wire,type=i==0?selectedType:r.type;TextView stateView=i==0?counts:watchText[i];String state=stateView.getText().toString();boolean fresh=resumed&&connectWanted&&!wire.isEmpty()&&dashboardFresh[i]&&dashboardOwners[i]==r;MetricCard b=(MetricCard)watchCards[i];b.bind(i,occupied,wire,type,state,i==0?message.getText().toString():dashboardValues[i],fresh);if(b.isSelected()!=(activeWatch==i)){b.setSelected(activeWatch==i);UiTheme.apply(b);}b.sample(dashboardNumeric[i],fresh);}
  }
  private static void setDashboardText(TextView view,String text){if(!android.text.TextUtils.equals(view.getText(),text))view.setText(text);}
  private void readFromExplorer(JSONObject topic){
+  if(MapGrid.TYPE.equals(topic.optString("wireType"))){showSection(5);locationPanel.select(topic.optString("wireName"));return;}
   if(!connectWanted){Toast.makeText(this,"Conecte a sessão antes de iniciar uma leitura.",Toast.LENGTH_SHORT).show();return;}
   if(SensorPacket.supports(topic.optString("wireType"))){select(topic);return;}
   if(!topic.optBoolean("supported"))return;
@@ -611,8 +681,12 @@ public final class MainActivity extends Activity {
  }
  private boolean validExplorerChoice(JSONObject topic,Config config,int token,long choiceEpoch){return policy.accepts(choiceEpoch)&&resumed&&connectWanted&&requested==config&&generation==token&&topicList.containsTopic(topic.optString("wireName"),topic.optString("wireType"));}
  private void select(JSONObject topic){
+  if(MapGrid.TYPE.equals(topic.optString("wireType"))){showSection(5);locationPanel.select(topic.optString("wireName"));return;}
   if(!connectWanted)return;
-  if(SensorPacket.supports(topic.optString("wireType"))){sensorPanel.select(topic.optString("wireName"),topic.optString("wireType"));showSection(2);return;}
+  if(SensorPacket.supports(topic.optString("wireType"))){
+   String type=topic.optString("wireType");boolean scan=type.endsWith("LaserScan_");SensorPanel panel=scan?sensorPanel:cameraPanel;
+   panel.select(topic.optString("wireName"),type);profileSensorMode=scan?"scan":"camera";showSection(2);return;
+  }
   if(!topic.optBoolean("supported")){Toast.makeText(this,"Tipo descoberto, mas ainda sem decodificador: "+topic.optString("type"),Toast.LENGTH_LONG).show();return;}
   if(activeWatch>0){requestExtra(activeWatch,topic.optString("wireName"),topic.optString("wireType"),reliable.isChecked(),transientLocal.isChecked());return;}
   selectedWire=topic.optString("wireName");selectedType=topic.optString("wireType");resubscribe();
@@ -649,33 +723,51 @@ public final class MainActivity extends Activity {
   java.util.List<BenchProfiles.Series> series=plots.profileSelection();
   String format=connectWanted&&requested!=null?requested.graphFormat:selectedGraphFormat();
   String mode=connectWanted&&requested!=null?requested.networkMode:selectedNetworkMode();
-  return new BenchProfiles.Profile(id,name,d,p,watches,series,sensorPanel.profile(),format,mode);
+  return new BenchProfiles.Profile(id,name,d,p,watches,series,new BenchProfiles.Visual(profileSensorMode,sensorPanel.profile(),cameraPanel.profile()),format,mode,dashboardBoard.savedLayout(),locationPanel.profile(),profiles.robot(id));
+ }
+ private BenchProfiles.Robot currentRobot(){
+  RobotContext.Snapshot s=robotObservation;return resumed&&connectWanted&&!localizationMetadata&&s!=null&&s.live&&s.model!=null&&robotContext.current(s)?new BenchProfiles.Robot(s.wire,s.model.fingerprint):null;
+ }
+ private boolean unsavedPresentation(BenchProfiles.Profile applied){
+  if(applied==null)applied=connectionBaseline;if(applied==null)return true;try{BenchProfiles.Profile actual=captureProfile(applied.id,applied.name);BenchProfiles.Profile normalized=new BenchProfiles.Profile(applied.id,applied.name,applied.domain,applied.peer,actual.watches,actual.plots,actual.visual,applied.graphFormat,applied.networkMode,actual.dashboard,actual.localization,applied.robot);return !java.util.Arrays.equals(BenchProfiles.exportProfile(normalized),BenchProfiles.exportProfile(applied));}catch(Exception invalid){return true;}
+ }
+ private void onRobotObserved(RobotContext.Snapshot snapshot){
+  if(!resumed||!connectWanted||requested==null||!robotContext.current(snapshot))return;robotObservation=snapshot;BenchProfiles.Robot robot=currentRobot();Config config=requested;if(robot==null||autoProfileAttempted==config)return;autoProfileAttempted=config;
+  BenchProfiles.Profile known=profiles.recognize(config.domain,config.peer,config.graphFormat,config.networkMode,robot);if(known==null){profiles.autoNotice("Robô identificado, sem associação única. Selecione/salve um perfil para associar; nada foi trocado.");return;}
+  BenchProfiles.Profile applied=profiles.applied();try{if(applied!=null&&java.util.Arrays.equals(BenchProfiles.exportProfile(applied),BenchProfiles.exportProfile(known)))return;}catch(org.json.JSONException invalid){return;}
+  if(dashboardBoard.editing()||(unsavedPresentation(applied)&&unsavedPresentation(known))){profiles.autoNotice("Perfil conhecido: "+known.name+" · carregamento adiado: edição não salva. Nada foi descartado; salve/cancele e reconecte.");return;}
+  try{disconnect();profiles.applyKnown(known);requestConnection(false);robotContext.select(robot.wire);refreshDashboard();Toast.makeText(this,"Perfil automático: "+known.name,Toast.LENGTH_SHORT).show();}
+  catch(Exception failed){status.setText("Não foi possível carregar o perfil automático; conecte/aplique manualmente. "+failed.getMessage());status.setTextColor(UiTheme.color(this,WARNING));}
  }
  private void loadProfile(BenchProfiles.Profile p){
   if(connectWanted)throw new IllegalStateException("Desconecte antes de aplicar");
+  locationPanel.configure(p.localization);
+  dashboardBoard.bind(p.dashboard==null?new DashboardStore(getFilesDir()).load():p.dashboard,value->profiles.saveDashboard(p.id,value));
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();policy.reset();qa.invalidate();plots.reset(policy.generation());
   profileConfigured=true;domain.setText(Integer.toString(p.domain));peer.setText(p.peer);graphFormat.setSelection("humble".equals(p.graphFormat)?1:0);graphFormat.setEnabled(true);networkMode.setSelection("vpn".equals(p.networkMode)?1:0);networkMode.setEnabled(true);
   plots.configureProfile(p);
-  sensorPanel.available(false);sensorPanel.configure(p.visual);
+  sensorsAvailable(false);sensorPanel.configure(p.visual.scan);cameraPanel.configure(p.visual.camera);profileSensorMode=p.visual.mode;
   for(int i=0;i<4;i++){BenchProfiles.Watch w=p.watches.get(i);watchSlots.request(i,w.wire,w.type,w.reliable,w.transientLocal);watchStructured[i].update(null,false);}
   BenchProfiles.Watch primary=p.watches.get(0);selectedWire=primary.wire;selectedType=primary.type;reliableValue=primary.reliable;transientValue=primary.transientLocal;chooseWatch(0);
-  plotView.refresh();rosoutEpoch++;rosoutConsole.clearNow();
+  refreshPlot();rosoutEpoch++;rosoutConsole.clearNow();
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"sem tópico":selectedWire.substring(2)));
   counts.setText("PERFIL APLICADO · desconectado; assinatura pendente");counts.setTextColor(UiTheme.color(this,MUTED));message.setText("Nenhuma mensagem recebida.");message.setTextColor(UiTheme.color(this,MUTED));
   extrasInactive("PERFIL APLICADO · desconectado; assinatura pendente");
   status.setText("Perfil aplicado: "+p.name+" · desconectado. Use Conectar.");status.setTextColor(UiTheme.color(this,MUTED));
  }
  private void disconnect(){
+  dashboardPeers=0;
+  locationPanel.invalidateStream("Desconectado · sem mapa/pose desta sessão");
   robotContext.select("");robotPanel.clear("Desconectado · sem descrição desta sessão");
   dashboardPeers=0;
   rosGraph.clear("Desconectado · nenhuma topologia atual");
-  sensorPanel.available(false);
+  sensorsAvailable(false);
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
   qa.invalidate();
   extrasInactive("Desconectado · sem assinatura ativa");
   for(int i=0;i<4;i++){WatchSlots.Request r=watchSlots.get(i);watchSlots.request(i,profileConfigured?r.wire:"",profileConfigured?r.type:"",profileConfigured&&r.reliable,profileConfigured&&r.transientLocal);}
   structured.update(null,false);
-  policy.reset();plots.reset(policy.generation());plotView.refresh();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
+  policy.reset();plots.reset(policy.generation());refreshPlot();connectWanted=false;requested=null;prefs.edit().putBoolean("wanted",false).apply();
   // A poll already holding policy/slots may publish after the early invalidation.
   // policy.reset() fences that poll; clear once more before returning to the UI.
   qa.invalidate();
@@ -684,14 +776,21 @@ public final class MainActivity extends Activity {
   if(!profileConfigured){selectedWire="";selectedType="";}
   selectedTitle.setText("LEITURA · Watch 1 · "+(selectedWire.isEmpty()?"selecione um tópico em Tópicos":selectedWire+" · desconectado"));counts.setText("Sem assinatura ativa");counts.setTextColor(UiTheme.color(this,MUTED));message.setText("Nenhuma mensagem recebida.");message.setTextColor(UiTheme.color(this,MUTED));
   diagnostics.setText("Desconectado · DDS peers: — · Nós ROS: —");queueStop();
-  rosoutEpoch++;rosoutConsole.clearNow();
+  rosoutEpoch++;rosoutConsole.clearNow();refreshDashboard();
  }
- @Override protected void onResume(){super.onResume();robotPanel.view.setScreenActive(resumed&&selectedSection==2);}
+ private void enterFullscreen(){
+  View decor=getWindow().getDecorView();int flags=View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;decor.setSystemUiVisibility(decor.getSystemUiVisibility()|flags);
+  if(android.os.Build.VERSION.SDK_INT>=30){getWindow().setDecorFitsSystemWindows(false);android.view.WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null){controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);controller.hide(WindowInsets.Type.systemBars());}}
+ }
+ @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused)enterFullscreen();}
+ @Override protected void onResume(){super.onResume();enterFullscreen();robotPanel.view.setScreenActive(resumed&&selectedSection==2);}
  @Override protected void onPause(){robotPanel.view.setScreenActive(false);super.onPause();}
  @Override protected void onStop(){
+  dashboardBoard.closePreviews();
+  locationPanel.invalidateStream("Suspenso · aguardando nova sessão");
   robotContext.select("");robotPanel.clear("Suspenso · aguardando nova sessão");robotPanel.view.setScreenActive(false);
   rosGraph.clear("Suspenso · aplicativo fora do primeiro plano");
-  sensorPanel.available(false);
+  sensorsAvailable(false);
   if(robotTicker!=null){robotTicker.cancel(false);robotTicker=null;}
   if(sensorTicker!=null){sensorTicker.cancel(false);sensorTicker=null;}
   DeviceTestHooks.cancelOwner(this);DeviceTestHooks.invalidate();
@@ -712,7 +811,7 @@ public final class MainActivity extends Activity {
   if(profiles!=null)profiles.result(request,result,data);
   if(robotPanel!=null)robotPanel.result(request,result,data);
  }
- @Override protected void onDestroy(){dashboardBoard.dispose();profiles.dispose();plotExport.dispose();sensorPanel.dispose();robotPanel.dispose();super.onDestroy();}
+ @Override protected void onDestroy(){dashboardBoard.closePreviews();dashboardBoard.dispose();profiles.dispose();plotExport.dispose();sensorPanel.dispose();cameraPanel.dispose();locationPanel.dispose();robotPanel.dispose();super.onDestroy();}
  private void chooseWatch(int slot){
   activeWatch=slot;switchingWatch=true;
   WatchSlots.Request r=watchSlots.get(slot);
@@ -726,7 +825,7 @@ public final class MainActivity extends Activity {
   WatchSlots.Request next;
   synchronized(watchSlots){next=watchSlots.request(slot,wire,type,r,t);plots.requestSlot(slot);}
   qa.invalidate();
-  plotView.refresh();
+  refreshPlot();
   watchStructured[slot].update(null,false);
   watchText[slot].setText("Watch "+(slot+1)+" · assinatura pendente");watchText[slot].setTextColor(UiTheme.color(this,WARNING));
   final Config expected=requested;final int token=generation;
@@ -762,7 +861,7 @@ public final class MainActivity extends Activity {
   final WatchSlots.Request removal;
   synchronized(watchSlots){removal=watchSlots.request(0,"","",false,false);plots.requestSlot(0);}
   qa.invalidate();
-  policy.invalidate();long epoch=policy.generation();plotView.refresh();
+  policy.invalidate();long epoch=policy.generation();refreshPlot();
   structured.update(null,false);
   counts.setText("Sem assinatura ativa");message.setText("Nenhuma mensagem recebida.");
   final int token=generation;final Config expected=requested;
@@ -794,7 +893,7 @@ public final class MainActivity extends Activity {
     text=String.format(Locale.ROOT,"%s · %s\n%d msgs · %.1f Hz recebidos · idade %s · %d compatíveis\n%s\n%s",f.request.wire.substring(2),fresh?"RECEBENDO":state,w.optLong("count"),w.optDouble("hz"),age<0?"—":String.format(Locale.ROOT,"%.1f s",age),w.optInt("matched"),w.optString("qos"),w.optString("last"));
    }
    boolean treeVisible=!f.pending&&f.error.isEmpty()&&!f.request.wire.isEmpty()&&w!=null&&w.optString("error").isEmpty()&&w.optBoolean("readerActive")&&w.optLong("count")>0;
-   watchStructured[i].update(treeVisible?w.optJSONObject("message"):null,fresh);dashboardValues[i]=treeVisible?w.optString("last"):"";dashboardFresh[i]=fresh;dashboardOwners[i]=f.request;
+   watchStructured[i].update(treeVisible?w.optJSONObject("message"):null,fresh);dashboardValues[i]=treeVisible?w.optString("last"):"";dashboardNumeric[i]=treeVisible?w.optJSONArray("numericFields"):null;dashboardFresh[i]=fresh;dashboardOwners[i]=f.request;
    watchText[i].setText("Watch "+(i+1)+" · geração "+(w==null?"—":Long.toString(w.optLong("generation")))+" · "+text);watchText[i].setTextColor(UiTheme.color(this,fresh?ACCENT:WARNING));
   }
  }

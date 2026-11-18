@@ -13,6 +13,7 @@ final class ProfilePanel extends LinearLayout {
  interface Actions {
   BenchProfiles.Profile capture(String id,String name);
   boolean connected();
+  default BenchProfiles.Robot observedRobot(){return null;}
   void apply(BenchProfiles.Profile profile);
  }
  private final ProfileStore store;private final Actions actions;
@@ -22,12 +23,12 @@ final class ProfilePanel extends LinearLayout {
   super(context);this.actions=actions;setOrientation(VERTICAL);setPadding(0,16,0,16);
   File file=new File(context.getFilesDir(),"bench-profiles-v1.json");exists=file.exists()||new File(file.getPath()+".bak").exists();store=new ProfileStore(file);
   TextView title=new TextView(context);title.setText("PERFIS LOCAIS · até 16");title.setTextColor(UiTheme.color(getContext(),0xff48d7bb));addView(title);
-  TextView hint=new TextView(context);hint.setText("Salvar guarda a configuração atual; selecionar não altera a sessão. Aplicar exige desconexão. Conectar continua uma ação separada. Após reinício, o último perfil aplicado volta desconectado.");hint.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));addView(hint);
+  TextView hint=new TextView(context);hint.setText("Salvar guarda a configuração atual; selecionar não altera a sessão. Aplicar exige desconexão. Salvar com robô identificado associa sua descrição e conexão ao perfil. Ao conectar novamente, uma associação única carrega o perfil automaticamente; isso não autentica o robô. Perfis antigos precisam ser salvos uma vez com o robô identificado. Após reinício, o último perfil aplicado volta desconectado.");hint.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));addView(hint);
   select=new Spinner(context);select.setId(R.id.profile_select);select.setContentDescription("Selecionar perfil local");addView(select);
   name=new EditText(context);name.setId(R.id.profile_name);name.setHint("Nome do perfil (até 48 caracteres / 128 bytes)");name.setTextColor(UiTheme.color(getContext(),0xffe6edf3));name.setHintTextColor(UiTheme.color(getContext(),0xff9aa9bc));name.setSingleLine(true);addView(name);
   status=new TextView(context);status.setId(R.id.profile_status);status.setTextColor(UiTheme.color(getContext(),0xff9aa9bc));
   button("Novo perfil",R.id.profile_new,()->refresh(""));
-  button("Salvar configuração atual",R.id.profile_save,()->{BenchProfiles.Profile p=actions.capture(selected.isEmpty()?UUID.randomUUID().toString():selected,name.getText().toString());persist(book.save(p));refresh(p.id);notice("Perfil salvo; não aplicado.");});
+  button("Salvar configuração atual",R.id.profile_save,()->{BenchProfiles.Profile p=actions.capture(selected.isEmpty()?UUID.randomUUID().toString():selected,name.getText().toString());BenchProfiles.Robot robot=actions.observedRobot();if(robot!=null)p=p.withRobot(robot);BenchProfiles next=book.save(p);if(robot!=null&&book.applied!=null&&book.applied.id.equals(p.id))next=next.apply(book.applied.withRobot(robot));persist(next);refresh(p.id);notice(robot==null?"Perfil salvo; não aplicado.":"Perfil salvo e associado ao robô observado; configuração não reaplicada.");});
   button("Renomear selecionado",R.id.profile_rename,()->{BenchProfiles.Profile p=chosen().rename(name.getText().toString());persist(book.save(p));refresh(p.id);notice("Perfil renomeado; configuração salva preservada.");});
   button("Excluir selecionado",R.id.profile_delete,()->{BenchProfiles.Profile p=chosen();String restore=book.applied!=null&&book.applied.id.equals(p.id)?"\nEste perfil também deixará de ser restaurado no próximo reinício.":"";new AlertDialog.Builder(context).setTitle("Excluir perfil local?").setMessage(p.name+"\nA configuração/sessão atual não será modificada."+restore).setNegativeButton("Cancelar",null).setPositiveButton("Excluir",(d,w)->attempt(()->{persist(book.delete(p.id));refresh("");notice("Perfil excluído.");})).show();});
   button("Aplicar (desconectado)",R.id.profile_apply,()->{if(actions.connected())throw new IllegalStateException("Desconecte explicitamente antes de aplicar um perfil.");BenchProfiles.Profile p=chosen();persist(book.apply(p));actions.apply(p);notice("Aplicado: "+p.name+" · desconectado. Use Conectar; watches aguardam dados novos.");});
@@ -41,13 +42,25 @@ final class ProfilePanel extends LinearLayout {
    public void onItemSelected(android.widget.AdapterView<?> parent,View v,int position,long id){if(refreshing||position!=select.getSelectedItemPosition())return;selected=position==0?"":book.profiles.get(position-1).id;name.setText(position==0?"":book.profiles.get(position-1).name);}
    public void onNothingSelected(android.widget.AdapterView<?> parent){}
   });
-  try{book=store.load();refresh(book.applied==null?"":book.applied.id);notice("Perfis locais: "+book.profiles.size()+". Selecionar não aplica nem conecta.");}
+  try{book=store.load();DashboardLayout legacy=new DashboardStore(context.getFilesDir()).load();List<BenchProfiles.Profile> migrated=new ArrayList<>();for(BenchProfiles.Profile p:book.profiles)migrated.add(p.dashboard==null?p.withDashboard(legacy):p);BenchProfiles.Profile applied=book.applied;book=new BenchProfiles(migrated,applied==null?null:applied.dashboard==null?applied.withDashboard(legacy):applied);refresh(book.applied==null?"":book.applied.id);notice("Perfis locais: "+book.profiles.size()+". Selecionar não aplica nem conecta.");}
   catch(Exception ex){failed=true;transfer.dispose();for(int i=0;i<getChildCount();i++){View child=getChildAt(i);if(child instanceof Button||child instanceof EditText||child instanceof Spinner)child.setEnabled(false);}notice("Perfis indisponíveis: "+ex.getMessage()+". Nada foi apagado; conexão automática bloqueada.");}
  }
  boolean result(int request,int code,android.content.Intent data){return transfer.result(request,code,data);}
  void dispose(){transfer.dispose();}
  boolean catalogExists(){return exists||failed;}
  BenchProfiles.Profile applied(){return book.applied;}
+ BenchProfiles.Robot robot(String id){BenchProfiles.Profile p=book.find(id);return p==null?null:p.robot;}
+ BenchProfiles.Profile recognize(int domain,String peer,String format,String mode,BenchProfiles.Robot robot){return failed?null:book.recognize(domain,peer,format,mode,robot.wire,robot.fingerprint);}
+ void autoNotice(String text){notice(text);}
+ void applyKnown(BenchProfiles.Profile p)throws Exception{if(failed||actions.connected()||book.find(p.id)!=p)throw new IllegalStateException("Perfil automático indisponível");persist(book.apply(p));refresh(p.id);actions.apply(p);notice("Perfil automático: "+p.name);}
+
+ void saveDashboard(String owner,DashboardLayout layout)throws java.io.IOException{
+  if(failed)throw new java.io.IOException("Reabra o app para recarregar os perfis");
+  BenchProfiles.Profile applied=book.applied,saved=book.find(owner);
+  if(applied==null||!applied.id.equals(owner)||saved==null)throw new java.io.IOException("Perfil não está mais aplicado; aplique um perfil salvo");
+  try{persist(book.save(saved.withDashboard(layout)).apply(applied.withDashboard(layout)));}
+  catch(Exception e){failed=true;throw new DashboardStore.Unconfirmed(e);}
+ }
  private BenchProfiles.Profile chosen(){BenchProfiles.Profile p=book.find(selected);if(p==null)throw new IllegalStateException("Selecione um perfil salvo.");return p;}
  private interface Operation {void run()throws Exception;}
  private void attempt(Operation operation){try{if(failed)throw new IllegalStateException("Reabra o app para recarregar os perfis");operation.run();}catch(Exception ex){notice("Perfil não alterado/aplicado: "+ex.getMessage());}}

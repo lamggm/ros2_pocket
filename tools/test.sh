@@ -52,6 +52,11 @@ else
    docker exec "$name" cat "/tmp/sensor-records/$packet.packet" > "build/sensor-dds-records/$rmw/$packet.packet"
    test -s "build/sensor-dds-records/$rmw/$packet.packet"
   done
+  mkdir -p "build/location-dds-records/$rmw"
+  for packet in map.packet tf.json result.json; do
+   docker exec "$name" cat "/tmp/pocket-location/$packet" > "build/location-dds-records/$rmw/$packet"
+   test -s "build/location-dds-records/$rmw/$packet"
+  done
   cleanup
   name=""
  done

@@ -8,11 +8,11 @@ import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=31)
 public class NetworkModeProfilesTest {
- static JSONObject envelope()throws Exception{BenchProfiles.Profile p=BenchProfiles.decode(BenchProfilesTest.catalog(BenchProfilesTest.profile())).profiles.get(0);JSONObject e=new JSONObject(new String(BenchProfiles.exportProfile(p),StandardCharsets.UTF_8));e.put("schema",4);e.getJSONObject("profile").put("networkMode","vpn");return e;}
+ static JSONObject envelope()throws Exception{BenchProfiles.Profile p=BenchProfiles.decode(BenchProfilesTest.catalog(BenchProfilesTest.profile())).profiles.get(0);JSONObject e=new JSONObject(new String(BenchProfiles.exportProfile(p),StandardCharsets.UTF_8));e.put("schema",4);e.getJSONObject("profile").remove("dashboard");e.getJSONObject("profile").remove("localization");e.getJSONObject("profile").put("networkMode","vpn");LegacyCodecFixtures.profile(e.getJSONObject("profile"));return e;}
  @Test public void explicitVpnModeSurvivesPortableAndLocalRoundTrip()throws Exception{
   JSONObject e=envelope();BenchProfiles.Profile profile;
   try{profile=BenchProfiles.importProfile(e.toString().getBytes(StandardCharsets.UTF_8));}catch(IllegalArgumentException|JSONException old){throw new AssertionError("Profile schema4 must retain explicit routed VPN mode",old);}
-  BenchProfiles book=new BenchProfiles().save(profile.rename("VPN bench")).apply(profile);BenchProfiles restored=BenchProfiles.decode(book.encode());JSONObject out=new JSONObject(new String(BenchProfiles.exportProfile(restored.profiles.get(0)),StandardCharsets.UTF_8));assertEquals(4,out.getInt("schema"));assertEquals("vpn",out.getJSONObject("profile").getString("networkMode"));JSONObject applied=new JSONObject(new String(restored.encode(),StandardCharsets.UTF_8));assertEquals("vpn",applied.getJSONObject("applied").getString("networkMode"));
+  BenchProfiles book=new BenchProfiles().save(profile.rename("VPN bench")).apply(profile);BenchProfiles restored=BenchProfiles.decode(book.encode());JSONObject out=new JSONObject(new String(BenchProfiles.exportProfile(restored.profiles.get(0)),StandardCharsets.UTF_8));assertEquals(7,out.getInt("schema"));assertEquals("vpn",out.getJSONObject("profile").getString("networkMode"));JSONObject applied=new JSONObject(new String(restored.encode(),StandardCharsets.UTF_8));assertEquals("vpn",applied.getJSONObject("applied").getString("networkMode"));
  }
  @Test public void oldSchemasDefaultToLanWithoutRewritingOnLoad()throws Exception{
   JSONObject old3=envelope();old3.put("schema",3);old3.getJSONObject("profile").remove("networkMode");

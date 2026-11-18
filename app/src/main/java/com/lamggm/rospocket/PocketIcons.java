@@ -14,6 +14,7 @@ final class PocketIcons extends Drawable {
    case "graph":c.drawLine(6,6,18,12,p);c.drawLine(6,18,18,12,p);c.drawCircle(5,5,2.6f,p);c.drawCircle(5,19,2.6f,p);c.drawCircle(19,12,2.6f,p);break;
    case "logs":for(int y=5;y<=19;y+=7){c.drawLine(4,y,5,y,p);c.drawLine(9,y,20,y,p);}break;
    case "connection":c.drawRoundRect(3,6,11,15,3,3,p);c.drawRoundRect(13,9,21,18,3,3,p);c.drawLine(8,12,16,12,p);break;
+   case "edit":Path pencil=new Path();pencil.moveTo(4,16);pencil.lineTo(15,5);pencil.lineTo(19,9);pencil.lineTo(8,20);pencil.lineTo(3,21);pencil.close();c.drawPath(pencil,p);c.drawLine(13,7,17,11,p);break;
    case "drag":p.setStyle(Paint.Style.FILL);for(int x:new int[]{8,16})for(int y:new int[]{6,12,18})c.drawCircle(x,y,1.5f,p);break;
    case "resize":c.drawLine(5,20,20,5,p);c.drawLine(11,20,20,11,p);c.drawLine(17,20,20,17,p);break;
    case "more":p.setStyle(Paint.Style.FILL);for(int y=5;y<=19;y+=7)c.drawCircle(12,y,1.6f,p);break;

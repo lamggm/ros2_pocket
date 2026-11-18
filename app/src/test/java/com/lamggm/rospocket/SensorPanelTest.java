@@ -5,7 +5,8 @@ import java.util.*;import static org.junit.Assert.*;
 public class SensorPanelTest {
  static class QueuedPanel extends SensorPanel {
   final List<Runnable> callbacks=new java.util.concurrent.CopyOnWriteArrayList<>();
-  QueuedPanel(){super(RuntimeEnvironment.getApplication(),Runnable::run);}
+  QueuedPanel(){this(true);}
+  QueuedPanel(boolean camera){super(RuntimeEnvironment.getApplication(),camera,Runnable::run);}
   @Override public boolean post(Runnable r){callbacks.add(r);return true;}
  }
  static byte[] raw(int r)throws Exception{return SensorPacketTest.packet(new JSONObject().put("running",true).put("count",r+1).put("ageMs",0).put("kind","image").put("width",1).put("height",1).put("step",3).put("encoding","rgb8"),new byte[]{(byte)r,0,0});}

@@ -14,3 +14,11 @@ class SensorReplayWiringTests(unittest.TestCase):
   self.assertIn('/tmp/sensor-records/$packet.packet',fixture)
   self.assertIn("POCKET_SENSOR_PACKETS=str(ROOT/'build/sensor-dds-records')",campaigns)
   self.assertNotIn('SensorCanvasTest',campaigns.split('def _read_java_report')[1].split('def verify_java_reports')[0])
+
+ def test_location_records_reach_the_integrated_java_gate_without_skip_exemption(self):
+  fixture=(ROOT/'tools/test.sh').read_text()
+  campaigns=(ROOT/'tools/host_campaigns.py').read_text()
+  self.assertIn('for packet in map.packet tf.json result.json',fixture)
+  self.assertIn('build/location-dds-records/$rmw/$packet',fixture)
+  self.assertIn("POCKET_LOCATION_DDS_RECORDS=str(ROOT/'build/location-dds-records')",campaigns)
+  self.assertNotIn('LocationDdsReplayTest',campaigns.split('def _read_java_report')[1].split('def verify_java_reports')[0])

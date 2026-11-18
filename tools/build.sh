@@ -35,6 +35,7 @@ cp "$TOOLCHAINS/android/lib/libddsc.so" app/src/main/jniLibs/arm64-v8a/
 GRADLE_ARGS=(--no-daemon)
 if [[ "$MODE" == --offline ]]; then GRADLE_ARGS+=(--offline); fi
 TASKS=(:app:testDebugUnitTest :app:lintDebug :app:assembleDebug)
+if [[ -z "${POCKET_LOCATION_DDS_RECORDS:-}" && -d "$PWD/build/location-dds-records" ]]; then export POCKET_LOCATION_DDS_RECORDS="$PWD/build/location-dds-records"; fi
 if [[ "$NATIVE_HOOKS" == ON ]]; then GRADLE_ARGS+=(-PpocketDiagnostic=true); TASKS+=(:app:assembleDebugAndroidTest); fi
 "$GRADLE" "${GRADLE_ARGS[@]}" "${TASKS[@]}"
 python3 tools/artifact_metadata.py --expected-source build/source-before.json "${METADATA_ARGS[@]}"

@@ -8,14 +8,14 @@ import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
 import org.json.JSONObject;
 
-/** One explicitly selected visual reader. Pixel decoding never runs on UI/DDS. */
+/** Fixed-role sensor view. Each card owns its own read-only stream. */
 @android.annotation.SuppressLint("ViewConstructor")
 class SensorPanel extends LinearLayout {
  static final class Request {
   final String wire,type;Request(String w,String t){wire=w;type=t;}
  }
  private volatile Request selected;
- private final Request[] saved=new Request[2];
+ private final boolean camera;
  private volatile boolean available=false,visible=false;
  private volatile long stream=0;
  private volatile long sequence=0;private boolean decoding=false,closed=false;private Task pending;
@@ -24,50 +24,45 @@ class SensorPanel extends LinearLayout {
  private final ExecutorService ownedDecoder;
  private final TextView title,status;
  private final TextView displayTitle;
- private final Surface surface;
- private int mode=0;private double zoom=1;private int tilePixels;private Runnable tileResize;
+ private final Surface surface;private final LinearLayout top,details;private boolean compact,previewOwned;
+ private double zoom=1;private int tilePixels;private Runnable tileResize;
  private SensorPacket.Decoded shown;
  private static final int FG=0xffe6edf3,ACCENT=0xff5cdbb8;
  private static final class Task {
   final Request request;final SensorPacket packet;final long stream,sequence;final BooleanSupplier guard;
   Task(Request r,SensorPacket p,long g,long s,BooleanSupplier ok){request=r;packet=p;stream=g;sequence=s;guard=ok;}
  }
- SensorPanel(Context c){this(c,null);}
- SensorPanel(Context c,java.util.concurrent.Executor executor){
-  super(c);setOrientation(VERTICAL);setTag("sensor-panel");
+ SensorPanel(Context c,boolean camera){this(c,camera,null);}
+ SensorPanel(Context c,boolean camera,Executor executor){
+  super(c);this.camera=camera;setOrientation(VERTICAL);setTag(camera?"camera-panel":"sensor-panel");
   ownedDecoder=executor==null?Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"pocket-image-decode");t.setDaemon(true);return t;}):null;decoder=executor==null?ownedDecoder:executor;
-  LinearLayout top=new LinearLayout(c);top.setGravity(android.view.Gravity.CENTER_VERTICAL);addView(top);
-  displayTitle=new TextView(c);displayTitle.setText("LaserScan 2D");displayTitle.setTextSize(19);displayTitle.setTextColor(UiTheme.color(c,FG));top.addView(displayTitle,new LayoutParams(0,-2,1));
-  LinearLayout details=new LinearLayout(c);details.setOrientation(VERTICAL);details.setTag("sensor-details");details.setVisibility(GONE);
+  top=new LinearLayout(c);top.setGravity(android.view.Gravity.CENTER_VERTICAL);addView(top);
+  displayTitle=new TextView(c);displayTitle.setText(camera?"Camera":"Lidar Scan");displayTitle.setTextSize(19);displayTitle.setTextColor(UiTheme.color(c,FG));top.addView(displayTitle,new LayoutParams(0,-2,1));
+  details=new LinearLayout(c);details.setOrientation(VERTICAL);details.setTag("sensor-details");details.setVisibility(GONE);
   Button more=new VisualButton(c,"icon","more");more.setContentDescription("Detalhes do sensor, parar e zoom");more.setOnClickListener(v->details.setVisibility(details.getVisibility()==GONE?VISIBLE:GONE));top.addView(more,new LayoutParams(dp(48),dp(48)));
   Button expand=new VisualButton(c,"icon","expand");expand.setContentDescription("Ampliar ou reduzir visualização");top.addView(expand,new LayoutParams(dp(48),dp(48)));
-  LinearLayout row=new LinearLayout(c);addView(row);button(row,"LaserScan",()->switchMode(0));button(row,"Câmera",()->switchMode(1));row.findViewWithTag("sensor-LaserScan").setSelected(true);
   surface=new Surface(c);surface.setTag("sensor-surface");addView(surface,new LinearLayout.LayoutParams(-1,(int)(320*getResources().getDisplayMetrics().density)));
   expand.setTag("sensor-resize");expand.setOnClickListener(v->{if(tileResize!=null){tileResize.run();return;}android.view.ViewGroup.LayoutParams p=surface.getLayoutParams();p.height=p.height>dp(320)?dp(240):dp(420);surface.setLayoutParams(p);});
-  status=text("Sem leitor visual · best effort / volatile");status.setTag("sensor-status");status.setTextSize(11);status.setPadding(0,dp(10),0,0);
-  addView(details);title=new TextView(c);title.setText("SENSORES VISUAIS · selecione um tópico no Explorer");title.setTextColor(UiTheme.color(c,FG));title.setTextSize(12);title.setTag("sensor-title");details.addView(title);
-  LinearLayout scale=new LinearLayout(c);details.addView(scale);button(scale,"Zoom +",()->{zoom=Math.min(16,zoom*2);surface.invalidate();});button(scale,"Zoom −",()->{zoom=Math.max(.25,zoom/2);surface.invalidate();});button(scale,"Enquadrar",()->{zoom=1;surface.invalidate();});
-  LinearLayout stop=new LinearLayout(c);details.addView(stop);button(stop,"Parar",()->{saved[mode]=null;selected=null;invalidateStream();});
-  TextView help=new TextView(c);help.setText("Um scan ou câmera por vez · frame original, sem TF/mapa · imagens até 921600 pixels · preview até 10Hz, não gravação.");help.setTextColor(UiTheme.color(c,0xff9aa9bc));help.setTextSize(11);details.addView(help);
+  status=text("Selecione um tópico no Explorer");status.setTag("sensor-status");status.setTextSize(11);status.setPadding(0,dp(10),0,0);
+  addView(details);title=new TextView(c);title.setText("Selecione um tópico no Explorer");title.setTextColor(UiTheme.color(c,FG));title.setTextSize(12);title.setTag("sensor-title");details.addView(title);
+  LinearLayout scale=new LinearLayout(c);if(!camera)details.addView(scale);button(scale,"Zoom +",()->{zoom=Math.min(16,zoom*2);surface.invalidate();});button(scale,"Zoom −",()->{zoom=Math.max(.25,zoom/2);surface.invalidate();});button(scale,"Enquadrar",()->{zoom=1;surface.invalidate();});
+  LinearLayout stop=new LinearLayout(c);details.addView(stop);button(stop,"Parar",()->configure(null));
+  TextView help=new TextView(c);help.setText("Frame do sensor, sem TF/mapa · imagens até 921600 pixels · preview até 10 Hz, sem gravação.");help.setTextColor(UiTheme.color(c,0xff9aa9bc));help.setTextSize(11);details.addView(help);
  }
  private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
  private TextView text(String value){TextView t=new TextView(getContext());t.setTextColor(UiTheme.color(getContext(),FG));t.setText(value);addView(t);return t;}
  private void button(LinearLayout parent,String name,Runnable action){Button b=new VisualButton(getContext(),"secondary",null);b.setText(name);b.setTag("sensor-"+name);b.setOnClickListener(v->action.run());parent.addView(b,new LinearLayout.LayoutParams(0,dp(48),1));}
  void select(String wire,String type){
-  if(!SensorPacket.supports(type))throw new IllegalArgumentException("Sensor não suportado");
-  mode=type.endsWith("LaserScan_")?0:1;displayTitle.setText(mode==0?"LaserScan 2D":"Câmera");selected=new Request(wire,type);saved[mode]=selected;zoom=1;invalidateStream();
-  title.setText((mode==0?"LASERSCAN 2D":"CÂMERA ROS")+" · "+wire+"\n"+type);refreshTabs();
+  if(!SensorPacket.supports(type)||camera==type.endsWith("LaserScan_"))throw new IllegalArgumentException("Tipo incompatível com o card");
+  setRequest(new Request(wire,type));
  }
- private void switchMode(int value){mode=value;displayTitle.setText(mode==0?"LaserScan 2D":"Câmera");selected=saved[value];zoom=1;invalidateStream();title.setText(selected==null?"Selecione um tópico "+(mode==0?"LaserScan":"Image/CompressedImage")+" no Explorer":selected.wire+"\n"+selected.type);refreshTabs();}
- private void refreshTabs(){View scan=findViewWithTag("sensor-LaserScan"),camera=findViewWithTag("sensor-Câmera");scan.setSelected(mode==0);camera.setSelected(mode==1);UiTheme.apply(scan);UiTheme.apply(camera);}
- BenchProfiles.Visual profile(){
-  Request scan=saved[0],camera=saved[1];
-  return new BenchProfiles.Visual(mode==0?"scan":"camera",scan==null?null:new BenchProfiles.Sensor(scan.wire,scan.type,true),camera==null?null:new BenchProfiles.Sensor(camera.wire,camera.type,false));
+ BenchProfiles.Sensor profile(){Request r=selected;return r==null?null:new BenchProfiles.Sensor(r.wire,r.type,!camera);}
+ void configure(BenchProfiles.Sensor visual){
+  setRequest(visual==null?null:new Request(visual.wire,visual.type));
  }
- void configure(BenchProfiles.Visual visual){
-  saved[0]=visual.scan==null?null:new Request(visual.scan.wire,visual.scan.type);
-  saved[1]=visual.camera==null?null:new Request(visual.camera.wire,visual.camera.type);
-  switchMode("scan".equals(visual.mode)?0:1);
+ private void setRequest(Request request){
+  selected=request;zoom=1;
+  title.setText(selected==null?"Selecione um tópico no Explorer":selected.wire+"\n"+selected.type);invalidateStream();
  }
  Request desired(){return available&&visible?selected:null;}
  long epoch(){return stream;}
@@ -77,7 +72,7 @@ class SensorPanel extends LinearLayout {
  void invalidateStream(){
   final long stamp;
   synchronized(this){stamp=++stream;pending=null;pendingUi=null;sequence++;}
-  Runnable clear=()->{if(stream==stamp){shown=null;surface.invalidate();status.setText("Aguardando dados novos · sem imagem anterior");}};
+  Runnable clear=()->{if(stream==stamp){shown=null;surface.invalidate();status.setText(selected==null?"Selecione um tópico no Explorer":!visible?"Fora do Painel":!available?"Desconectado":"Aguardando dados novos · sem imagem anterior");}};
   if(android.os.Looper.myLooper()==android.os.Looper.getMainLooper())clear.run();else queueUi(clear);
  }
  void error(Request r,String message,BooleanSupplier guard){
@@ -120,7 +115,12 @@ class SensorPanel extends LinearLayout {
   post(this::deliverUi);
  }
  private void deliverUi(){final Runnable latest;synchronized(this){latest=pendingUi;pendingUi=null;uiQueued=false;}if(latest!=null)latest.run();}
- void tileResize(Runnable callback){tileResize=callback;findViewWithTag("sensor-resize").setContentDescription("Alterar tamanho do card LiDAR e câmera");}
+ void previewMode(boolean compact,int height){
+  if(!previewOwned||this.compact!=compact){this.compact=compact;previewOwned=true;top.setVisibility(compact?GONE:VISIBLE);if(compact)details.setVisibility(GONE);status.setMaxLines(compact?1:4);status.setEllipsize(android.text.TextUtils.TruncateAt.END);status.setPadding(dp(8),dp(compact?2:8),dp(8),dp(4));}
+  int target=compact?Math.max(1,height-dp(30*Math.max(1,getResources().getConfiguration().fontScale))):height;
+  LayoutParams lp=(LayoutParams)surface.getLayoutParams();if(lp.height!=target){lp.height=target;surface.setLayoutParams(lp);}
+ }
+ void tileResize(Runnable callback){tileResize=callback;findViewWithTag("sensor-resize").setContentDescription("Alterar tamanho do card");}
  void tileHeight(int height){if(tilePixels!=height){tilePixels=height;requestLayout();}}
  @Override protected void onMeasure(int widthSpec,int heightSpec){if(tilePixels<=0){super.onMeasure(widthSpec,heightSpec);return;}android.view.ViewGroup.LayoutParams lp=surface.getLayoutParams();lp.height=dp(72);super.onMeasure(widthSpec,MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));int overhead=getMeasuredHeight()-surface.getMeasuredHeight();lp.height=Math.max(dp(72),tilePixels-overhead);super.onMeasure(widthSpec,heightSpec);}
  void dispose(){synchronized(this){closed=true;pending=null;pendingUi=null;stream++;}if(ownedDecoder!=null)ownedDecoder.shutdownNow();}
@@ -132,9 +132,15 @@ class SensorPanel extends LinearLayout {
  }
  private final class Surface extends View {
   private final Paint pen=new Paint(Paint.ANTI_ALIAS_FLAG);
-  Surface(Context c){super(c);setContentDescription("Visualização alternada de câmera ou LaserScan no frame do sensor");}
+  Surface(Context c){super(c);setContentDescription(camera?"Imagem da câmera":"LaserScan no frame do sensor");}
+  private void drawTitle(Canvas canvas){
+   if(!compact)return;
+   pen.setTextSize(13*getResources().getDisplayMetrics().scaledDensity);pen.setColor(UiTheme.color(getContext(),0xff101820));
+   String name=camera?"Camera":"Lidar Scan";float y=dp(8)+pen.getTextSize();canvas.drawRect(dp(4),dp(4),dp(16)+pen.measureText(name),y+dp(5),pen);
+   pen.setColor(UiTheme.color(getContext(),FG));canvas.drawText(name,dp(8),y,pen);
+  }
   @Override protected void onDraw(Canvas canvas){
-   super.onDraw(canvas);canvas.drawColor(UiTheme.color(getContext(),0xff101820));SensorPacket.Decoded d=shown;if(d==null){pen.setAlpha(255);pen.setColor(VisualButton.muted(getContext()));pen.setTextSize(dp(13));pen.setTextAlign(Paint.Align.CENTER);canvas.drawText("Aguardando amostras",getWidth()/2f,getHeight()*.65f,pen);pen.setTextAlign(Paint.Align.LEFT);return;}
+   super.onDraw(canvas);canvas.drawColor(UiTheme.color(getContext(),0xff101820));SensorPacket.Decoded d=shown;if(d==null){pen.setAlpha(255);pen.setColor(VisualButton.muted(getContext()));pen.setTextSize(dp(13));pen.setTextAlign(Paint.Align.CENTER);canvas.drawText("Sem dados",getWidth()/2f,getHeight()*.65f,pen);pen.setTextAlign(Paint.Align.LEFT);drawTitle(canvas);return;}
    boolean fresh=d.fresh(System.nanoTime());pen.setAlpha(fresh?255:80);
    if(d.image!=null){float scale=Math.min((float)getWidth()/d.image.getWidth(),(float)getHeight()/d.image.getHeight());float w=d.image.getWidth()*scale,h=d.image.getHeight()*scale;canvas.drawBitmap(d.image,null,new RectF((getWidth()-w)/2,(getHeight()-h)/2,(getWidth()+w)/2,(getHeight()+h)/2),pen);}
    else if(d.xy!=null){
@@ -142,12 +148,12 @@ class SensorPanel extends LinearLayout {
     pen.setColor(UiTheme.color(getContext(),0xff405064));pen.setAlpha(255);pen.setStyle(Paint.Style.STROKE);
     for(int ring=1;ring<=4;ring++){float radius=(float)(extent*ring/4*scale);canvas.drawCircle(cx,cy,radius,pen);}
     canvas.drawLine(cx,0,cx,getHeight(),pen);canvas.drawLine(0,cy,getWidth(),cy,pen);pen.setStyle(Paint.Style.FILL);
-    pen.setColor(UiTheme.color(getContext(),FG));pen.setTextSize(12*getResources().getDisplayMetrics().density);canvas.drawText(String.format(java.util.Locale.ROOT,"raio %.2g m · +X ↑ / +Y ←",extent),8,pen.getTextSize()+4,pen);
+    pen.setColor(UiTheme.color(getContext(),FG));pen.setTextSize(12*getResources().getDisplayMetrics().density);if(!compact)canvas.drawText(String.format(java.util.Locale.ROOT,"raio %.2g m · +X ↑ / +Y ←",extent),8,pen.getTextSize()+4,pen);
     pen.setColor(UiTheme.color(getContext(),ACCENT));pen.setAlpha(fresh?255:80);int save=canvas.save();canvas.clipRect(0,0,getWidth(),getHeight());
     for(int i=0;i<d.xy.length;i+=2){double x=cx-d.xy[i+1]*scale,y=cy-d.xy[i]*scale;if(Double.isFinite(x)&&Double.isFinite(y)&&x>=0&&x<getWidth()&&y>=0&&y<getHeight())canvas.drawCircle((float)x,(float)y,2.5f,pen);}
     canvas.restoreToCount(save);pen.setColor(UiTheme.color(getContext(),0xffffa97d));pen.setAlpha(255);canvas.drawCircle(cx,cy,4,pen);
    }
-   pen.setAlpha(255);refreshStatus();if(isAttachedToWindow())postInvalidateDelayed(500);
+   drawTitle(canvas);pen.setAlpha(255);refreshStatus();if(isAttachedToWindow())postInvalidateDelayed(500);
   }
  }
 }

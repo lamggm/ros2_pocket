@@ -11,9 +11,12 @@ final class RobotContext {
   final String wire,name,key;final boolean reliable,retained,supported;final int writers;
   Source(JSONObject row){wire=row.optString("wireName");name=row.optString("name");writers=row.optInt("publishers");supported="std_msgs::msg::dds_::String_".equals(row.optString("wireType"));JSONArray eps=row.optJSONArray("endpoints");JSONObject qos=null;String id="";if(eps!=null)for(int i=0;i<eps.length();i++){JSONObject ep=eps.optJSONObject(i);if(ep!=null&&ep.opt("writer")==Boolean.TRUE){id=ep.optString("id");qos=ep.optJSONObject("qos");break;}}String r=qos==null?"unknown":qos.optString("reliability"),d=qos==null?"unknown":qos.optString("durability");reliable="reliable".equals(r);retained=Arrays.asList("transient_local","transient","persistent").contains(d);key=wire+"\n"+id+"\n"+r+"\n"+d;}
  }
- static final class Snapshot {
-  final List<Source> sources;final String status,source;final RobotDescription model;private final Selection owner;
-  Snapshot(List<Source> list,String message,String provenance,RobotDescription value,Selection s){sources=Collections.unmodifiableList(new ArrayList<>(list));status=message;source=provenance;model=value;owner=s;}
+ private volatile long workerSerial;
+ final class Snapshot {
+  private final long workerGeneration=workerSerial;
+  final List<Source> sources;final String status,source,wire;final boolean live;final RobotDescription model;private final Selection owner;
+  Snapshot(List<Source> list,String message,String provenance,RobotDescription value,Selection s){this(list,message,provenance,value,s,"",false);}
+  Snapshot(List<Source> list,String message,String provenance,RobotDescription value,Selection s,String wire,boolean live){this.wire=wire;this.live=live;sources=Collections.unmodifiableList(new ArrayList<>(list));status=message;source=provenance;model=value;owner=s;}
  }
  static final class PoseSnapshot {final RobotTf.Pose pose;final String fingerprint,source;private final Selection owner;PoseSnapshot(RobotTf.Pose p,String f,Selection s,String origin){pose=p;fingerprint=f;owner=s;source=origin;}}
  boolean current(PoseSnapshot s){return s!=null&&s.owner==selection;}
@@ -31,9 +34,10 @@ final class RobotContext {
   try{if(!admitted.getAsBoolean()||selection!=owner)return;JSONObject answer=NativeBridge.Api.json(api.startTf(d==null?"":d.wire,s==null?"":s.wire,s!=null&&s.reliable,s!=null&&s.retained));if(!admitted.getAsBoolean()||selection!=owner){api.stopTf();return;}if(!answer.optBoolean("ok")){tfError=answer.optString("error","TF indisponível");return;}tfKey=key;tfBoundKey=key;tfDynamic=d;tfStatic=s;tfSources=(d==null?"":d.name)+(s==null?"":" + "+s.name);}catch(Exception e){api.stopTf();tfError="TF indisponível";}
  }
  void select(String wire){selection=new Selection(wire);}
- boolean current(Snapshot s){return s!=null&&s.owner==selection;}
+ void fenceSelection(){Selection prior=selection;selection=new Selection(prior.wire);}
+ boolean current(Snapshot s){return s!=null&&s.owner==selection&&s.workerGeneration==workerSerial;}
  private String applied="",parseError="";private long sequence=-1;private Selection appliedSelection;private RobotDescription model;
- void resetWorker(){applied="";sequence=-1;model=null;parseError="";appliedSelection=null;tfKey="";tfError="";tfSources="";}
+ void resetWorker(){workerSerial++;applied="";sequence=-1;model=null;parseError="";appliedSelection=null;tfKey="";tfError="";tfSources="";}
  private static List<Source> sources(JSONArray rows){List<Source> out=new ArrayList<>();if(rows!=null)for(int i=0;i<rows.length();i++){JSONObject r=rows.optJSONObject(i);if(r==null)continue;String n=r.optString("name"),w=r.optString("wireName");if(n.endsWith("/robot_description")&&w.equals("rt"+n)&&w.length()<=512&&r.optInt("publishers")>0)out.add(new Source(r));}out.sort(Comparator.comparing(s->s.wire));return out;}
  Snapshot observe(NativeBridge.Api api,int domain,String address,String peer,String mode,String format,JSONArray topics,BooleanSupplier admitted){
   Selection owner=selection;List<Source> all=sources(topics);Source chosen=null;if(!owner.wire.isEmpty()){for(Source s:all)if(s.wire.equals(owner.wire))chosen=s;}else if(all.size()==1)chosen=all.get(0);
@@ -48,7 +52,7 @@ final class RobotContext {
    configureTf(api,topics,owner,admitted);
    String state=!parseError.isEmpty()?parseError:model==null?"Aguardando URDF"+(chosen.retained?" retido":" · fonte volatile, aguardando nova publicação"):model.visuals.isEmpty()?"Descrição recebida · sem elementos visuais":model.missingMeshes.isEmpty()?"Modelo completo · primitivas URDF":"Modelo parcial · "+model.missingMeshes.size()+" malha(s) não recebida(s)";
    if(model!=null&&raw.optInt("matched")==0)state+=" · descrição retida, sem publicador conectado";
-   return new Snapshot(all,state,provenance,model,owner);
+   return new Snapshot(all,state,provenance,model,owner,chosen.wire,raw.optInt("matched")==1);
   }catch(Exception e){model=null;return new Snapshot(all,"Descrição indisponível: "+e.getMessage(),provenance,null,owner);}
  }
 }

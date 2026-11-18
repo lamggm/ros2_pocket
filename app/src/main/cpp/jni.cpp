@@ -5,7 +5,7 @@
 #include "robot_description.hpp"
 #include <mutex>
 static pocket::Session session;
-static pocket::SensorSession sensor;
+static pocket::SensorSession sensor,camera{pocket::SensorSession::Channel::Camera};
 static pocket::RobotDescriptionSession description;
 static std::mutex mutex;
 static std::string text(JNIEnv* env,jstring s) {
@@ -32,7 +32,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  catch(const std::exception& ex){return bytes(e,"{\"ok\":false,\"error\":"+pocket::json_quote(ex.what())+"}");}
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startWithNetworkMode(JNIEnv* e,jclass,jint d,jstring address,jstring peer,jstring format,jstring mode) {
- std::lock_guard<std::mutex> lock(mutex);sensor.stop();description.stop();
+ std::lock_guard<std::mutex> lock(mutex);sensor.stop();camera.stop();description.stop();
  if(!format||e->GetStringUTFLength(format)>6||!mode||e->GetStringUTFLength(mode)>3){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Formato ou modo de rede nao suportado\"}");}
  try{return bytes(e,session.start(d,text(e,address),text(e,peer),text(e,format),text(e,mode)));}
  catch(const std::exception&){session.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar rede DDS\"}");}
@@ -62,7 +62,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  std::lock_guard<std::mutex> lock(mutex);return bytes(e,session.subscribe(text(e,topic),text(e,type),reliable,transient));
 }
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stop(JNIEnv*,jclass) {
- std::lock_guard<std::mutex> lock(mutex);description.stop();sensor.stop();session.stop();
+ std::lock_guard<std::mutex> lock(mutex);description.stop();sensor.stop();camera.stop();session.stop();
 }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startSensor(JNIEnv* e,jclass,jint domain,jstring address,jstring peer,jstring topic,jstring type){
  std::lock_guard<std::mutex> lock(mutex);
@@ -81,13 +81,37 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_s
  try{return bytes(e,sensor.start(domain,text(e,address),text(e,peer),text(e,topic),text(e,type),text(e,mode),text(e,format)));}
  catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar sensor\"}");}
 }
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollSensor(JNIEnv* e,jclass){
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startMap(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring w,jboolean reliable,jboolean retained,jstring mode,jstring format){
  std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!w||!mode||!format||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(w)>256||e->GetStringUTFLength(mode)>3||e->GetStringUTFLength(format)>6){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração de mapa inválida\"}");}
+ try{return bytes(e,sensor.start(d,text(e,a),text(e,p),text(e,w),"nav_msgs::msg::dds_::OccupancyGrid_",text(e,mode),text(e,format),reliable,retained));}catch(const std::exception&){sensor.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar mapa\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startLocationTf(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring dynamic,jstring fixed,jstring mode,jstring format){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!dynamic||!fixed||!mode||!format||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(dynamic)>256||e->GetStringUTFLength(fixed)>256||e->GetStringUTFLength(mode)>3||e->GetStringUTFLength(format)>6){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração TF de localização inválida\"}");}
+ try{auto opened=description.start(d,text(e,a),text(e,p),"",false,false,text(e,mode),text(e,format),true);if(opened.find("\"ok\":true")==std::string::npos)return bytes(e,opened);auto result=description.start_tf(text(e,dynamic),text(e,fixed),true,true);if(result.find("\"ok\":true")==std::string::npos)description.stop();return bytes(e,result);}catch(const std::exception&){description.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha TF de localização\"}");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_startCamera(JNIEnv* e,jclass,jint d,jstring a,jstring p,jstring w,jstring t,jstring mode,jstring format){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(!a||!w||!t||!mode||!format||e->GetStringUTFLength(a)>15||(p&&e->GetStringUTFLength(p)>15)||e->GetStringUTFLength(w)>512||e->GetStringUTFLength(t)>64||e->GetStringUTFLength(mode)>3||e->GetStringUTFLength(format)>6){camera.stop();return bytes(e,"{\"ok\":false,\"error\":\"Configuração de câmera inválida\"}");}
+ try{return bytes(e,camera.start(d,text(e,a),text(e,p),text(e,w),text(e,t),text(e,mode),text(e,format)));}
+ catch(const std::exception&){camera.stop();return bytes(e,"{\"ok\":false,\"error\":\"Falha ao iniciar câmera\"}");}
+}
+static jbyteArray poll_visual(JNIEnv* e,pocket::SensorSession& stream){
  try{
-  auto frame=sensor.poll();std::string packet;uint32_t n=static_cast<uint32_t>(frame.metadata.size());
+  auto frame=stream.poll();std::string packet;uint32_t n=static_cast<uint32_t>(frame.metadata.size());
   for(int i=0;i<4;i++)packet+=static_cast<char>(n>>(8*i));packet+=frame.metadata;
   packet.append(reinterpret_cast<const char*>(frame.payload.data()),frame.payload.size());return bytes(e,packet);
  }catch(const std::exception&){return bytes(e,"");}
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollSensor(JNIEnv* e,jclass){
+ std::lock_guard<std::mutex> lock(mutex);return poll_visual(e,sensor);
+}
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_lamggm_rospocket_NativeBridge_pollCamera(JNIEnv* e,jclass){
+ std::lock_guard<std::mutex> lock(mutex);return poll_visual(e,camera);
+}
+extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopCamera(JNIEnv*,jclass){
+ std::lock_guard<std::mutex> lock(mutex);camera.stop();
 }
 extern "C" JNIEXPORT void JNICALL Java_com_lamggm_rospocket_NativeBridge_stopSensor(JNIEnv*,jclass){
  std::lock_guard<std::mutex> lock(mutex);sensor.stop();
