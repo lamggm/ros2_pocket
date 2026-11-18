@@ -1,6 +1,6 @@
 {
   "repo": {
-    "timestamp": 1794767526000,
+    "timestamp": 1795015432000,
     "version": 20002,
     "name": "ROS Pocket \u2014 upstream",
     "icon": "icon.png",
@@ -17,9 +17,9 @@
       "categories": [
         "Development"
       ],
-      "suggestedVersionName": "1.4.0",
-      "suggestedVersionCode": "14",
-      "description": "Read-only Android ROS 2/DDS inspector with native Dashboard, Explore, Graph and Logs, themes, four telemetry watches, numeric plots/CSV and one LaserScan/camera reader.\n\nVersion1.4 adds offline URDF/CAD assets, bounded full indexed GLES2, passive observed TF, fullscreen and resizable/reorderable dashboard cards. Assets bind to the exact robot description; no robot commands, RPC or arbitrary mesh downloads.\n\nARM64 Android9+. Explicit LAN or routed VPN setup and manual Humble/Jazzy graph format. Production1.4 was host-built/linted/signed; the separate DEV variant received bounded physical-tablet and software-simulation observation. Production physical, sustained FPS/battery, real VPN absence/return and RF/IP recovery remain unqualified.\n\nThis is the independent upstream repository, not the official f-droid.org catalogue. APKs retain the upstream production certificate used by GitHub releases.",
+      "suggestedVersionName": "1.5.0",
+      "suggestedVersionCode": "15",
+      "description": "Read-only Android ROS 2/DDS inspector. Run camera and LiDAR together on the Dashboard with independent topics. Includes four numeric telemetry watches, saved profile layouts, chart scales and legend, compact previews, offline indexed URDF meshes, and passive OccupancyGrid/TF localization. No commands, parameters or service calls. ARM64, Android 9 or newer. Independent upstream repository; not the official f-droid.org catalogue.",
       "issueTracker": "https://github.com/lamggm/ros2_pocket/issues",
       "license": "Apache-2.0",
       "sourceCode": "https://github.com/lamggm/ros2_pocket",
@@ -27,26 +27,64 @@
       "webSite": "https://github.com/lamggm/ros2_pocket",
       "added": 1793831517000,
       "packageName": "com.lamggm.rospocket",
-      "lastUpdated": 1794767526000,
+      "lastUpdated": 1795015432000,
       "localized": {
         "en-US": {
           "description": "ROS Pocket is a read-only ROS 2/DDS inspector for Android phones and tablets.\n\nConnect on the same IPv4 Wi-Fi/LAN, select the ROS domain and the manual Humble or Jazzy graph format, then inspect:\n\u2022 Topic types, publishers, subscribers, endpoint QoS and announced ROS nodes.\n\u2022 Up to four live topic watches with counters, received rate and data age.\n\u2022 Numeric plots with pause and CSV export of retained real samples.\n\u2022 A dedicated rosout console and structured standard messages.\n\u2022 Bounded LaserScan and Image/CompressedImage views.\n\u2022 Saved connection/watch/plot/sensor profiles with JSON import/export.\n\nThe application speaks DDS directly; it does not require rosbridge or a cloud account. It sends no robot commands, parameter writes, service requests or teleoperation commands. Internet permission is needed for local network sockets; there are no ads or analytics.\n\nLimitations: ARM64, Android 9 or newer, IPv4 LAN or explicit routed VPN networking and a defined set of standard message types. Graph format selection is manual; mixed distributions and all RMW/network/device combinations are not guaranteed. Native node/topic graph, themes and editable dashboard are available. Offline URDF/CAD and passive observed TF provide bounded visual context, not a full RViz or calibrated robot model. Physical Wi-Fi/IP disruption/recovery remains unqualified. Numeric retention is bounded and is not a lossless recorder or rosbag replacement.\n\nThis is a bench engineering tool, not a safety instrument. The production package installs separately from ROS Pocket DEV; their signatures and private data are not interchangeable.\n",
           "icon": "icon_SswnonhCOG5W27ITmD6hbl4Qsh5XqjukWGz3MPo0m_8=.png",
           "name": "ROS Pocket",
           "summary": "Inspect ROS 2 topics, telemetry, plots and logs directly over DDS",
-          "whatsNew": "Offline URDF/CAD assets, passive observed TF and fullscreen. Resize and reorder dashboard cards with local persistence. Read-only DDS; no robot commands.\n"
+          "whatsNew": "Run camera and LiDAR together in the dashboard. Per-profile layouts, editable chart title with scales and legend, large previews, and read-only OccupancyGrid/TF localization.\n"
         },
         "pt-BR": {
           "description": "ROS Pocket \u00e9 um inspetor ROS 2/DDS somente leitura para celulares e tablets Android.\n\nConecte na mesma rede IPv4 Wi-Fi/LAN, selecione o dom\u00ednio ROS e o formato manual de grafo Humble ou Jazzy. Inspecione t\u00f3picos, tipos, publicadores/assinantes, QoS e n\u00f3s anunciados; acompanhe quatro watches, gr\u00e1ficos num\u00e9ricos com pausa e CSV, rosout, mensagens estruturadas e visualiza\u00e7\u00f5es limitadas de LaserScan ou Image/CompressedImage. Salve e transporte configura\u00e7\u00f5es por perfis JSON.\n\nDDS direto, sem rosbridge, conta na nuvem, an\u00fancios ou analytics. A permiss\u00e3o de Internet permite sockets de rede local. O app n\u00e3o envia comandos ao rob\u00f4 nem escreve par\u00e2metros ou invoca servi\u00e7os/teleop.\n\nLimites: ARM64, Android 9+, IPv4 em LAN ou VPN roteada expl\u00edcita e tipos padr\u00e3o definidos. Formato do grafo \u00e9 manual; n\u00e3o h\u00e1 garantia de todas as combina\u00e7\u00f5es ROS/RMW/rede/dispositivo. Grafo nativo n\u00f3\u2192t\u00f3pico\u2192n\u00f3, temas e painel edit\u00e1vel est\u00e3o dispon\u00edveis. URDF/CAD offline e TF passivo fornecem contexto visual limitado, n\u00e3o RViz completo nem modelo calibrado. Interrup\u00e7\u00e3o e recupera\u00e7\u00e3o f\u00edsica de Wi-Fi/IP continuam n\u00e3o qualificadas. Reten\u00e7\u00e3o num\u00e9rica \u00e9 limitada, n\u00e3o grava\u00e7\u00e3o sem perdas nem rosbag.\n\nFerramenta de bancada, n\u00e3o instrumento de seguran\u00e7a. O pacote de produ\u00e7\u00e3o instala ao lado do ROS Pocket DEV, sem compartilhar assinatura ou dados privados.\n",
           "name": "ROS Pocket",
           "summary": "Inspecione t\u00f3picos ROS 2, telemetria, gr\u00e1ficos e logs diretamente por DDS",
-          "whatsNew": "URDF/CAD com malhas offline, TF passivo e tela cheia. Redimensione e reordene os cards com persist\u00eancia local. DDS somente leitura, sem comandos ao rob\u00f4.\n"
+          "whatsNew": "C\u00e2mera e LiDAR juntos no painel. Layout por perfil, gr\u00e1fico com t\u00edtulo edit\u00e1vel, escalas e legenda, previews ampliados e localiza\u00e7\u00e3o somente leitura por OccupancyGrid/TF.\n"
         }
       }
     }
   ],
   "packages": {
     "com.lamggm.rospocket": [
+      {
+        "added": 1795015432000,
+        "apkName": "com.lamggm.rospocket_15.apk",
+        "features": [
+          "android.hardware.wifi"
+        ],
+        "hash": "b3b88366998f02e5725387854ef5d339a4d3e1ae51709dcc02a7bb2ba7688911",
+        "hashType": "sha256",
+        "minSdkVersion": 28,
+        "nativecode": [
+          "arm64-v8a"
+        ],
+        "packageName": "com.lamggm.rospocket",
+        "sig": "b01074dd040eba37554119c6e1b293b2",
+        "signer": "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4",
+        "size": 5354856,
+        "targetSdkVersion": 35,
+        "uses-permission": [
+          [
+            "android.permission.INTERNET",
+            null
+          ],
+          [
+            "android.permission.ACCESS_NETWORK_STATE",
+            null
+          ],
+          [
+            "android.permission.ACCESS_WIFI_STATE",
+            null
+          ],
+          [
+            "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+            null
+          ]
+        ],
+        "versionCode": 15,
+        "versionName": "1.5.0"
+      },
       {
         "added": 1794767526000,
         "apkName": "com.lamggm.rospocket_14.apk",
