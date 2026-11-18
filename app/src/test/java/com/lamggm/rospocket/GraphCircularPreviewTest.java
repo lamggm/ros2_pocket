@@ -30,6 +30,15 @@ public class GraphCircularPreviewTest {
    assertEquals(starts,f.bridge.starts);assertEquals(stops,f.bridge.stops);assertEquals(readers,f.bridge.subscriptions);
   }finally{f.cleanup();}
  }
+ @Test public void nativeTabletHierarchicalMissionPreview() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(org.robolectric.RuntimeEnvironment.getApplication());
+  p.update(GraphNamespaceSceneTest.missionSample());while(p.physics.awake)p.advancePhysics();
+  p.stage.layout(0,0,1280,680);p.stage.fit(false);
+  File dir=new File("build/reports/graph-hierarchy");assertTrue(dir.isDirectory()||dir.mkdirs());
+  GraphPreviewTest.image(p.stage,new File(dir,"mission-tablet-host-synthetic.png"),1280,680);
+  assertTrue(p.stage.labelRects.containsKey("ns:/gb002/mission"));
+  assertTrue(p.stage.labelRects.containsKey("ns:/gb002/mission/coverage"));
+ }
  @Test public void nativeTabletCircularGalaxyBothThemes() throws Exception {render(1280,850,"tablet");}
  @Test @Config(qualifiers="w412dp-h850dp") public void nativePhoneCircularGalaxyBothThemes() throws Exception {render(412,850,"phone");}
 }

@@ -7,7 +7,7 @@ final class GraphPhysics {
  static final class Body {double x,y,vx,vy,fx,fy;boolean pinned,held;Body(double x,double y){this.x=x;this.y=y;}}
  final Map<String,Body> bodies=new LinkedHashMap<>();
  final Map<String,String> namespaces=new LinkedHashMap<>();
- void setNamespaces(Map<String,String> groups){Map<String,String> next=new LinkedHashMap<>();Set<String> accepted=new LinkedHashSet<>();for(String id:bodies.keySet()){String ns=groups.get(id);if(ns==null||ns.isEmpty())continue;if(!accepted.contains(ns)&&accepted.size()>=GraphNamespaces.MAX_GROUPS)continue;accepted.add(ns);next.put(id,ns);}if(!namespaces.equals(next)){namespaces.clear();namespaces.putAll(next);wake();}}
+ void setNamespaces(Map<String,String> groups){Map<String,String> next=new LinkedHashMap<>();for(String id:bodies.keySet()){String ns=groups.get(id);if(ns!=null&&!ns.isEmpty())next.put(id,ns);}if(!namespaces.equals(next)){namespaces.clear();namespaces.putAll(next);wake();}}
  Map<String,GraphNamespaces.Circle> namespaceCircles(){Map<String,double[]> points=new LinkedHashMap<>();for(Map.Entry<String,Body> e:bodies.entrySet())points.put(e.getKey(),new double[]{e.getValue().x,e.getValue().y,120});return GraphNamespaces.circles(points,namespaces);}
  private List<String[]> links=new ArrayList<>();
  boolean enabled=true,awake;
@@ -43,13 +43,47 @@ final class GraphPhysics {
   alpha*=.97;if(++steps>=MAX_STEPS||alpha<.003){awake=false;for(Body b:a)b.vx=b.vy=0;}return awake;
  }
  void separateNamespaces(){
-  Map<String,GraphNamespaces.Circle> shapes=namespaceCircles();List<String> ids=new ArrayList<>(shapes.keySet());
-  for(int pass=0;pass<6;pass++)for(int i=0;i<ids.size();i++)for(int j=i+1;j<ids.size();j++){
-   String ia=ids.get(i),ib=ids.get(j);GraphNamespaces.Circle a=shapes.get(ia),b=shapes.get(ib);double dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),overlap=a.r+b.r+40-d;if(overlap<=0)continue;
+  Map<String,GraphNamespaces.Circle> shapes=namespaceCircles();
+  List<String> ids=new ArrayList<>(shapes.keySet());Map<String,String> parents=GraphNamespaces.parents(ids);
+  Map<String,Set<String>> direct=new HashMap<>();
+  for(String child:ids){String parent=parents.get(child);if(parent.isEmpty())continue;
+   if(!direct.containsKey(parent))direct.put(parent,new LinkedHashSet<>(shapes.get(parent).members));
+   direct.get(parent).removeAll(shapes.get(child).members);
+  }
+  for(int pass=0;pass<6;pass++){
+   boolean moved=false;
+   for(int i=ids.size()-1;i>=0;i--){
+    String child=ids.get(i),parent=parents.get(child);if(parent.isEmpty())continue;
+    GraphNamespaces.Circle g=shapes.get(child);
+    for(String id:direct.get(parent)){
+     Body b=bodies.get(id);double dx=b.x-g.x,dy=b.y-g.y,d=Math.hypot(dx,dy),gap=g.r+GraphNamespaces.NEST_MARGIN-d;
+     if(gap<=0)continue;
+     if(d<.001){double angle=(i+1)*2.399963229728653;dx=Math.cos(angle);dy=Math.sin(angle);d=1;}
+     double sx=gap*dx/d,sy=gap*dy/d;
+     if(!b.pinned&&!b.held&&Math.abs(b.x+sx)<=100000&&Math.abs(b.y+sy)<=100000){
+      b.x+=sx;b.y+=sy;b.vx*=.5;b.vy*=.5;moved=true;
+     }else if(groupFree(g)&&translateGroup(g,-sx,-sy)){
+      shiftCircles(shapes,child,-sx,-sy);g=shapes.get(child);moved=true;
+     }
+    }
+   }
+   if(moved)shapes=namespaceCircles();
+   for(int i=0;i<ids.size();i++)for(int j=i+1;j<ids.size();j++){
+   String ia=ids.get(i),ib=ids.get(j);if(!parents.get(ia).equals(parents.get(ib)))continue;
+   GraphNamespaces.Circle a=shapes.get(ia),b=shapes.get(ib);double dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),overlap=a.r+b.r+40-d;if(overlap<=0)continue;
    boolean af=groupFree(a),bf=groupFree(b);int n=(af?1:0)+(bf?1:0);if(n==0)continue;if(d<.001){double angle=(i*31+j+1)*2.399963229728653;dx=Math.cos(angle);dy=Math.sin(angle);d=1;}
    double sx=dx/d*overlap/n,sy=dy/d*overlap/n;
-   if(af&&translateGroup(a,-sx,-sy))shapes.put(ia,new GraphNamespaces.Circle(a.x-sx,a.y-sy,a.r,a.members));
-   if(bf&&translateGroup(b,sx,sy))shapes.put(ib,new GraphNamespaces.Circle(b.x+sx,b.y+sy,b.r,b.members));
+   if(af&&translateGroup(a,-sx,-sy)){shiftCircles(shapes,ia,-sx,-sy);moved=true;}
+   if(bf&&translateGroup(b,sx,sy)){shiftCircles(shapes,ib,sx,sy);moved=true;}
+   }
+   if(!moved)break;
+   // Moving a child changes its parent's envelope; recompute before comparing families again.
+   if(pass<5&&!direct.isEmpty())shapes=namespaceCircles();
+  }
+ }
+ private static void shiftCircles(Map<String,GraphNamespaces.Circle> shapes,String ns,double dx,double dy){
+  for(Map.Entry<String,GraphNamespaces.Circle> entry:shapes.entrySet())if(GraphNamespaces.contains(ns,entry.getKey())){
+   GraphNamespaces.Circle g=entry.getValue();entry.setValue(new GraphNamespaces.Circle(g.x+dx,g.y+dy,g.r,g.members));
   }
  }
  boolean groupFree(GraphNamespaces.Circle group){for(String id:group.members){Body b=bodies.get(id);if(b.pinned||b.held)return false;}return true;}

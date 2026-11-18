@@ -12,8 +12,99 @@ import static org.junit.Assert.*;
 public class GraphNamespaceSceneTest {
  static JSONObject sample() throws Exception {return new JSONObject().put("running",true).put("graph",new JSONObject().put("state","received")).put("nodes",new JSONArray().put("/robo/navigation/planner").put("/robo/navigation/controller").put("/robo/perception/camera")).put("topics",new JSONArray());}
  static JSONObject crowded() throws Exception {JSONArray nodes=new JSONArray();for(int i=0;i<25;i++)nodes.put("/ns"+(i<10?"0":"")+i+"/node");return sample().put("nodes",nodes);}
+ static JSONObject missionSample() throws Exception {
+  return sample().put("nodes",new JSONArray().put("/gb002/mission/coordinator")
+    .put("/gb002/mission/coverage/planner").put("/gb002/mission_extra/worker").put("/root_node"))
+    .put("topics",new JSONArray().put(RosGraphModelTest.topic("/gb002/mission/coverage/status","std_msgs/msg/String",
+    new JSONArray().put(RosGraphModelTest.endpoint("pub","test:coverage",true,"/gb002/mission/coverage/planner"))
+      .put(RosGraphModelTest.endpoint("sub","test:mission",false,"/gb002/mission/coordinator")))));
+ }
+ @Test public void missionBubbleEnclosesCoverageAndKeepsExactNamesAndConnections() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());
+  JSONObject snapshot=missionSample();
+  p.update(snapshot);
+  String coordinator=GraphInteractionTest.named(p,"/gb002/mission/coordinator");
+  String planner=GraphInteractionTest.named(p,"/gb002/mission/coverage/planner");
+  String status=GraphInteractionTest.named(p,"/gb002/mission/coverage/status");
+  String other=GraphInteractionTest.named(p,"/gb002/mission_extra/worker");
+  while(p.physics.awake)p.advancePhysics();
+  Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());
+  GraphNamespaces.Circle mission=groups.get("/gb002/mission"),coverage=groups.get("/gb002/mission/coverage");
+  assertEquals(new LinkedHashSet<>(Arrays.asList(coordinator,planner,status)),mission.members);
+  assertEquals(new LinkedHashSet<>(Arrays.asList(planner,status)),coverage.members);
+  assertTrue("The whole coverage rim belongs inside mission",Math.hypot(coverage.x-mission.x,coverage.y-mission.y)+coverage.r<mission.r);
+  RectF direct=p.positions.get(coordinator);
+  assertTrue("A direct mission node must not appear to belong to coverage",Math.hypot(direct.centerX()-coverage.x,direct.centerY()-coverage.y)>=coverage.r+40);
+  GraphNamespaces.Circle sibling=groups.get("/gb002/mission_extra");
+  assertTrue("A similar prefix is not a child and its envelope must stay separate",Math.hypot(sibling.x-mission.x,sibling.y-mission.y)>=sibling.r+mission.r+39);
+  assertEquals("/gb002/mission/coverage",p.namespaceOfVertex(planner));
+  assertEquals(5,p.vertices.size());assertEquals(2,p.edges.size());
+  p.select("ns:/gb002/mission");assertTrue(p.focused.containsAll(mission.members));assertFalse(p.focused.contains(other));
+  assertEquals(p.edges.keySet(),p.focusedEdges);assertTrue(p.details.getText().toString().contains("/gb002/mission/coverage/status"));
+  p.pinButton.performClick();assertTrue(p.physics.bodies.get(coordinator).pinned);assertTrue(p.physics.bodies.get(planner).pinned);assertFalse(p.physics.bodies.get(other).pinned);
+  snapshot.getJSONArray("nodes").put("/gb002/mission/coverage/new_worker");p.update(snapshot);
+  assertTrue(p.physics.bodies.get(GraphInteractionTest.named(p,"/gb002/mission/coverage/new_worker")).pinned);
+  p.pinButton.performClick();assertFalse(p.physics.bodies.get(planner).pinned);
+ }
  @Test public void filteredNamespaceBeyondRenderCapHasStableAccessibleIdentity() throws Exception {
   RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());JSONObject data=crowded();p.update(data);p.stage.layout(0,0,1100,620);assertEquals(25,p.vertices.size());assertEquals(24,p.namespaceCircles(p.visibleVertices()).size());p.namespace.setText("/ns24");String key="ns:/ns24";android.view.accessibility.AccessibilityNodeProvider provider=p.stage.getAccessibilityNodeProvider();android.view.accessibility.AccessibilityNodeInfo host=provider.createAccessibilityNodeInfo(android.view.View.NO_ID);assertNotNull(host);assertNotNull(p.stage.virtualIds.get(key));int id=p.stage.virtualIds.get(key);assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,null));assertEquals(key,p.selected);assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS,null));p.namespace.setText("");assertEquals(Integer.valueOf(id),p.stage.virtualIds.get(key));p.namespace.setText("/ns24");data.getJSONArray("nodes").put("/ns24/joined");p.update(data);assertEquals(Integer.valueOf(id),p.stage.virtualIds.get(key));assertNotNull(provider.createAccessibilityNodeInfo(id));
+ }
+ static RosGraphPanel zoomedMission() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());
+  p.update(missionSample().put("topics",new JSONArray()));p.physicsToggle.setChecked(false);
+  p.stage.layout(0,0,1100,620);p.stage.scale=.20f;p.stage.tx=150;p.stage.ty=230;
+  for(String id:p.positions.keySet()){
+   float x=p.label(id).endsWith("/planner")?250:p.label(id).endsWith("/coordinator")?620:p.label(id).endsWith("/worker")?2500:3500;
+   p.positions.get(id).offsetTo(x-130,-34);p.physics.move(id,x,0);
+  }
+  return p;
+ }
+ static void tap(RosGraphPanel.Stage stage,float x,float y){
+  long t=android.os.SystemClock.uptimeMillis();for(int action:new int[]{android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP}){
+   android.view.MotionEvent e=android.view.MotionEvent.obtain(t,t,action,x,y,0);stage.onTouchEvent(e);e.recycle();
+  }
+ }
+ @Test public void exactChildRimWinsTouchAndDragWhenParentRimIsWithinTouchSlop() throws Exception {
+  RosGraphPanel p=zoomedMission();String name="/gb002/mission/coverage",parent="/gb002/mission";
+  Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());
+  GraphNamespaces.Circle c=groups.get(name),m=groups.get(parent);
+  float x=(float)(c.x-c.r)*p.stage.scale+p.stage.tx,y=(float)c.y*p.stage.scale+p.stage.ty;
+  assertTrue(Math.abs((c.x-c.r)-(m.x-m.r))*p.stage.scale<p.dp(12));
+  tap(p.stage,x,y);assertEquals("ns:"+name,p.selected);
+  String planner=GraphInteractionTest.named(p,name+"/planner"),coordinator=GraphInteractionTest.named(p,parent+"/coordinator");
+  RectF direct=new RectF(p.positions.get(coordinator));float before=p.positions.get(planner).centerX(),pan=p.stage.tx;
+  GraphInteractionTest.gesture(p.stage,x,y,-35,35);
+  assertEquals(direct,p.positions.get(coordinator));assertEquals(before-35/p.stage.scale,p.positions.get(planner).centerX(),.01);assertEquals(pan,p.stage.tx,0);
+ }
+ @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void namespaceTitleHitUsesItsDrawnFallbackPosition() throws Exception {
+  RosGraphPanel p=zoomedMission();p.stage.ty=29;String key="ns:/gb002/mission/coverage";
+  Bitmap bm=Bitmap.createBitmap(1100,620,Bitmap.Config.ARGB_8888);p.stage.draw(new Canvas(bm));
+  RectF drawn=p.stage.labelRects.get(key);assertNotNull(drawn);
+  assertTrue("Title must use a fallback below the center",drawn.centerY()>0);
+  tap(p.stage,(drawn.right-2)*p.stage.scale+p.stage.tx,(drawn.bottom-2)*p.stage.scale+p.stage.ty);
+  assertEquals(key,p.selected);bm.recycle();
+ }
+ @Test public void childNamespaceAndNodesStayFixedAndExplainTheirInheritedPin() throws Exception {
+  RosGraphPanel p=zoomedMission();String parent="ns:/gb002/mission",child="ns:/gb002/mission/coverage";
+  String planner=GraphInteractionTest.named(p,"/gb002/mission/coverage/planner");
+  p.select(child);p.pinButton.performClick();p.select(parent);p.pinButton.performClick();
+  p.select(child);assertTrue(p.pinButton.isEnabled());p.pinButton.performClick();
+  assertFalse(p.pinButton.isEnabled());assertTrue(p.pinButton.getText().toString().contains("Fixado pelo namespace"));
+  assertTrue(p.physics.bodies.get(planner).pinned);
+  RectF before=new RectF(p.positions.get(planner)),screen=p.stage.screenRect(planner);float pan=p.stage.tx;
+  GraphInteractionTest.gesture(p.stage,screen.centerX(),screen.centerY(),35,25);
+  assertEquals(before,p.positions.get(planner));assertEquals(pan,p.stage.tx,0);
+  p.select(parent);p.pinButton.performClick();assertFalse(p.physics.bodies.get(planner).pinned);
+ }
+ @Test public void namespaceShownByOnlyFocusRemainsSelectableWhenBeyondOverviewCap() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());p.update(crowded());p.stage.layout(0,0,1100,620);
+  String key="ns:/ns24",node=GraphInteractionTest.named(p,"/ns24/node");
+  assertFalse(p.namespaceCircles(p.visibleVertices()).containsKey("/ns24"));
+  p.select(node);p.onlyFocus.setChecked(true);
+  int id=p.stage.virtualIds.get(key);android.view.accessibility.AccessibilityNodeProvider provider=p.stage.getAccessibilityNodeProvider();
+  assertNotNull(provider.createAccessibilityNodeInfo(id));assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,null));
+  assertEquals(key,p.selected);assertEquals(Collections.singleton(node),p.visibleVertices());assertNotNull(provider.createAccessibilityNodeInfo(id));
+  p.onlyFocus.setChecked(false);assertTrue(p.namespaceCircles(p.visibleVertices()).containsKey("/ns24"));
  }
  @Test public void filteredNamespacePinSurvivesTheRenderCapAndRetiresOnlyOnRealRemoval() throws Exception {
   RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());JSONObject data=crowded();p.update(data);p.namespace.setText("/ns24");String key="ns:/ns24";p.select(key);p.pinButton.performClick();assertTrue(p.pinnedNamespaces.contains(key));String original=GraphInteractionTest.named(p,"/ns24/node");assertTrue(p.physics.bodies.get(original).pinned);data.getJSONArray("nodes").put("/ns24/joined");p.update(data);assertTrue("A rendering cap must not retire a live group pin",p.pinnedNamespaces.contains(key));assertEquals(key,p.selected);assertTrue(p.physics.bodies.get(original).pinned);assertTrue(p.physics.bodies.get(GraphInteractionTest.named(p,"/ns24/joined")).pinned);p.namespace.setText("");assertTrue(p.physics.bodies.get(original).pinned);p.namespace.setText("/ns24");JSONObject removed=sample().put("nodes",new JSONArray().put("/ns00/node"));p.update(removed);assertFalse(p.pinnedNamespaces.contains(key));assertEquals("",p.selected);assertFalse(p.stage.virtualIds.containsKey(key));
