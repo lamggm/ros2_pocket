@@ -1,7 +1,7 @@
 # Refresh pins explicitly; missing exact packages must fail rather than float.
 FROM ros:jazzy-ros-base-noble@sha256:103b6c417973394659af6804d4917cd489b91e5ed22eb7bef263025a3bed2410
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-jazzy-rmw-cyclonedds-cpp=2.2.4-1noble.20260911.095700 \
+    ros-jazzy-rmw-cyclonedds-cpp=2.2.4-1noble.20261105.063358 \
     ros-jazzy-cyclonedds=0.10.5-1noble.20260225.142613 \
     ros-jazzy-iceoryx-binding-c=2.0.6-1noble.20260225.140829 \
     ros-jazzy-iceoryx-hoofs=2.0.6-1noble.20260225.055330 \
