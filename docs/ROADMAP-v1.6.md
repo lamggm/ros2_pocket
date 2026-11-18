@@ -1,6 +1,6 @@
 # ROS Pocket v1.6 — grafo hierárquico
 
-Primeiro incremento, a partir da v1.5.0 publicada: a bolha de um namespace presente no grafo inclui seus subnamespaces visíveis. Por exemplo, `/gb002/mission/coverage` fica dentro de `/gb002/mission`, junto dos membros diretos. `/gb002/mission_extra` continua separado. Não são criados nós ou namespaces-pai fictícios quando o caminho existe apenas como prefixo; `/` continua sendo o grupo dos membros diretos da raiz.
+Primeiro incremento, a partir da v1.5.0 publicada: a bolha de um namespace inclui seus subnamespaces visíveis. `/gb002/mission/coverage` fica dentro de `/gb002/mission`, junto dos membros diretos, e `/gb002/mission_extra` continua separado. Um prefixo comum que se ramifica também vira bolha, mesmo sem nó ou tópico direto: `/gb002/navigation` reúne, por exemplo, `sensors`, `path_follower` e o ramo `teleop`. Prefixos intermediários com um único ramo e nenhum membro direto não ganham contornos redundantes. Isso não cria nós ou tópicos ROS; `/` continua sendo o grupo dos membros diretos da raiz.
 
 As conexões Pub/Sub e os nomes ROS completos são os mesmos. Seleção, destaque, arraste e fixação do grupo-pai incluem seus descendentes; a sub-bolha pode ser selecionada pela própria borda ou pelo título, inclusive com zoom reduzido. Descendentes fixados pelo pai indicam a origem da fixação e não são deslocados individualmente. A separação por forças mantém bolhas irmãs apartadas e evita que membros diretos pareçam pertencer à sub-bolha. O limite de bolhas não remove vértices nem conexões.
 

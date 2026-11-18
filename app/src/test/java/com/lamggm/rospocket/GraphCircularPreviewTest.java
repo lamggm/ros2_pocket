@@ -23,7 +23,7 @@ public class GraphCircularPreviewTest {
  void render(int width,int height,String label) throws Exception {
   ConnectionActivityTest f=new ConnectionActivityTest();f.setup();try{
    JSONObject sample=galaxy();f.bridge.snapshot=new JSONObject(f.bridge.snapshot).put("graph",sample.getJSONObject("graph")).put("topics",sample.getJSONArray("topics")).put("nodes",sample.getJSONArray("nodes")).toString();f.tick();f.paint();f.a.findViewById(R.id.nav_graph).performClick();RosGraphPanel p=(RosGraphPanel)f.get("rosGraph");View root=f.a.getWindow().getDecorView().findViewWithTag("app-root");File dir=new File("build/reports/graph-circular-v13");assertTrue(dir.isDirectory()||dir.mkdirs());int starts=f.bridge.starts,stops=f.bridge.stops,readers=f.bridge.subscriptions;
-   while(p.physics.awake)p.advancePhysics();assertEquals(31,p.vertices.size());assertEquals(5,p.namespaceCircles(p.visibleVertices()).size());
+   while(p.physics.awake)p.advancePhysics();assertEquals(31,p.vertices.size());assertEquals(6,p.namespaceCircles(p.visibleVertices()).size());
    for(String theme:new String[]{"dark","light"}){UiTheme.save(f.a,theme);f.a.applyAppearance();p.select("");RosoutPresentationTest.layout(f.a.getWindow().getDecorView(),width,height);RosoutPresentationTest.layout(root,width,height);p.stage.fit(false);GraphPreviewTest.image(root,new File(dir,label+"-overview-"+theme+"-host-synthetic.png"),width,height);
     if(width>=1000){p.select("ns:/robo/navigation");RosoutPresentationTest.layout(root,width,height);p.stage.fit(false);GraphPreviewTest.image(root,new File(dir,label+"-namespace-"+theme+"-host-synthetic.png"),width,height);}
    }
@@ -38,6 +38,15 @@ public class GraphCircularPreviewTest {
   GraphPreviewTest.image(p.stage,new File(dir,"mission-tablet-host-synthetic.png"),1280,680);
   assertTrue(p.stage.labelRects.containsKey("ns:/gb002/mission"));
   assertTrue(p.stage.labelRects.containsKey("ns:/gb002/mission/coverage"));
+ }
+ @Test public void nativeTabletShowsNavigationAndTeleopParentsWithoutDirectNodes() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(org.robolectric.RuntimeEnvironment.getApplication());
+  p.update(GraphNamespaceSceneTest.navigationSample(false));while(p.physics.awake)p.advancePhysics();
+  p.stage.layout(0,0,1280,680);p.stage.fit(false);
+  File dir=new File("build/reports/graph-hierarchy");assertTrue(dir.isDirectory()||dir.mkdirs());
+  GraphPreviewTest.image(p.stage,new File(dir,"navigation-tablet-overview-host-synthetic.png"),1280,680);
+  assertTrue(p.stage.labelRects.containsKey("ns:/gb002/navigation"));
+  assertTrue(p.stage.labelRects.containsKey("ns:/gb002/navigation/teleop"));
  }
  @Test public void nativeTabletCircularGalaxyBothThemes() throws Exception {render(1280,850,"tablet");}
  @Test @Config(qualifiers="w412dp-h850dp") public void nativePhoneCircularGalaxyBothThemes() throws Exception {render(412,850,"phone");}

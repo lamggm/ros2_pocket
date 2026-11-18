@@ -46,6 +46,44 @@ public class GraphNamespaceSceneTest {
   assertTrue(p.physics.bodies.get(GraphInteractionTest.named(p,"/gb002/mission/coverage/new_worker")).pinned);
   p.pinButton.performClick();assertFalse(p.physics.bodies.get(planner).pinned);
  }
+ static JSONObject navigationSample(boolean crowded) throws Exception {
+  JSONObject data=missionSample();JSONArray names=data.getJSONArray("nodes");
+  if(crowded)for(int i=0;i<24;i++)names.put(String.format(Locale.ROOT,"/a%02d/node",i));
+  names.put("/gb002/navigation/sensors/scan_adapter").put("/gb002/navigation/path_follower/follower")
+    .put("/gb002/navigation/teleop/joy_selector/selector").put("/gb002/navigation/teleop/api_teleop/adapter")
+    .put("/gb002/navigation/teleop/joy_to_twist/converter").put("/gb002/navigation_extra/worker");
+  data.getJSONArray("topics").put(RosGraphModelTest.topic("/gb002/navigation/sensors/scan","sensor_msgs/msg/LaserScan",
+    new JSONArray().put(RosGraphModelTest.endpoint("scan-pub","test:sensors",true,"/gb002/navigation/sensors/scan_adapter"))
+      .put(RosGraphModelTest.endpoint("scan-sub","test:path",false,"/gb002/navigation/path_follower/follower"))));
+  return data;
+ }
+ @Test public void navigationWithoutDirectMembersContainsEveryBranchInTheUnfilteredView() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());p.update(navigationSample(false));while(p.physics.awake)p.advancePhysics();
+  String nav="/gb002/navigation",teleop=nav+"/teleop"; Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());
+  GraphNamespaces.Circle parent=groups.get(nav);assertNotNull("Navigation needs its own bubble even without direct vertices",parent);
+  for(String child:Arrays.asList(nav+"/sensors",nav+"/path_follower",teleop,teleop+"/joy_selector",teleop+"/api_teleop",teleop+"/joy_to_twist")){
+   GraphNamespaces.Circle c=groups.get(child),owner=child.startsWith(teleop+"/")?groups.get(teleop):parent;
+   assertNotNull(child,c);assertTrue(child,Math.hypot(c.x-owner.x,c.y-owner.y)+c.r<owner.r);
+  }
+  assertEquals(6,parent.members.size());assertEquals(3,groups.get(teleop).members.size());
+  assertFalse(parent.members.contains(GraphInteractionTest.named(p,"/gb002/navigation_extra/worker")));
+  assertEquals(12,p.vertices.size());assertEquals(4,p.edges.size());
+  p.namespace.setText(nav);assertEquals("Filter by whole path segments, not text prefix",parent.members,p.visibleVertices());
+  assertEquals(4,p.edges.size());
+ }
+ @Test public void inferredParentGetsAnAccessibleSlotAheadOfLeafOnlyGroupsAndKeepsItsPin() throws Exception {
+  RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());JSONObject snapshot=navigationSample(true);p.update(snapshot);p.stage.layout(0,0,1100,620);
+  String nav="/gb002/navigation",key="ns:"+nav;
+  Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());assertEquals(GraphNamespaces.MAX_GROUPS,groups.size());
+  assertNotNull("The overview cap must not starve a parent branch",groups.get(nav));assertEquals(6,groups.get(nav).members.size());
+  assertNotNull(p.stage.virtualIds.get(key));int id=p.stage.virtualIds.get(key);android.view.accessibility.AccessibilityNodeProvider provider=p.stage.getAccessibilityNodeProvider();
+  assertNotNull(provider.createAccessibilityNodeInfo(id));assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,null));
+  assertEquals(key,p.selected);p.pinButton.performClick();assertTrue(p.pinnedNamespaces.contains(key));
+  snapshot.getJSONArray("nodes").put(nav+"/other_module/joined");p.update(snapshot);
+  assertEquals(Integer.valueOf(id),p.stage.virtualIds.get(key));assertEquals(key,p.selected);assertTrue(p.physics.bodies.get(GraphInteractionTest.named(p,nav+"/other_module/joined")).pinned);
+  assertFalse(p.physics.bodies.get(GraphInteractionTest.named(p,"/gb002/navigation_extra/worker")).pinned);
+  p.update(sample());assertFalse(p.stage.virtualIds.containsKey(key));assertFalse(p.pinnedNamespaces.contains(key));
+ }
  @Test public void filteredNamespaceBeyondRenderCapHasStableAccessibleIdentity() throws Exception {
   RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());JSONObject data=crowded();p.update(data);p.stage.layout(0,0,1100,620);assertEquals(25,p.vertices.size());assertEquals(24,p.namespaceCircles(p.visibleVertices()).size());p.namespace.setText("/ns24");String key="ns:/ns24";android.view.accessibility.AccessibilityNodeProvider provider=p.stage.getAccessibilityNodeProvider();android.view.accessibility.AccessibilityNodeInfo host=provider.createAccessibilityNodeInfo(android.view.View.NO_ID);assertNotNull(host);assertNotNull(p.stage.virtualIds.get(key));int id=p.stage.virtualIds.get(key);assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,null));assertEquals(key,p.selected);assertTrue(provider.performAction(id,android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS,null));p.namespace.setText("");assertEquals(Integer.valueOf(id),p.stage.virtualIds.get(key));p.namespace.setText("/ns24");data.getJSONArray("nodes").put("/ns24/joined");p.update(data);assertEquals(Integer.valueOf(id),p.stage.virtualIds.get(key));assertNotNull(provider.createAccessibilityNodeInfo(id));
  }
@@ -130,7 +168,7 @@ public class GraphNamespaceSceneTest {
  }
  @Test public void namespaceCircleIsSelectableWithoutInventingRuntimeVerticesOrPackages() throws Exception {
   RosGraphPanel p=new RosGraphPanel(RuntimeEnvironment.getApplication());p.update(sample());p.stage.layout(0,0,1100,620);while(p.physics.awake)p.advancePhysics();
-  Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());assertEquals(2,groups.size());assertEquals(2,groups.get("/robo/navigation").members.size());assertEquals(3,p.vertices.size());for(JSONObject v:p.vertices.values())assertEquals("node",v.optString("kind"));
+  Map<String,GraphNamespaces.Circle> groups=p.namespaceCircles(p.visibleVertices());assertEquals(new LinkedHashSet<>(Arrays.asList("/robo","/robo/navigation","/robo/perception")),groups.keySet());assertEquals(2,groups.get("/robo/navigation").members.size());assertEquals(3,p.vertices.size());for(JSONObject v:p.vertices.values())assertEquals("node",v.optString("kind"));
   Map<String,RectF> before=new LinkedHashMap<>();for(String id:p.positions.keySet())before.put(id,new RectF(p.positions.get(id)));int steps=p.physics.steps;
   p.select("ns:/robo/navigation");assertEquals("ns:/robo/navigation",p.selected);assertTrue(p.selection.getText().toString().contains("Namespace"));assertTrue(p.details.getText().toString().contains("/robo/navigation"));assertTrue(p.details.getText().toString().contains("não"));assertEquals(before,p.positions);assertEquals(steps,p.physics.steps);assertFalse(p.physics.awake);
  }

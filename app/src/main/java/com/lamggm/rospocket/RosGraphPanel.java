@@ -91,21 +91,19 @@ final class RosGraphPanel extends LinearLayout {
     if(physics.enabled){double angle=positions.size()*2.399963229728653;float cx=520,cy=280;int neighbors=0;float sx=0,sy=0;for(JSONObject e:edges.values()){String other=id.equals(e.optString("from"))?e.optString("to"):id.equals(e.optString("to"))?e.optString("from"):"";RectF anchor=positions.get(other);if(anchor!=null){sx+=anchor.centerX();sy+=anchor.centerY();neighbors++;}}double radius=neighbors>0?260:140*Math.sqrt(positions.size());if(neighbors>0){cx=sx/neighbors;cy=sy/neighbors;}float nx=cx+(float)(Math.cos(angle)*radius),ny=cy+(float)(Math.sin(angle)*radius);positions.put(id,new RectF(nx-130,ny-34,nx+130,ny+34));}
     else positions.put(id,new RectF(x,72+row*100,x+260,140+row*100));
    }
-   Set<String> liveNamespaces=new HashSet<>();for(String ns:namespaceMembership(vertices.keySet()).values())liveNamespaces.add("ns:"+ns);pinnedNamespaces.retainAll(liveNamespaces);
+   Set<String> liveNamespaces=namespaceIdentities(vertices.keySet());pinnedNamespaces.removeIf(key->!liveNamespaces.contains(key.substring(3)));
    syncPhysics();schedulePhysics();boolean first=stage.needsFit;select(selectionExists(selected)?selected:"");if(first)stage.fit(false);
   }catch(JSONException ex){clear("Grafo indisponível · resposta inválida");}
  }
  String namespaceOfVertex(String id){JSONObject v=vertices.get(id);if(v==null||!("node".equals(v.optString("kind"))||"topic".equals(v.optString("kind"))))return "";return GraphNamespaces.namespaceOf(v.optString("label"));}
  Map<String,String> namespaceMembership(Set<String> ids){Map<String,String> result=new LinkedHashMap<>();for(String id:ids){String ns=namespaceOfVertex(id);if(!ns.isEmpty())result.put(id,ns);}return result;}
+ Set<String> namespaceIdentities(Set<String> ids){return GraphNamespaces.identities(namespaceMembership(ids).values());}
  Map<String,GraphNamespaces.Circle> namespaceCircles(Set<String> ids){return namespaceCircles(ids,selected);}
  Map<String,GraphNamespaces.Circle> namespaceCircles(Set<String> ids,String preferred){
-  Map<String,String> membership=namespaceMembership(ids);Map<String,double[]> points=new LinkedHashMap<>();
-  // A group picked from a filtered view retains its slot across the overview cap.
-  if(preferred.startsWith("ns:")){String ns=preferred.substring(3);for(String id:ids)if(ns.equals(membership.get(id)))addNamespacePoint(points,id);}
-  for(String id:ids)if(!points.containsKey(id))addNamespacePoint(points,id);
-  return GraphNamespaces.circles(points,membership);
+  Map<String,double[]> points=new LinkedHashMap<>();
+  for(String id:ids){RectF r=positions.get(id);if(r!=null)points.put(id,new double[]{r.centerX(),r.centerY(),120});}
+  return GraphNamespaces.circles(points,namespaceMembership(ids),preferred.startsWith("ns:")?preferred.substring(3):"");
  }
- void addNamespacePoint(Map<String,double[]> points,String id){RectF r=positions.get(id);if(r!=null)points.put(id,new double[]{r.centerX(),r.centerY(),120});}
  GraphNamespaces.Circle selectedNamespace(String key){return key.startsWith("ns:")?namespaceCircles(baseVisibleVertices(),key).get(key.substring(3)):null;}
  boolean selectionExists(String key){return baseVisibleVertices().contains(key)||edges.containsKey(key)||selectedNamespace(key)!=null;}
  void syncPhysics(){Map<String,double[]> seeds=new LinkedHashMap<>();Set<String> ids=baseVisibleVertices();for(String id:ids){RectF r=positions.get(id);if(r!=null)seeds.put(id,new double[]{r.centerX(),r.centerY()});}List<String[]> connections=new ArrayList<>();for(JSONObject e:edges.values())if(edgeVisible(e,ids))connections.add(new String[]{e.optString("from"),e.optString("to")});physics.sync(seeds,connections);physics.setNamespaces(namespaceMembership(ids));applyPins();}
@@ -127,7 +125,9 @@ final class RosGraphPanel extends LinearLayout {
    Set<String> hidden=new HashSet<>();for(JSONObject v:vertices.values())if("topic".equals(v.optString("kind"))&&Arrays.asList("/rosout","/parameter_events").contains(v.optString("label")))hidden.add(v.optString("id"));ids.removeAll(hidden);
    for(JSONObject v:vertices.values())if(!"topic".equals(v.optString("kind"))){boolean any=false,shown=false;for(JSONObject e:edges.values())if(v.optString("id").equals(e.optString("from"))||v.optString("id").equals(e.optString("to"))){any=true;if(!hidden.contains(e.optString("topic")))shown=true;}if(any&&!shown)ids.remove(v.optString("id"));}
   }
-  String ns=namespace==null?"":namespace.getText().toString().trim();if(!ns.isEmpty())ids.removeIf(id->!label(id).startsWith(ns));return ids;
+  String ns=namespace==null?"":namespace.getText().toString().trim();if(!ns.isEmpty()){
+   String prefix=ns.endsWith("/")?ns:ns+"/";ids.removeIf(id->!(label(id).equals(ns)||label(id).startsWith(prefix)));
+  }return ids;
  }
  boolean edgeVisible(JSONObject e,Set<String> ids){return ids.contains(e.optString("from"))&&ids.contains(e.optString("to"));}
  void select(String id){
@@ -175,7 +175,7 @@ final class RosGraphPanel extends LinearLayout {
   float glyphRadius(JSONObject v){return Math.max(radius(v),dp("package".equals(v.optString("kind"))?11:"topic".equals(v.optString("kind"))?6:7)/scale);}
   Stage(Context c){super(c);setBackgroundColor(BG);setFocusable(true);setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);setContentDescription("Topologia ROS interativa. Toque para destacar conexões.");pinch=new ScaleGestureDetector(c,new ScaleGestureDetector.SimpleOnScaleGestureListener(){@Override public boolean onScale(ScaleGestureDetector d){float old=scale;scale=Math.max(.02f,Math.min(4,scale*d.getScaleFactor()));tx=d.getFocusX()-(d.getFocusX()-tx)*scale/old;ty=d.getFocusY()-(d.getFocusY()-ty)*scale/old;scaling=true;moved=true;invalidate();return true;}});}
   void virtualEvent(int id,int type){if(getParent()==null)return;AccessibilityEvent event=AccessibilityEvent.obtain(type);event.setSource(this,id);event.setPackageName(getContext().getPackageName());event.setClassName("android.widget.Button");getParent().requestSendAccessibilityEvent(this,event);}
-  Set<String> interactiveKeys(boolean all){Set<String> ids=all?new LinkedHashSet<>(vertices.keySet()):visibleVertices();Set<String> keys=new LinkedHashSet<>(ids);Collection<String> namespaces=all?new LinkedHashSet<>(namespaceMembership(ids).values()):namespaceCircles(ids).keySet();for(String ns:namespaces)keys.add("ns:"+ns);return keys;}
+  Set<String> interactiveKeys(boolean all){Set<String> ids=all?new LinkedHashSet<>(vertices.keySet()):visibleVertices();Set<String> keys=new LinkedHashSet<>(ids);Collection<String> namespaces=all?namespaceIdentities(ids):namespaceCircles(ids).keySet();for(String ns:namespaces)keys.add("ns:"+ns);return keys;}
   boolean accessibilityFocused(String key){Integer id=virtualIds.get(key);return id!=null&&id==accessibilityFocus;}
   void changed(){Set<String> visible=interactiveKeys(false),all=interactiveKeys(true);boolean keepFocus=false,keepHover=false;for(String k:visible){Integer id=virtualIds.get(k);if(id!=null&&id==accessibilityFocus)keepFocus=true;if(id!=null&&id==hovered)keepHover=true;}if(!keepFocus&&accessibilityFocus!=-1){virtualEvent(accessibilityFocus,AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED);accessibilityFocus=-1;}if(!keepHover&&hovered!=-1){virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);hovered=-1;}virtualIds.keySet().retainAll(all);for(String id:all)if(!virtualIds.containsKey(id))virtualIds.put(id,nextVirtual++);sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);}
   @Override public boolean dispatchHoverEvent(MotionEvent e){AccessibilityManager manager=(AccessibilityManager)getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);if(!manager.isEnabled()||!manager.isTouchExplorationEnabled())return super.dispatchHoverEvent(e);if(e.getActionMasked()!=MotionEvent.ACTION_HOVER_ENTER&&e.getActionMasked()!=MotionEvent.ACTION_HOVER_MOVE&&e.getActionMasked()!=MotionEvent.ACTION_HOVER_EXIT)return super.dispatchHoverEvent(e);String key=e.getActionMasked()==MotionEvent.ACTION_HOVER_EXIT?"":hit(e.getX(),e.getY());int next=virtualIds.containsKey(key)?virtualIds.get(key):-1;if(next!=hovered){if(hovered!=-1)virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);hovered=next;if(hovered!=-1)virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_ENTER);}return next!=-1||e.getActionMasked()==MotionEvent.ACTION_HOVER_EXIT;}
