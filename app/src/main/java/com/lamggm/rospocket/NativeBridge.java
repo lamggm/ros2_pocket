@@ -35,6 +35,9 @@ final class NativeBridge {
    return "{\"ok\":false,\"error\":\"Formato visual indisponível nesta ponte\"}".getBytes(StandardCharsets.UTF_8);
   }
   default byte[] pollSensor(){return new byte[0];}
+  default byte[] startCamera(int d,String a,String p,String w,String t,String m,String f){return "{\"ok\":false,\"error\":\"Leitor de câmera indisponível\"}".getBytes(StandardCharsets.UTF_8);}
+  default byte[] pollCamera(){return new byte[0];}
+  default void stopCamera() {}
   default byte[] startMap(int d,String a,String p,String w,boolean r,boolean t,String m,String f){return "{\"ok\":false,\"error\":\"Leitor de mapa indisponível\"}".getBytes(StandardCharsets.UTF_8);}
   default byte[] startLocationTf(int d,String a,String p,String dynamic,String fixed,String m,String f){return "{\"ok\":false,\"error\":\"TF de localização indisponível\"}".getBytes(StandardCharsets.UTF_8);}
   default void stopSensor() {}
@@ -62,6 +65,9 @@ final class NativeBridge {
   public byte[] startSensorWithNetworkMode(int d,String a,String p,String w,String t,String m){return NativeBridge.startSensorWithNetworkMode(d,a,p,w,t,m);}
   public byte[] startSensorConfigured(int d,String a,String p,String w,String t,String m,String f){return NativeBridge.startSensorConfigured(d,a,p,w,t,m,f);}
   public byte[] pollSensor(){return NativeBridge.pollSensor();}
+  public byte[] startCamera(int d,String a,String p,String w,String t,String m,String f){return NativeBridge.startCamera(d,a,p,w,t,m,f);}
+  public byte[] pollCamera(){return NativeBridge.pollCamera();}
+  public void stopCamera(){NativeBridge.stopCamera();}
   public byte[] startMap(int d,String a,String p,String w,boolean r,boolean t,String m,String f){return NativeBridge.startMap(d,a,p,w,r,t,m,f);}
   public byte[] startLocationTf(int d,String a,String p,String dynamic,String fixed,String m,String f){return NativeBridge.startLocationTf(d,a,p,dynamic,fixed,m,f);}
   public void stopSensor(){NativeBridge.stopSensor();}
@@ -87,6 +93,9 @@ final class NativeBridge {
  static native byte[] startSensorWithNetworkMode(int d,String a,String p,String w,String t,String mode);
  static native byte[] startSensorConfigured(int d,String a,String p,String w,String t,String mode,String format);
  static native byte[] pollSensor();
+ static native byte[] startCamera(int d,String a,String p,String w,String t,String m,String f);
+ static native byte[] pollCamera();
+ static native void stopCamera();
  static native byte[] startMap(int d,String a,String p,String w,boolean r,boolean t,String m,String f);
  static native byte[] startLocationTf(int d,String a,String p,String dynamic,String fixed,String m,String f);
  static native void stopSensor();

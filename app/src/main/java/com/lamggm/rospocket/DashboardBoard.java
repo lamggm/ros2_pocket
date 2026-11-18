@@ -35,12 +35,13 @@ final class DashboardBoard extends LinearLayout {
  private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
  private float font(){return Math.max(1,getResources().getConfiguration().fontScale);}
  void addCard(String id,String title,View view,Sizing size){if(!DashboardLayout.IDS.contains(id)||grid.cards.containsKey(id))throw new IllegalArgumentException("Card duplicado ou desconhecido");grid.register(id,title,view,size);}
+ void closePreviews(){for(Card c:grid.cards.values())if(c.content instanceof DashboardPreview)((DashboardPreview)c.content).close();}
  TextView summary(){return summary;}
  DashboardLayout layout(){return editing()?draft:committed;}
  DashboardLayout savedLayout(){return committed;}
- void bind(DashboardLayout layout,Persistence save){cancel();committed=java.util.Objects.requireNonNull(layout);persistence=save;changed();}
+ void bind(DashboardLayout layout,Persistence save){closePreviews();cancel();committed=java.util.Objects.requireNonNull(layout);persistence=save;changed();}
  boolean editing(){return editOwner!=null;}
- void edit(){if(disposed||editing())return;draft=committed.project(Math.max(1,grid.columns));editOwner=new Object();editButton.setVisibility(GONE);controls.setVisibility(VISIBLE);notice.setVisibility(VISIBLE);changed();}
+ void edit(){if(disposed||editing())return;closePreviews();draft=committed.project(Math.max(1,grid.columns));editOwner=new Object();editButton.setVisibility(GONE);controls.setVisibility(VISIBLE);notice.setVisibility(VISIBLE);changed();}
  void cancel(){if(!editing())return;endEdit();}
  private void reset(){if(editing()){draft=DashboardLayout.defaults();changed();notice.setText(persistenceUncertain?UNCERTAIN:"Padrão no rascunho · Salve para aplicar");}}
  private void endEdit(){if(options!=null){options.dismiss();options=null;}draft=null;editOwner=null;editButton.setVisibility(VISIBLE);controls.setVisibility(GONE);notice.setVisibility(persistenceUncertain?VISIBLE:GONE);if(persistenceUncertain)notice.setText(UNCERTAIN);changed();}
@@ -108,8 +109,8 @@ final class DashboardBoard extends LinearLayout {
   private final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
   Grid(Context c){super(c);setTag("dashboard-grid");setWillNotDraw(false);setOnDragListener((v,e)->dragEvent(e));}
   int rowUnit(String id){return unit;}
-  void register(String id,String title,View view,Sizing size){Card card=new Card(id,title,view,size);cards.put(id,card);addView(view,new ViewGroup.LayoutParams(-1,-1));addView(card.manualTitle,new ViewGroup.LayoutParams(-1,-1));addView(card.overlay,new ViewGroup.LayoutParams(-1,-1));refresh();}
-  void refresh(){if(!editing())clearDrag();for(Card c:cards.values()){c.overlay.setVisibility(editing()?VISIBLE:GONE);c.content.setImportantForAccessibility(editing()?IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS:c.accessibility);DashboardLayout.Item item=DashboardBoard.this.layout().get(c.id);if(c.content instanceof MetricCard){((MetricCard)c.content).display(item.display);((MetricCard)c.content).title(item.name);}c.manualTitle.setVisibility(!(c.content instanceof MetricCard)&&!item.name.isEmpty()?VISIBLE:GONE);c.manualTitle.setText(item.name);c.label.setText((item.name.isEmpty()?c.title:item.name)+"\n"+item.width+" × "+item.height);}requestLayout();invalidate();}
+  void register(String id,String title,View view,Sizing size){Card card=new Card(id,title,view,size);cards.put(id,card);addView(view,new ViewGroup.LayoutParams(-1,-1));if(!(view instanceof DashboardPreview))addView(card.manualTitle,new ViewGroup.LayoutParams(-1,-1));addView(card.overlay,new ViewGroup.LayoutParams(-1,-1));refresh();}
+  void refresh(){if(!editing())clearDrag();for(Card c:cards.values()){c.overlay.setVisibility(editing()?VISIBLE:GONE);c.content.setImportantForAccessibility(editing()?IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS:c.accessibility);DashboardLayout.Item item=DashboardBoard.this.layout().get(c.id);if(c.content instanceof MetricCard){((MetricCard)c.content).display(item.display);((MetricCard)c.content).title(item.name);}if(c.content instanceof DashboardPreview)((DashboardPreview)c.content).alias(item.name);c.manualTitle.setVisibility(!(c.content instanceof MetricCard)&&!(c.content instanceof DashboardPreview)&&!item.name.isEmpty()?VISIBLE:GONE);c.manualTitle.setText(item.name);c.label.setText((item.name.isEmpty()?c.title:item.name)+"\n"+item.width+" × "+item.height);}requestLayout();invalidate();}
   private ScrollView scrollingParent(){for(android.view.ViewParent p=getParent();p!=null;p=p.getParent())if(p instanceof ScrollView)return (ScrollView)p;return null;}
   private void scheduleScroll(){if(scrollDirection!=0&&!scrollScheduled){scrollScheduled=true;postDelayed(scrollTick,32);}}
   private final Runnable scrollTick=new Runnable(){public void run(){scrollScheduled=false;if(active==null||!editing()||active.owner!=editOwner)return;ScrollView p=scrollingParent();if(p==null||scrollDirection==0)return;int before=p.getScrollY();p.scrollBy(0,scrollDirection*dp(12));int moved=p.getScrollY()-before;if(moved!=0){dragY+=moved;updateDrop();scheduleScroll();}}};

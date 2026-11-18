@@ -19,7 +19,8 @@ public class GraphProvenanceViewTest {
   View chart=v.findViewById(R.id.plot_chart);chart.layout(0,0,800,300);
   Bitmap image=Bitmap.createBitmap(800,300,Bitmap.Config.ARGB_8888);chart.draw(new Canvas(image));
   for(int color:new int[]{PlotView.COLORS[0],PlotView.COLORS[1]}){
-   int pixels=0;for(int y=40;y<265;y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)pixels++;
+   // The plot now starts just below its in-viewport title. Exclude the legend below the axis.
+   int pixels=0;for(int y=0;y<265;y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)pixels++;
    assertTrue("both genuine series reach Canvas",pixels>0);
   }
  }

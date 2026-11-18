@@ -9,8 +9,10 @@ public class LocationActivityTest {
  static final class Maps extends ConnectionActivityTest.Fake {
   int mapStarts,tfStarts,sensorStarts,descriptionStarts,activeVisual;boolean send=true;long stamp=9000000000L;
   public byte[] startMap(int d,String a,String p,String w,boolean r,boolean t,String mode,String format){assertEquals(0,activeVisual);assertEquals("rt/map",w);mapStarts++;activeVisual=1;send=true;return bytes("{\"ok\":true}");}
-  public byte[] startSensorConfigured(int d,String a,String p,String w,String type,String m,String fmt){assertEquals(0,activeVisual);sensorStarts++;activeVisual=2;send=true;return bytes("{\"ok\":true}");}
-  public void stopSensor(){activeVisual=0;}
+  public byte[] startCamera(int d,String a,String p,String w,String type,String m,String fmt){assertEquals(0,activeVisual);sensorStarts++;activeVisual=2;send=true;return bytes("{\"ok\":true}");}
+  public void stopSensor(){if(activeVisual==1)activeVisual=0;}
+  public void stopCamera(){if(activeVisual==2)activeVisual=0;}
+  public byte[] pollCamera(){return pollSensor();}
   public byte[] pollSensor(){try{if(!send)return MapPacketTest.packet(new org.json.JSONObject().put("running",true),new byte[0]);send=false;if(activeVisual==1)return MapPacketTest.packet(MapPacketTest.meta(),new byte[]{-1,0,50,100});return MapPacketTest.packet(new org.json.JSONObject().put("running",true).put("kind","image").put("width",1).put("height",1).put("step",1).put("encoding","mono8").put("ageMs",0),new byte[]{127});}catch(Exception e){throw new AssertionError(e);}}
   public byte[] startLocationTf(int d,String a,String p,String dynamic,String fixed,String mode,String format){tfStarts++;return bytes("{\"ok\":true}");}
   public byte[] startDescription(int d,String a,String p,String w,boolean r,boolean t,String m,String fmt){descriptionStarts++;return bytes("{\"ok\":false}");}
@@ -32,11 +34,11 @@ public class LocationActivityTest {
   ((android.widget.Spinner)f.a.findViewById(R.id.profile_select)).setSelection(1);f.paint();f.a.findViewById(R.id.profile_apply).performClick();f.paint();
   assertEquals("Applying A must restore A's map topic","/robot_a/map",((android.widget.EditText)tagged("location-topic")).getText().toString());assertEquals("robot_a/base",((android.widget.EditText)tagged("location-robot-frame")).getText().toString());
  }
- @Test public void realActivityPollingRoutesMapAndStandalonePoseThenSwitchesTheSameVisualSlotBackToCamera()throws Exception{
+ @Test public void realActivityPollingRoutesMapAndStandalonePoseAndSuspendsCameraOnMap()throws Exception{
   Maps api=new Maps();f.set("bridge",api);f.tick();f.paint();int starts=api.starts,subs=api.subscriptions;
   f.a.findViewById(R.id.nav_location).performClick();tagged("location-observe").performClick();f.work("tickSensor",new Class<?>[]{int.class},1);decoded();LocationPanel panel=(LocationPanel)tagged("location-page");assertNotNull("Actual decoder result reaches the actual map surface",panel.map());
   f.work("tickRobotPose",new Class<?>[]{int.class},1);f.paint();assertTrue(ConnectionActivityTest.textOf(tagged("location-pose")),ConnectionActivityTest.textOf(tagged("location-pose")).contains("1.050"));assertTrue(panel.surface.poseVisible());assertEquals(1,api.mapStarts);assertEquals(1,api.tfStarts);assertEquals("No URDF reader is necessary for localization",0,api.descriptionStarts);
-  SensorPanel sensor=(SensorPanel)f.get("sensorPanel");sensor.select("rt/camera","sensor_msgs::msg::dds_::Image_");f.a.findViewById(R.id.nav_monitor).performClick();assertNull(panel.map());f.work("tickSensor",new Class<?>[]{int.class},1);assertEquals(1,api.sensorStarts);assertEquals(2,api.activeVisual);
+  SensorPanel sensor=(SensorPanel)f.get("cameraPanel");sensor.select("rt/camera","sensor_msgs::msg::dds_::Image_");f.a.findViewById(R.id.nav_monitor).performClick();assertNull(panel.map());f.work("tickSensor",new Class<?>[]{int.class},1);assertEquals(1,api.sensorStarts);assertEquals(2,api.activeVisual);
   f.a.findViewById(R.id.nav_location).performClick();f.work("tickSensor",new Class<?>[]{int.class},1);decoded();assertEquals(2,api.mapStarts);assertEquals(1,api.activeVisual);assertEquals(starts,api.starts);assertEquals("Map must not consume a telemetry watch",subs,api.subscriptions);
  }
  @Test public void aDecodeQueuedBeforeLeavingLocalizationCannotRepaintTheNewPageEpoch()throws Exception{

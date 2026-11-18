@@ -16,7 +16,7 @@ struct SensorSession::Impl {
  uint64_t count=0,received=0;int kind=0;std::string error;
  uint64_t map_writer=0;bool map_revoked=false;
 };
-SensorSession::SensorSession():impl(new Impl){} SensorSession::~SensorSession(){stop();}
+SensorSession::SensorSession(Channel c):impl(new Impl),channel(c){} SensorSession::~SensorSession(){stop();}
 void SensorSession::stop(){auto& s=*impl;s.announcement.stop();if(s.participant>0)dds_delete(s.participant);if(s.domain>0)dds_delete(s.domain);impl.reset(new Impl);}
 std::string SensorSession::start(int domain,const std::string& address,const std::string& peer,const std::string& topic,const std::string& type,const std::string& network_mode,const std::string& graph_format,bool reliable,bool retained){
  stop();auto& s=*impl;
@@ -33,7 +33,9 @@ std::string SensorSession::start(int domain,const std::string& address,const std
  else return rejected("Tipo de sensor não suportado");
  // A private Cyclone domain with the same wire domain avoids raising telemetry's
  // immutable 64KiB admission ceiling. No discovery/readers other than this sensor.
- const int internal=1000+domain;
+ if(channel==Channel::Camera&&s.kind!=2&&s.kind!=3)return rejected("Tipo de câmera não suportado");
+ // Sensor/map uses 1000; URDF/TF uses 2000; camera has an independent local domain.
+ const int internal=(channel==Channel::Camera?3000:1000)+domain;
  const bool vpn=network_mode=="vpn";
  std::string config="<CycloneDDS><Domain Id=\"any\"><General><Interfaces><NetworkInterface address=\""+address+"\" multicast=\""+(vpn?"false":"true")+"\"/></Interfaces><AllowMulticast>"+(vpn?"false":"spdp")+"</AllowMulticast><DontRoute>"+(vpn?"false":"true")+"</DontRoute></General><Discovery><ExternalDomainId>"+std::to_string(domain)+"</ExternalDomainId><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>30</MaxAutoParticipantIndex><LeaseDuration>5s</LeaseDuration><SPDPInterval>2s</SPDPInterval>";
  if(!peer.empty())config+="<Peers><Peer Address=\""+peer+"\"/></Peers>";

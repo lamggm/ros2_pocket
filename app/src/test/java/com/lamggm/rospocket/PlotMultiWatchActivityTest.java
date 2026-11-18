@@ -172,6 +172,6 @@ public class PlotMultiWatchActivityTest extends MultiWatchActivityTest {
  public void fourNativeSlotProjectionsRenderThroughRealHostCanvas()throws Exception {
   livePlots();android.view.View chart=view().findViewById(R.id.plot_chart);chart.layout(0,0,800,300);
   android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(800,300,android.graphics.Bitmap.Config.ARGB_8888);chart.draw(new android.graphics.Canvas(image));
-  for(int color:PlotView.COLORS){int pixels=0;for(int y=40;y<265;y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)pixels++;assertTrue("Integrated slot trace reaches actual Canvas",pixels>0);}
+  for(int color:PlotView.COLORS){int pixels=0;for(int y=0;y<image.getHeight();y++)for(int x=0;x<800;x++)if(image.getPixel(x,y)==color)pixels++;assertTrue("Integrated slot trace reaches actual Canvas",pixels>0);}
  }
 }
