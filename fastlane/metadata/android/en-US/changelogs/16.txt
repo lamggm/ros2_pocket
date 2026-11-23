@@ -1,0 +1,1 @@
+The graph nests ROS namespaces by path, including parents with no direct members. For example, sensors, path_follower and teleop are grouped under /gb002/navigation. ROS names, topics and Pub/Sub connections are preserved.

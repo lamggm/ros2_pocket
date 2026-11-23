@@ -54,8 +54,15 @@ final class RosGraphPanel extends LinearLayout {
  void slider(String title,int initial,java.util.function.IntConsumer setter){TextView label=labelView(title,12,MUTED);physicsBox.addView(label);SeekBar seek=new SeekBar(getContext());seek.setTag("graph-force:"+title);seek.setMax(100);seek.setProgress(initial);physicsBox.addView(seek,new LayoutParams(-1,dp(48)));seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}public void onProgressChanged(SeekBar s,int value,boolean user){setter.accept(value);label.setText(title+" · "+value+"%");physics.wake();schedulePhysics();updatePhysicsState();}});}
  void updatePhysicsState(){if(physicsState!=null){String text=!physics.enabled?"Física pausada":physics.awake?"Acomodando…":"Em repouso";if(!text.contentEquals(physicsState.getText()))physicsState.setText(text);}}
  void filterChanged(){select(selectionExists(selected)?selected:"");syncPhysics();schedulePhysics();stage.fit(false);}
- void refreshPin(){if(pinButton!=null){boolean group=selectedNamespace(selected)!=null,indirect=!group&&!pinned.contains(selected)&&pinnedNamespaces.contains("ns:"+namespaceOfVertex(selected));boolean fixed=group?pinnedNamespaces.contains(selected):pinned.contains(selected);pinButton.setEnabled((vertices.containsKey(selected)||group)&&!indirect);pinButton.setText(indirect?"Fixado pelo namespace":fixed?"Soltar posição":"Fixar posição");pinButton.setSelected(fixed||indirect);}}
- void applyPins(){for(Map.Entry<String,GraphPhysics.Body> e:physics.bodies.entrySet())e.getValue().pinned=pinned.contains(e.getKey())||pinnedNamespaces.contains("ns:"+namespaceOfVertex(e.getKey()));}
+ boolean namespacePinnedByAncestor(String ns,String except){for(String key:pinnedNamespaces)if(!key.equals(except)&&GraphNamespaces.contains(key.substring(3),ns))return true;return false;}
+ boolean pinnedByNamespace(String vertex,String except){return namespacePinnedByAncestor(namespaceOfVertex(vertex),except);}
+ void refreshPin(){if(pinButton!=null){
+  boolean group=selectedNamespace(selected)!=null,fixed=group?pinnedNamespaces.contains(selected):pinned.contains(selected);
+  boolean inherited=group?namespacePinnedByAncestor(selected.substring(3),selected):pinnedByNamespace(selected,"");
+  pinButton.setEnabled((vertices.containsKey(selected)||group)&&(!inherited||fixed));
+  pinButton.setText(inherited?(fixed?"Remover fixação própria":"Fixado pelo namespace"):fixed?"Soltar posição":"Fixar posição");pinButton.setSelected(fixed||inherited);
+ }}
+ void applyPins(){for(Map.Entry<String,GraphPhysics.Body> e:physics.bodies.entrySet())e.getValue().pinned=pinned.contains(e.getKey())||pinnedByNamespace(e.getKey(),"");}
  void togglePin(){if(selectedNamespace(selected)!=null){if(!pinnedNamespaces.add(selected))pinnedNamespaces.remove(selected);}else if(vertices.containsKey(selected)){if(!pinned.add(selected))pinned.remove(selected);}else return;applyPins();physics.wake();refreshPin();schedulePhysics();stage.invalidate();}
  void showInspector(){if(inspector==null)return;if(!graphDisplayed()){closeInspector();return;}if(selected.isEmpty()){closeInspector();return;}refreshPin();boolean wide=(getWidth()>0?getWidth():dp(getResources().getConfiguration().screenWidthDp-136))>=dp(900)&&getResources().getConfiguration().fontScale<1.3f;
   if(wide||!(getContext() instanceof android.app.Activity)){if(drawer!=null){drawer.setOnDismissListener(null);drawer.dismiss();drawer=null;}if(inspector.getParent()!=graphWorkspace){if(inspector.getParent() instanceof ViewGroup)((ViewGroup)inspector.getParent()).removeView(inspector);LayoutParams ip=new LayoutParams(dp(330),-1);ip.leftMargin=dp(16);graphWorkspace.addView(inspector,ip);}inspector.setVisibility(VISIBLE);}
@@ -84,14 +91,20 @@ final class RosGraphPanel extends LinearLayout {
     if(physics.enabled){double angle=positions.size()*2.399963229728653;float cx=520,cy=280;int neighbors=0;float sx=0,sy=0;for(JSONObject e:edges.values()){String other=id.equals(e.optString("from"))?e.optString("to"):id.equals(e.optString("to"))?e.optString("from"):"";RectF anchor=positions.get(other);if(anchor!=null){sx+=anchor.centerX();sy+=anchor.centerY();neighbors++;}}double radius=neighbors>0?260:140*Math.sqrt(positions.size());if(neighbors>0){cx=sx/neighbors;cy=sy/neighbors;}float nx=cx+(float)(Math.cos(angle)*radius),ny=cy+(float)(Math.sin(angle)*radius);positions.put(id,new RectF(nx-130,ny-34,nx+130,ny+34));}
     else positions.put(id,new RectF(x,72+row*100,x+260,140+row*100));
    }
-   Set<String> liveNamespaces=new HashSet<>();for(String ns:namespaceMembership(vertices.keySet()).values())liveNamespaces.add("ns:"+ns);pinnedNamespaces.retainAll(liveNamespaces);
+   Set<String> liveNamespaces=namespaceIdentities(vertices.keySet());pinnedNamespaces.removeIf(key->!liveNamespaces.contains(key.substring(3)));
    syncPhysics();schedulePhysics();boolean first=stage.needsFit;select(selectionExists(selected)?selected:"");if(first)stage.fit(false);
   }catch(JSONException ex){clear("Grafo indisponível · resposta inválida");}
  }
  String namespaceOfVertex(String id){JSONObject v=vertices.get(id);if(v==null||!("node".equals(v.optString("kind"))||"topic".equals(v.optString("kind"))))return "";return GraphNamespaces.namespaceOf(v.optString("label"));}
  Map<String,String> namespaceMembership(Set<String> ids){Map<String,String> result=new LinkedHashMap<>();for(String id:ids){String ns=namespaceOfVertex(id);if(!ns.isEmpty())result.put(id,ns);}return result;}
- Map<String,GraphNamespaces.Circle> namespaceCircles(Set<String> ids){Map<String,double[]> points=new LinkedHashMap<>();for(String id:ids){RectF r=positions.get(id);if(r!=null)points.put(id,new double[]{r.centerX(),r.centerY(),120});}return GraphNamespaces.circles(points,namespaceMembership(ids));}
- GraphNamespaces.Circle selectedNamespace(String key){return key.startsWith("ns:")?namespaceCircles(baseVisibleVertices()).get(key.substring(3)):null;}
+ Set<String> namespaceIdentities(Set<String> ids){return GraphNamespaces.identities(namespaceMembership(ids).values());}
+ Map<String,GraphNamespaces.Circle> namespaceCircles(Set<String> ids){return namespaceCircles(ids,selected);}
+ Map<String,GraphNamespaces.Circle> namespaceCircles(Set<String> ids,String preferred){
+  Map<String,double[]> points=new LinkedHashMap<>();
+  for(String id:ids){RectF r=positions.get(id);if(r!=null)points.put(id,new double[]{r.centerX(),r.centerY(),120});}
+  return GraphNamespaces.circles(points,namespaceMembership(ids),preferred.startsWith("ns:")?preferred.substring(3):"");
+ }
+ GraphNamespaces.Circle selectedNamespace(String key){return key.startsWith("ns:")?namespaceCircles(baseVisibleVertices(),key).get(key.substring(3)):null;}
  boolean selectionExists(String key){return baseVisibleVertices().contains(key)||edges.containsKey(key)||selectedNamespace(key)!=null;}
  void syncPhysics(){Map<String,double[]> seeds=new LinkedHashMap<>();Set<String> ids=baseVisibleVertices();for(String id:ids){RectF r=positions.get(id);if(r!=null)seeds.put(id,new double[]{r.centerX(),r.centerY()});}List<String[]> connections=new ArrayList<>();for(JSONObject e:edges.values())if(edgeVisible(e,ids))connections.add(new String[]{e.optString("from"),e.optString("to")});physics.sync(seeds,connections);physics.setNamespaces(namespaceMembership(ids));applyPins();}
  void advancePhysics(){physics.step();for(Map.Entry<String,GraphPhysics.Body> e:physics.bodies.entrySet()){RectF r=positions.get(e.getKey());if(r!=null){GraphPhysics.Body b=e.getValue();r.offsetTo((float)b.x-r.width()/2,(float)b.y-r.height()/2);}}stage.invalidate();updatePhysicsState();}
@@ -112,7 +125,9 @@ final class RosGraphPanel extends LinearLayout {
    Set<String> hidden=new HashSet<>();for(JSONObject v:vertices.values())if("topic".equals(v.optString("kind"))&&Arrays.asList("/rosout","/parameter_events").contains(v.optString("label")))hidden.add(v.optString("id"));ids.removeAll(hidden);
    for(JSONObject v:vertices.values())if(!"topic".equals(v.optString("kind"))){boolean any=false,shown=false;for(JSONObject e:edges.values())if(v.optString("id").equals(e.optString("from"))||v.optString("id").equals(e.optString("to"))){any=true;if(!hidden.contains(e.optString("topic")))shown=true;}if(any&&!shown)ids.remove(v.optString("id"));}
   }
-  String ns=namespace==null?"":namespace.getText().toString().trim();if(!ns.isEmpty())ids.removeIf(id->!label(id).startsWith(ns));return ids;
+  String ns=namespace==null?"":namespace.getText().toString().trim();if(!ns.isEmpty()){
+   String prefix=ns.endsWith("/")?ns:ns+"/";ids.removeIf(id->!(label(id).equals(ns)||label(id).startsWith(prefix)));
+  }return ids;
  }
  boolean edgeVisible(JSONObject e,Set<String> ids){return ids.contains(e.optString("from"))&&ids.contains(e.optString("to"));}
  void select(String id){
@@ -160,7 +175,7 @@ final class RosGraphPanel extends LinearLayout {
   float glyphRadius(JSONObject v){return Math.max(radius(v),dp("package".equals(v.optString("kind"))?11:"topic".equals(v.optString("kind"))?6:7)/scale);}
   Stage(Context c){super(c);setBackgroundColor(BG);setFocusable(true);setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);setContentDescription("Topologia ROS interativa. Toque para destacar conexões.");pinch=new ScaleGestureDetector(c,new ScaleGestureDetector.SimpleOnScaleGestureListener(){@Override public boolean onScale(ScaleGestureDetector d){float old=scale;scale=Math.max(.02f,Math.min(4,scale*d.getScaleFactor()));tx=d.getFocusX()-(d.getFocusX()-tx)*scale/old;ty=d.getFocusY()-(d.getFocusY()-ty)*scale/old;scaling=true;moved=true;invalidate();return true;}});}
   void virtualEvent(int id,int type){if(getParent()==null)return;AccessibilityEvent event=AccessibilityEvent.obtain(type);event.setSource(this,id);event.setPackageName(getContext().getPackageName());event.setClassName("android.widget.Button");getParent().requestSendAccessibilityEvent(this,event);}
-  Set<String> interactiveKeys(boolean all){Set<String> ids=all?new LinkedHashSet<>(vertices.keySet()):visibleVertices();Set<String> keys=new LinkedHashSet<>(ids);Collection<String> namespaces=all?new LinkedHashSet<>(namespaceMembership(ids).values()):namespaceCircles(ids).keySet();for(String ns:namespaces)keys.add("ns:"+ns);return keys;}
+  Set<String> interactiveKeys(boolean all){Set<String> ids=all?new LinkedHashSet<>(vertices.keySet()):visibleVertices();Set<String> keys=new LinkedHashSet<>(ids);Collection<String> namespaces=all?namespaceIdentities(ids):namespaceCircles(ids).keySet();for(String ns:namespaces)keys.add("ns:"+ns);return keys;}
   boolean accessibilityFocused(String key){Integer id=virtualIds.get(key);return id!=null&&id==accessibilityFocus;}
   void changed(){Set<String> visible=interactiveKeys(false),all=interactiveKeys(true);boolean keepFocus=false,keepHover=false;for(String k:visible){Integer id=virtualIds.get(k);if(id!=null&&id==accessibilityFocus)keepFocus=true;if(id!=null&&id==hovered)keepHover=true;}if(!keepFocus&&accessibilityFocus!=-1){virtualEvent(accessibilityFocus,AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED);accessibilityFocus=-1;}if(!keepHover&&hovered!=-1){virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);hovered=-1;}virtualIds.keySet().retainAll(all);for(String id:all)if(!virtualIds.containsKey(id))virtualIds.put(id,nextVirtual++);sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);}
   @Override public boolean dispatchHoverEvent(MotionEvent e){AccessibilityManager manager=(AccessibilityManager)getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);if(!manager.isEnabled()||!manager.isTouchExplorationEnabled())return super.dispatchHoverEvent(e);if(e.getActionMasked()!=MotionEvent.ACTION_HOVER_ENTER&&e.getActionMasked()!=MotionEvent.ACTION_HOVER_MOVE&&e.getActionMasked()!=MotionEvent.ACTION_HOVER_EXIT)return super.dispatchHoverEvent(e);String key=e.getActionMasked()==MotionEvent.ACTION_HOVER_EXIT?"":hit(e.getX(),e.getY());int next=virtualIds.containsKey(key)?virtualIds.get(key):-1;if(next!=hovered){if(hovered!=-1)virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_EXIT);hovered=next;if(hovered!=-1)virtualEvent(hovered,AccessibilityEvent.TYPE_VIEW_HOVER_ENTER);}return next!=-1||e.getActionMasked()==MotionEvent.ACTION_HOVER_EXIT;}
@@ -202,9 +217,28 @@ final class RosGraphPanel extends LinearLayout {
    c.restore();
   }
   PointF[] ends(JSONObject e){RectF a=positions.get(e.optString("from")),b=positions.get(e.optString("to"));float dx=b.centerX()-a.centerX(),dy=b.centerY()-a.centerY();if(Math.abs(dx)+Math.abs(dy)<.001f)dx=1;float d=(float)Math.hypot(dx,dy),ux=dx/d,uy=dy/d,ra=glyphRadius(vertices.get(e.optString("from"))),rb=glyphRadius(vertices.get(e.optString("to")));boolean reverse=false;for(JSONObject other:edges.values())if(other.optString("from").equals(e.optString("to"))&&other.optString("to").equals(e.optString("from"))){reverse=true;break;}float offset=reverse?Math.min(8,Math.min(ra,rb)*.5f):0,ox=-uy*offset,oy=ux*offset,aa=(float)Math.sqrt(ra*ra-offset*offset),bb=(float)Math.sqrt(rb*rb-offset*offset);return new PointF[]{new PointF(a.centerX()+ux*aa+ox,a.centerY()+uy*aa+oy),new PointF(b.centerX()-ux*bb+ox,b.centerY()-uy*bb+oy)};}
-  String hit(float x,float y){Set<String> visible=visibleVertices();float nearest=Float.MAX_VALUE;String body="";for(String id:visible){RectF r=screenRect(id);float d=(float)Math.hypot(x-r.centerX(),y-r.centerY());if(d<=r.width()/2&&d<nearest){nearest=d;body=id;}}if(!body.isEmpty())return body;float best=dp(14);String found="";for(JSONObject e:edges.values())if(edgeVisible(e,visible)){PointF[] p=ends(e);float ax=p[0].x*scale+tx,ay=p[0].y*scale+ty,bx=p[1].x*scale+tx,by=p[1].y*scale+ty;float dx=bx-ax,dy=by-ay;float t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/Math.max(1,dx*dx+dy*dy)));float d=(float)Math.hypot(x-ax-t*dx,y-ay-t*dy);if(d<best){best=d;found=e.optString("id");}}if(!found.isEmpty())return found;for(Map.Entry<String,GraphNamespaces.Circle> e:namespaceCircles(visible).entrySet()){GraphNamespaces.Circle g=e.getValue();float distance=(float)Math.hypot(x-(g.x*scale+tx),y-(g.y*scale+ty));float top=(float)(g.y-g.r-18)*scale+ty;if(Math.abs(distance-g.r*scale)<=dp(12)||(Math.abs(x-(g.x*scale+tx))<=g.r*scale&&y>=top-dp(18)&&y<=top+dp(5)))return "ns:"+e.getKey();}return "";}
+  String hit(float x,float y){
+   Set<String> visible=visibleVertices();Map<String,GraphNamespaces.Circle> groups=namespaceCircles(visible);
+   float wx=(x-tx)/scale,wy=(y-ty)/scale;String rim="";double rimDistance=dp(12),rimRadius=Double.POSITIVE_INFINITY;
+   for(Map.Entry<String,GraphNamespaces.Circle> e:groups.entrySet()){
+    String key="ns:"+e.getKey();RectF title=labelRects.get(key);if(title!=null&&title.contains(wx,wy))return key;
+    GraphNamespaces.Circle g=e.getValue();double d=Math.abs(Math.hypot(wx-g.x,wy-g.y)-g.r)*scale;
+    if(d<rimDistance||(d==rimDistance&&g.r<rimRadius)){rimDistance=d;rimRadius=g.r;rim=key;}
+   }
+   float nearest=Float.MAX_VALUE;String body="",glyph="";float glyphDistance=Float.MAX_VALUE;
+   for(String id:visible){RectF r=screenRect(id);float d=(float)Math.hypot(x-r.centerX(),y-r.centerY());
+    if(d<=r.width()/2&&d<nearest){nearest=d;body=id;}
+    if(d<=glyphRadius(vertices.get(id))*scale&&d<glyphDistance){glyphDistance=d;glyph=id;}
+   }
+   if(!glyph.isEmpty())return glyph;
+   // Don't let a generous node hitbox or an adjacent outline steal a hit on the visible rim.
+   if(!rim.isEmpty()&&rimDistance<=dp(2))return rim;
+   if(!body.isEmpty())return body;
+   float best=dp(14);String edge="";for(JSONObject e:edges.values())if(edgeVisible(e,visible)){PointF[] p=ends(e);float ax=p[0].x*scale+tx,ay=p[0].y*scale+ty,bx=p[1].x*scale+tx,by=p[1].y*scale+ty;float dx=bx-ax,dy=by-ay;float t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/Math.max(1,dx*dx+dy*dy)));float d=(float)Math.hypot(x-ax-t*dx,y-ay-t*dy);if(d<best){best=d;edge=e.optString("id");}}
+   return edge.isEmpty()?rim:edge;
+  }
   void releaseDrag(){for(String id:heldIds)physics.hold(id,false);heldIds.clear();dragId="";}
-  void beginDrag(String key){releaseDrag();if(vertices.containsKey(key)){dragId=key;heldIds.add(key);}else{GraphNamespaces.Circle g=selectedNamespace(key);if(g!=null){dragId=key;for(String id:g.members)if(!pinned.contains(id))heldIds.add(id);}}for(String id:heldIds)physics.hold(id,true);}
+  void beginDrag(String key){releaseDrag();if(vertices.containsKey(key)){dragId=key;if(!pinnedByNamespace(key,""))heldIds.add(key);}else{GraphNamespaces.Circle g=selectedNamespace(key);if(g!=null){dragId=key;for(String id:g.members)if(!pinned.contains(id)&&!pinnedByNamespace(id,key))heldIds.add(id);}}for(String id:heldIds)physics.hold(id,true);}
   @Override public boolean onTouchEvent(MotionEvent e){
    pinch.onTouchEvent(e);switch(e.getActionMasked()){
     case MotionEvent.ACTION_DOWN:downX=lastX=e.getX();downY=lastY=e.getY();moved=scaling=false;beginDrag(hit(downX,downY));getParent().requestDisallowInterceptTouchEvent(true);return true;
