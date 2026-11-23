@@ -1,0 +1,1 @@
+O Grafo agrupa namespaces por caminho, incluindo pais sem membros diretos. Por exemplo, sensors, path_follower e teleop ficam dentro de /gb002/navigation. Nomes ROS, tópicos e conexões Pub/Sub são preservados.

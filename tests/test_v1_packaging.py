@@ -6,7 +6,7 @@ class V1PackagingTests(unittest.TestCase):
   s=(ROOT/'app/build.gradle').read_text()
   self.assertRegex(s,r"applicationId 'com\.lamggm\.rospocket'")
   self.assertRegex(s,r"versionCode\s+16\b")
-  self.assertRegex(s,r"versionName '1\.6\.0'")
+  self.assertRegex(s,r"versionName '1\.5\.1'")
   self.assertIn("applicationIdSuffix '.dev'",s)
   self.assertIn("versionNameSuffix '-dev'",s)
   self.assertIn('debuggable false',s)
