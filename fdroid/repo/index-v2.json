@@ -14,7 +14,7 @@
       }
     },
     "address": "https://lamggm.github.io/ros2_pocket/fdroid/repo",
-    "timestamp": 1795015432000,
+    "timestamp": 1795441305000,
     "categories": {
       "Development": {
         "icon": {
@@ -41,7 +41,7 @@
           "Development"
         ],
         "issueTracker": "https://github.com/lamggm/ros2_pocket/issues",
-        "lastUpdated": 1795015432000,
+        "lastUpdated": 1795441305000,
         "license": "Apache-2.0",
         "sourceCode": "https://github.com/lamggm/ros2_pocket",
         "webSite": "https://github.com/lamggm/ros2_pocket",
@@ -66,6 +66,49 @@
         "preferredSigner": "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
       },
       "versions": {
+        "1690cb11b230b0e97855f10868f1a35bd49cecc73dd31b83e90ddce8e5d365eb": {
+          "added": 1795441305000,
+          "file": {
+            "name": "/com.lamggm.rospocket_16.apk",
+            "sha256": "1690cb11b230b0e97855f10868f1a35bd49cecc73dd31b83e90ddce8e5d365eb",
+            "size": 5358952
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a"
+            ],
+            "versionName": "1.5.1",
+            "versionCode": 16,
+            "features": [
+              {
+                "name": "android.hardware.wifi"
+              }
+            ],
+            "usesSdk": {
+              "minSdkVersion": 28,
+              "targetSdkVersion": 35
+            },
+            "signer": {
+              "sha256": [
+                "c610ab18b97bd70184ffd7069a7205ab465b7aa8b55df98e89f1281fb24f48b4"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              },
+              {
+                "name": "android.permission.ACCESS_WIFI_STATE"
+              },
+              {
+                "name": "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+              }
+            ]
+          }
+        },
         "b3b88366998f02e5725387854ef5d339a4d3e1ae51709dcc02a7bb2ba7688911": {
           "added": 1795015432000,
           "file": {
